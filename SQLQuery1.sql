@@ -1,4 +1,5 @@
-﻿create Table Employee 
+﻿create database MILESTONE2;
+create Table Employee 
 (
 	EmployeeID int Primary Key,
 	first_name varchar(50),

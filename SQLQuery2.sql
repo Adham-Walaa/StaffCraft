@@ -9,40 +9,15 @@
 IF OBJECT_ID('dbo.ViewEmployeeInfo', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ViewEmployeeInfo;
 GO
-CREATE PROCEDURE dbo.ViewEmployeeInfo
+USE MILESTONE2;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.ViewEmployeeInfo
     @EmployeeID INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT
-        EmployeeID,
-        first_name,
-        last_name,
-        full_name,
-        national_id,
-        date_of_birth,
-        country_of_birth,
-        phone,
-        email,
-        address,
-        emergency_contact_name,
-        emergency_contact_phone,
-        relationship,
-        biography,
-        profile_image,
-        employment_progress,
-        account_status,
-        employment_status,
-        hire_date,
-        is_active,
-        profile_completion_percentage,
-        department_id,
-        position_id,
-        manager_id,
-        contract_id,
-        tax_form_id,
-        salary_type_id,
-        pay_grade_id
+    SELECT *
     FROM dbo.Employee
     WHERE EmployeeID = @EmployeeID;
 END

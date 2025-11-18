@@ -206,3 +206,296 @@ create Table ProbationLeave
 	eligibility_start_date date,
 	probation_period int,
 );
+create Table HolidayLeave 
+(
+	leave_id int Foreign Key References Leave(LeaveID),
+	holiday_name varchar(100),
+	official_recognition bit,
+	regional_scope varchar(100),
+);
+create Table LeavePolicy 
+(
+	PolicyID int Primary Key,
+	name varchar(100),
+	purpose text,
+	eligibility_rules text,
+	notice_period date, --check if date or int
+	special_leave_type varchar(100),
+	reset_on_new_year bit,
+);
+create Table LeaveRequest 
+(
+	RequestID int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	leave_id int Foreign Key References Leave(LeaveID),
+	justification text,
+	duration int,
+	approval_timing date, --check if date or int
+	status varchar(50),
+);
+create Table LeaveEntitlement 
+(
+	employee_id int Foreign Key References Employee(EmployeeID),
+	leave_type_id int Foreign Key References Leave(LeaveID),
+	entitlement int,
+);
+create Table LeaveDocument 
+(
+	document_id int Primary Key,
+	leave_request_id int Foreign Key References LeaveRequest(RequestID),
+	file_path varchar(200),
+	uploaded_at date,
+);
+create Table Attendance 
+(
+	AttendanceID int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	shift_id int Foreign Key References Shift(ShiftID),
+	entry_time time,
+	exit_time time,
+	duration int,
+	login_method varchar(50),
+	logout_method varchar(50),
+	exception_id int Foreign Key References AttendanceException(ExceptionID),
+);
+create Table AttendanceLog 
+(
+	attendance_log_id int Primary Key,
+	attendance_id int Foreign Key References Attendance(AttendanceID),
+	actor varchar(100),
+	timestamp datetime,
+	reason text,
+);
+create Table AttendanceCorrectionRequest 
+(
+	request_id int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	date date,
+	correction_type varchar(100),
+	reason text,
+	status varchar(50),
+	recommended_by int Foreign Key References Employee(EmployeeID),
+);
+create Table ShiftSchedule 
+(
+	ShiftID int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	shift_id int Foreign Key References Shift(ShiftID),
+	start_date date,
+	end_date date,
+	status varchar(50),
+);
+create Table Exception
+(
+	ExceptionID int Primary Key,
+	name varchar(100),
+	category varchar(100),
+	date date,
+	status varchar(50),
+);
+create Table EmployeeException 
+(
+	employee_id int Foreign Key References Employee(EmployeeID),
+	exception_id int Foreign Key References Exception(ExceptionID),
+);
+create Table Payroll 
+(
+	PayrollID int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	taxes decimal(18,2),
+	period_start date,
+	period_end date,
+	base_amount decimal(18,2),
+	adjustments decimal(18,2),
+	contributions decimal(18,2),
+	actual_pay decimal(18,2),
+	net_salary decimal(18,2),
+	payment_date date,
+);
+create Table Currency 
+(
+	CurrencyCode varchar(10) Primary Key,
+	currency_name varchar(50),
+	exchange_rate decimal(18,4),
+	created_date date,
+	last_updated date,
+);
+create Table SalaryType 
+(
+	SalaryTypeID int Primary Key,
+	type varchar(100),
+	payment_frequency varchar(50),
+	currency varchar(10) Foreign Key References Currency(currency_name),
+);
+create Table HourlySalaryType 
+(
+	salary_type_id int Foreign Key References SalaryType(SalaryTypeID),
+	hourly_rate decimal(18,2),
+	max_monthly_hours int,
+);
+create Table MonthlySalaryType 
+(
+	salary_type_id int Foreign Key References SalaryType(SalaryTypeID),
+	tax_rule varchar(100),
+	contribution_scheme varchar(100),
+);
+create Table ContractSalaryType 
+(
+	salary_type_id int Foreign Key References SalaryType(SalaryTypeID),
+	contract_value decimal(18,2),
+	installement_details varchar(200),
+);
+create Table AllowanceDeduction 
+(
+	AllowanceDeductionID int Primary Key,
+	payroll_id int Foreign Key References Payroll(PayrollID),
+	employee_id int Foreign Key References Employee(EmployeeID),
+	type varchar(50),
+	amount decimal(18,2),
+	currency varchar(10) Foreign Key References Currency(currency_name),
+	duration int,
+	timezone varchar(50),
+);
+create Table PayrollPolicy 
+(
+	PolicyID int Primary Key,
+	effective_date date,
+	type varchar(100),
+	description text,
+);
+create Table OvertimePolicy 
+(
+	policy_id int Foreign Key References PayrollPolicy(PolicyID),
+	weekday_rate_multiplier decimal(5,2),
+	weekend_rate_multiplier decimal(5,2),
+	max_hours_per_month int,
+);
+create Table LatenessPolicy 
+(
+	policy_id int Foreign Key References PayrollPolicy(PolicyID),
+	grace_period_minutes int,
+	deduction_rate decimal(5,2),
+);
+create Table BonusPolicy 
+(
+	policy_id int Foreign Key References PayrollPolicy(PolicyID),
+	bonus_type varchar(100),
+	eligibility_criteria text,
+);
+create Table DeductionPolicy 
+(
+	policy_id int Foreign Key References PayrollPolicy(PolicyID),
+	deduction_reason varchar(100),
+	calculation_mode varchar(100),
+);
+create Table PayrollPolicyID 
+(
+	payroll_id int Foreign Key References Payroll(PayrollID),
+	policy_id int Foreign Key References PayrollPolicy(PolicyID),
+);
+create Table PayrollLog 
+(
+	payroll_log_id int Primary Key,
+	payroll_id int Foreign Key References Payroll(PayrollID),
+	actor varchar(100),
+	change_date datetime,
+	modification_type varchar(100),
+);
+create Table TaxForm 
+(
+	TaxFormID int Primary Key,
+	jurisdiction varchar(100),
+	validity_period date,
+	form_content text,
+);
+create Table PayGrade 
+(
+	PayGradeID int Primary Key,
+	grade_name varchar(50),
+	min_salary decimal(18,2),
+	max_salary decimal(18,2),
+);
+create Table PayrollPeriod 
+(
+	PayrollPeriodID int Primary Key,
+	payroll_id int Foreign Key References Payroll(PayrollID),
+	start_date date,
+	end_date date,
+	status varchar(50),
+);
+create Table Notification 
+(
+	NotificationID int Primary Key,
+	mesage_content text,
+	timestamp datetime,
+	urgency varchar(50),
+	read_status bit,
+	notification_type varchar(100),
+);
+create Table EmployeeNotification 
+(
+	employee_id int Foreign Key References Employee(EmployeeID),
+	notification_id int Foreign Key References Notification(NotificationID),
+	delivery_status varchar(50),
+	delivered_at datetime,
+);
+create Table EmployeeHierarchy 
+(
+	employee_id int Foreign Key References Employee(EmployeeID),
+	manager_id int Foreign Key References Employee(EmployeeID),
+	hierarchy_level int,
+);
+create Table Device 
+(
+	DeviceID int Primary Key,
+	device_type varchar(100),
+	terminal_id varchar(100) Unique, --check if unique or no
+	latitude decimal(9,6),
+	longitude decimal(9,6),
+	employee_id int Foreign Key References Employee(EmployeeID),	
+);
+create Table AttendanceSource 
+(
+	attendance_id int Foreign Key References Attendance(AttendanceID),
+	device_id int Foreign Key References Device(DeviceID),
+	source_type varchar(100),
+	latitude decimal(9,6),
+	longitude decimal(9,6),
+	recorded_at datetime,
+);
+create Table ShiftCycle 
+(
+	CycleID int Primary Key,
+	cycle_name varchar(100),
+	description text,
+);
+create Table ShiftCycleAssignment 
+(
+	cycle_id int Foreign Key References ShiftCycle(CycleID),
+	shift_id int Foreign Key References Shift(ShiftID),
+	order_number int,
+);
+create Table ApprovalWorkflow --leave for now not complete 
+(
+	WorkflowID int Primary Key,
+	workflow_type varchar(100),
+	threshold_amount decimal(18,2),
+	approved_role varchar(100),
+	created_by int Foreign Key References Employee(EmployeeID), --check again
+	status varchar(50),
+);
+create Table ApprovalWorkflowStep 
+(
+	workflow_id int Foreign Key References ApprovalWorkflow(WorkflowID),
+	step_number int,
+	role_id int Foreign Key References Role(RoleID),
+	action_required varchar(100),
+);
+create Table ManagerNotes
+(
+	note_id int Primary Key,
+	employee_id int Foreign Key References Employee(EmployeeID),
+	manager_id int Foreign Key References Employee(EmployeeID),
+	note_content text,
+	created_at datetime,
+);

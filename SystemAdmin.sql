@@ -233,3 +233,31 @@ BEGIN
     END CATCH
 END
 GO
+
+--5
+-- Procedure: GetDepartmentEmployeeStats
+-- Input: None
+-- Output: result set with DepartmentID, department_name, EmployeeCount
+
+USE MILESTONE2;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.GetDepartmentEmployeeStats
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        d.DepartmentID,
+        d.department_name,
+        COUNT(e.EmployeeID) AS EmployeeCount
+    FROM dbo.Department d
+    LEFT JOIN dbo.Employee e
+        ON e.department_id = d.DepartmentID
+    GROUP BY
+        d.DepartmentID,
+        d.department_name
+    ORDER BY
+        EmployeeCount DESC, d.department_name;
+END
+GO

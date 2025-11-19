@@ -258,3 +258,4 @@ BEGIN
         EmployeeCount DESC, d.department_name;
 END
 GO
+--LINE MANAGER PROCEDURE

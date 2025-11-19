@@ -239,9 +239,6 @@ GO
 -- Input: None
 -- Output: result set with DepartmentID, department_name, EmployeeCount
 
-USE MILESTONE2;
-GO
-
 CREATE OR ALTER PROCEDURE dbo.GetDepartmentEmployeeStats
 AS
 BEGIN

@@ -430,3 +430,248 @@ BEGIN
     END CATCH
 END
 GO
+
+--8
+-- Procedure: NotifyStructureChangey
+-- Input: @AffectedEmployees varchar(500) -- comma-separated EmployeeIDs
+--        @Message varchar(200)
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.NotifyStructureChange
+(
+    @AffectedEmployees VARCHAR(500),
+    @Message            VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @AffectedEmployees IS NULL OR LTRIM(RTRIM(@AffectedEmployees)) = ''
+    BEGIN
+        RAISERROR('AffectedEmployees is required (comma-separated EmployeeIDs).', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Generate NotificationID
+        DECLARE @NotificationID INT;
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.Notification
+        (
+            NotificationID,
+            mesage_content,
+            timestamp,
+            urgency,
+            read_status,
+            notification_type
+        )
+        VALUES
+        (
+            @NotificationID,
+            @Message,
+            GETDATE(),
+            'Normal',
+            0,
+            'StructureChange'
+        );
+
+        -- parse affected employees into table variable
+        DECLARE @Ids TABLE (EmployeeID INT PRIMARY KEY);
+        INSERT INTO @Ids (EmployeeID)
+        SELECT DISTINCT TRY_CAST(LTRIM(RTRIM([value])) AS INT)
+        FROM STRING_SPLIT(@AffectedEmployees, ',')
+        WHERE TRY_CAST(LTRIM(RTRIM([value])) AS INT) IS NOT NULL;
+
+        -- Insert EmployeeNotification entries only for existing employees
+        INSERT INTO dbo.EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+        SELECT e.EmployeeID, @NotificationID, 'Pending', NULL
+        FROM @Ids i
+        INNER JOIN dbo.Employee e ON e.EmployeeID = i.EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        DECLARE @InsertedCount INT = (SELECT COUNT(*) FROM dbo.EmployeeNotification WHERE notification_id = @NotificationID);
+        SELECT 'Notifications created' AS Message, @NotificationID AS NotificationID, @InsertedCount AS NotifiedEmployees;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('NotifyStructureChange failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--9
+-- Procedure: ViewOrgHierarchy
+-- Input: @AffectedEmployees varchar(500) (optional filter: comma-separated EmployeeIDs)
+--        @Message varchar(200) (optional, unused but accepted per signature)
+-- Output: Table showing employee names, managers, departments, positions, and hierarchy levels.
+
+CREATE OR ALTER PROCEDURE dbo.ViewOrgHierarchy
+(
+    @AffectedEmployees VARCHAR(500) = NULL,
+    @Message            VARCHAR(200) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- optional filter parsing
+    DECLARE @Filter TABLE (EmployeeID INT PRIMARY KEY);
+    IF @AffectedEmployees IS NOT NULL AND LTRIM(RTRIM(@AffectedEmployees)) <> ''
+    BEGIN
+        INSERT INTO @Filter (EmployeeID)
+        SELECT DISTINCT TRY_CAST(LTRIM(RTRIM([value])) AS INT)
+        FROM STRING_SPLIT(@AffectedEmployees, ',')
+        WHERE TRY_CAST(LTRIM(RTRIM([value])) AS INT) IS NOT NULL;
+    END
+
+    ;WITH OrgCTE AS
+    (
+        -- root nodes (top-level managers)
+        SELECT
+            e.EmployeeID,
+            (e.first_name + CASE WHEN e.last_name IS NULL OR e.last_name = '' THEN '' ELSE ' ' + e.last_name END) AS FullName,
+            e.manager_id,
+            e.department_id,
+            e.position_id,
+            0 AS HierarchyLevel
+        FROM dbo.Employee e
+        WHERE e.manager_id IS NULL
+
+        UNION ALL
+
+        -- recursive step
+        SELECT
+            e.EmployeeID,
+            (e.first_name + CASE WHEN e.last_name IS NULL OR e.last_name = '' THEN '' ELSE ' ' + e.last_name END) AS FullName,
+            e.manager_id,
+            e.department_id,
+            e.position_id,
+            c.HierarchyLevel + 1
+        FROM dbo.Employee e
+        INNER JOIN OrgCTE c ON e.manager_id = c.EmployeeID
+    )
+    SELECT
+        o.EmployeeID,
+        o.FullName AS EmployeeName,
+        o.manager_id AS ManagerID,
+        (mgr.first_name + CASE WHEN mgr.last_name IS NULL OR mgr.last_name = '' THEN '' ELSE ' ' + mgr.last_name END) AS ManagerName,
+        o.department_id AS DepartmentID,
+        d.department_name AS DepartmentName,
+        o.position_id AS PositionID,
+        p.position_title AS PositionTitle,
+        o.HierarchyLevel
+    FROM OrgCTE o
+    LEFT JOIN dbo.Employee mgr ON o.manager_id = mgr.EmployeeID
+    LEFT JOIN dbo.Department d ON o.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position p ON o.position_id = p.PositionID
+    WHERE
+        -- apply optional filter if provided; otherwise return full hierarchy
+        (NOT EXISTS (SELECT 1 FROM @Filter) OR o.EmployeeID IN (SELECT EmployeeID FROM @Filter))
+    ORDER BY o.HierarchyLevel, o.FullName;
+END
+GO
+
+--10
+-- Procedure: AssignShiftToEmployee
+-- Input: @EmployeeID int, @ShiftID int, @StartDate date, @EndDate date
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.AssignShiftToEmployee
+(
+    @EmployeeID INT,
+    @ShiftID    INT,
+    @StartDate  DATE,
+    @EndDate    DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        RAISERROR('StartDate and EndDate are required.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('StartDate must be on or before EndDate.', 16, 1);
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- prevent overlapping assignments for the same employee
+        IF EXISTS (
+            SELECT 1 FROM dbo.ShiftSchedule ss
+            WHERE ss.employee_id = @EmployeeID
+              AND NOT (ss.end_date < @StartDate OR ss.start_date > @EndDate)
+              AND ISNULL(ss.status, '') <> 'Cancelled'
+        )
+        BEGIN
+            RAISERROR('Employee has an overlapping shift assignment for the specified term.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- generate new ShiftSchedule primary key (ShiftID)
+        DECLARE @NewShiftScheduleID INT;
+        SELECT @NewShiftScheduleID = ISNULL(MAX(ShiftID), 0) + 1
+        FROM dbo.ShiftSchedule WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.ShiftSchedule
+        (
+            ShiftID,
+            employee_id,
+            shift_id,
+            start_date,
+            end_date,
+            status
+        )
+        VALUES
+        (
+            @NewShiftScheduleID,
+            @EmployeeID,
+            @ShiftID,
+            @StartDate,
+            @EndDate,
+            'Active'
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Shift assigned' AS Message, @NewShiftScheduleID AS ShiftScheduleID, @EmployeeID AS EmployeeID, @ShiftID AS ShiftID, @StartDate AS StartDate, @EndDate AS EndDate;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('AssignShiftToEmployee failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+

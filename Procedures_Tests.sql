@@ -208,9 +208,158 @@ EXEC dbo.ReassignHierarchy @EmployeeID = @EmpA, @NewManagerID = @MgrA;
 
 GO
 
+/***** 8) Test NotifyStructureChange *****/
+PRINT '--- NotifyStructureChange tests ---';
+
+DECLARE @Nt1 INT, @Nt2 INT, @Nt3 INT;
+
+/* create three test employees if they do not exist; reuse existing ones if present */
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.one@example.com')
+BEGIN
+    EXEC dbo.AddEmployee
+        @FullName = 'Test Notify One',
+        @Email = 'test.notify.one@example.com',
+        @DepartmentID = 1,
+        @PositionID = 1,
+        @HireDate = '2025-01-01',
+        @NewEmployeeID = @Nt1 OUTPUT;
+END
+ELSE
+BEGIN
+    SELECT @Nt1 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.one@example.com';
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.two@example.com')
+BEGIN
+    EXEC dbo.AddEmployee
+        @FullName = 'Test Notify Two',
+        @Email = 'test.notify.two@example.com',
+        @DepartmentID = 1,
+        @PositionID = 1,
+        @HireDate = '2025-01-02',
+        @NewEmployeeID = @Nt2 OUTPUT;
+END
+ELSE
+BEGIN
+    SELECT @Nt2 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.two@example.com';
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.three@example.com')
+BEGIN
+    EXEC dbo.AddEmployee
+        @FullName = 'Test Notify Three',
+        @Email = 'test.notify.three@example.com',
+        @DepartmentID = 1,
+        @PositionID = 1,
+        @HireDate = '2025-01-03',
+        @NewEmployeeID = @Nt3 OUTPUT;
+END
+ELSE
+BEGIN
+    SELECT @Nt3 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.three@example.com';
+END
+
+PRINT 'Test employees for notifications:';
+SELECT @Nt1 AS Nt1, @Nt2 AS Nt2, @Nt3 AS Nt3;
+
+-- Build comma-separated list
+DECLARE @AffectedList VARCHAR(500) = CONVERT(VARCHAR(12), @Nt1) + ',' + CONVERT(VARCHAR(12), @Nt2) + ',' + CONVERT(VARCHAR(12), @Nt3);
+DECLARE @NotifyMsg VARCHAR(200) = 'Test structure change notification: please review changes.';
+
+-- Normal execution
+PRINT 'Executing NotifyStructureChange:';
+EXEC dbo.NotifyStructureChange @AffectedEmployees = @AffectedList, @Message = @NotifyMsg;
+
+-- Verify entries created
+PRINT 'Verify Notification and EmployeeNotification entries:';
+SELECT TOP (5) NotificationID, mesage_content, timestamp, urgency, read_status, notification_type
+FROM dbo.Notification
+WHERE notification_type = 'StructureChange'
+ORDER BY NotificationID DESC;
+
+SELECT en.employee_id, en.notification_id, en.delivery_status, n.mesage_content
+FROM dbo.EmployeeNotification en
+JOIN dbo.Notification n ON n.NotificationID = en.notification_id
+WHERE en.employee_id IN (@Nt1, @Nt2, @Nt3)
+ORDER BY en.employee_id;
+GO
+
+/***** 9) Test ViewOrgHierarchy *****/
+PRINT '--- ViewOrgHierarchy tests ---';
+
+-- Ensure a simple hierarchy: make @Nt1 the manager of @Nt2 and @Nt3
+BEGIN
+    -- If ReassignManager raises an error it will abort the batch; use conditional to avoid duplicate attempts
+    IF EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt2) AND NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt2 AND manager_id = @Nt1)
+        EXEC dbo.ReassignManager @EmployeeID = @Nt2, @NewManagerID = @Nt1;
+
+    IF EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt3) AND NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt3 AND manager_id = @Nt1)
+        EXEC dbo.ReassignManager @EmployeeID = @Nt3, @NewManagerID = @Nt1;
+END
+
+PRINT 'Full organization hierarchy (sample):';
+EXEC dbo.ViewOrgHierarchy @AffectedEmployees = NULL, @Message = NULL;
+
+PRINT 'Filtered hierarchy for test employees:';
+EXEC dbo.ViewOrgHierarchy @AffectedEmployees = @AffectedList, @Message = NULL;
+GO
+
+/***** 10) Test AssignShiftToEmployee *****/
+PRINT '--- AssignShiftToEmployee tests ---';
+
+-- Validate required tables exist
+IF OBJECT_ID('dbo.ShiftSchedule', 'U') IS NULL
+BEGIN
+    PRINT 'Skipping AssignShiftToEmployee tests: dbo.ShiftSchedule table is missing.';
+END
+ELSE
+BEGIN
+    -- find a ShiftID to reference
+    DECLARE @TestShiftID INT;
+    IF OBJECT_ID('dbo.Shift', 'U') IS NULL
+    BEGIN
+        PRINT 'dbo.Shift table is missing; attempt to insert into ShiftSchedule would fail due to FK. Skipping shift assignment tests.';
+    END
+    ELSE
+    BEGIN
+        SELECT TOP (1) @TestShiftID = ShiftID FROM dbo.Shift;
+
+        IF @TestShiftID IS NULL
+        BEGIN
+            PRINT 'dbo.Shift exists but contains no rows. Insert a Shift row first to run AssignShiftToEmployee tests.';
+        END
+        ELSE
+        BEGIN
+            -- prepare a non-overlapping term for @Nt2
+            DECLARE @SStart DATE = '2025-08-01';
+            DECLARE @SEnd   DATE = '2025-08-31';
+
+            PRINT 'Assigning a shift (normal case):';
+            EXEC dbo.AssignShiftToEmployee @EmployeeID = @Nt2, @ShiftID = @TestShiftID, @StartDate = @SStart, @EndDate = @SEnd;
+
+            -- show recent ShiftSchedule rows for the employee
+            SELECT ShiftID AS ShiftSchedulePK, employee_id, shift_id AS ShiftRef, start_date, end_date, status
+            FROM dbo.ShiftSchedule
+            WHERE employee_id = @Nt2
+            ORDER BY ShiftID DESC;
+
+            -- attempt overlapping assignment (should be rejected)
+            PRINT 'Attempt overlapping assignment (expected to fail):';
+            BEGIN TRY
+                EXEC dbo.AssignShiftToEmployee @EmployeeID = @Nt2, @ShiftID = @TestShiftID, @StartDate = '2025-08-15', @EndDate = '2025-09-15';
+            END TRY
+            BEGIN CATCH
+                PRINT 'Overlapping assignment prevented (caught RAISERROR).';
+            END CATCH
+        END
+    END
+END
+GO
+
 /***** Cleanup / verification queries (optional) *****/
 -- Quick listing of employees created during tests
 SELECT EmployeeID, first_name, last_name, email, department_id, position_id, hire_date
 FROM dbo.Employee
-WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com');
+WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com',
+                'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
 GO

@@ -258,3 +258,175 @@ BEGIN
         EmployeeCount DESC, d.department_name;
 END
 GO
+
+--6
+-- Procedure: ReassignManager
+-- Input: @EmployeeID int, @NewManagerID int
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.ReassignManager
+(
+    @EmployeeID   INT,
+    @NewManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL OR @NewManagerID IS NULL
+    BEGIN
+        RAISERROR('Both EmployeeID and NewManagerID are required.', 16, 1);
+        RETURN;
+    END
+
+    IF @EmployeeID = @NewManagerID
+    BEGIN
+        RAISERROR('Employee cannot be their own manager.', 16, 1);
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified EmployeeID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NewManagerID)
+    BEGIN
+        RAISERROR('Employee with the specified NewManagerID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Prevent cycles: ensure @NewManagerID is not a subordinate of @EmployeeID
+    DECLARE @current INT = @NewManagerID;
+    WHILE @current IS NOT NULL
+    BEGIN
+        IF @current = @EmployeeID
+        BEGIN
+            RAISERROR('Cannot assign a subordinate as manager (would create a cycle).', 16, 1);
+            RETURN;
+        END
+
+        SELECT @current = manager_id
+        FROM dbo.Employee
+        WHERE EmployeeID = @current;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Employee
+        SET manager_id = @NewManagerID
+        WHERE EmployeeID = @EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Manager reassigned' AS Message, @EmployeeID AS EmployeeID, @NewManagerID AS NewManagerID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReassignManager failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--7
+-- Procedure: ReassignHierarchy
+-- Input: @EmployeeID int, @NewDepartmentID int, @NewManagerID int
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.ReassignHierarchy
+(
+    @EmployeeID      INT,
+    @NewDepartmentID INT = NULL,
+    @NewManagerID    INT = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END
+
+    IF @NewDepartmentID IS NULL AND @NewManagerID IS NULL
+    BEGIN
+        RAISERROR('Either NewDepartmentID or NewManagerID must be provided.', 16, 1);
+        RETURN;
+    END
+
+    -- validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified EmployeeID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- validate department if provided
+    IF @NewDepartmentID IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = @NewDepartmentID)
+    BEGIN
+        RAISERROR('Department with the specified NewDepartmentID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- validate new manager if provided
+    IF @NewManagerID IS NOT NULL
+    BEGIN
+        IF @NewManagerID = @EmployeeID
+        BEGIN
+            RAISERROR('Employee cannot be their own manager.', 16, 1);
+            RETURN;
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NewManagerID)
+        BEGIN
+            RAISERROR('Employee with the specified NewManagerID does not exist.', 16, 1);
+            RETURN;
+        END
+
+        -- Prevent cycles: ensure @NewManagerID is not a subordinate of @EmployeeID
+        DECLARE @current INT = @NewManagerID;
+        WHILE @current IS NOT NULL
+        BEGIN
+            IF @current = @EmployeeID
+            BEGIN
+                RAISERROR('Cannot assign a subordinate as manager (would create a cycle).', 16, 1);
+                RETURN;
+            END
+
+            SELECT @current = manager_id
+            FROM dbo.Employee
+            WHERE EmployeeID = @current;
+        END
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Employee
+        SET
+            department_id = CASE WHEN @NewDepartmentID IS NOT NULL THEN @NewDepartmentID ELSE department_id END,
+            manager_id    = CASE WHEN @NewManagerID    IS NOT NULL THEN @NewManagerID    ELSE manager_id    END
+        WHERE EmployeeID = @EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Hierarchy reassigned' AS Message, @EmployeeID AS EmployeeID,
+               @NewDepartmentID AS NewDepartmentID, @NewManagerID AS NewManagerID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReassignHierarchy failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO

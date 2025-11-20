@@ -261,3 +261,290 @@ GO
 
 
 --HR Adminsator 
+
+--1
+--Create a new employment contract for an employee.
+--Signature:
+--Name: CreateContract.
+--Input: @EmployeeID int, @Type varchar(50), @StartDate date, @EndDate date.
+--Output: Confirmation message.
+CREATE PROCEDURE dbo.CreateContract
+    @EmployeeID INT,
+    @Type VARCHAR(50),
+    @StartDate DATETIME,
+    @EndDate DATETIME
+AS
+BEGIN
+    INSERT INTO Contract (type, start_date, end_date, current_state)
+    VALUES (@Type, @StartDate, @EndDate, @CurrentState, 'PENDING');
+
+    Update Employee
+    SET contract_id = SCOPE_IDENTITY()
+    WHERE EmployeeID = @EmployeeID;
+    
+    PRINT 'Contract created successfully';
+END;
+GO
+-- Correct case: Valid EmployeeID, Type, StartDate, and EndDate
+--EXEC dbo.CreateContract 
+   -- @EmployeeID = 1, 
+   -- @Type = 'Full-time', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-12-31';
+
+--Testing (Incorrect one)
+-- Incorrect case: Non-existing EmployeeID
+--EXEC dbo.CreateContract 
+   -- @EmployeeID = 999, 
+   -- @Type = 'Full-time', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-12-31';
+
+--Testing (Incorrect one)
+-- Incorrect case: NULL StartDate or EndDate
+--EXEC dbo.CreateContract 
+   -- @EmployeeID = 1, 
+   -- @Type = 'Full-time', 
+   -- @StartDate = NULL, 
+   -- @EndDate = '2025-12-31';
+
+-- Incorrect case: Invalid EndDate (start date after end date)
+-- EXEC dbo.CreateContract 
+   -- @EmployeeID = 1, 
+   -- @Type = 'Full-time', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2024-12-31';
+
+-- Incorrect case: Missing Contract table
+-- EXEC dbo.CreateContract 
+   -- @EmployeeID = 1, 
+   -- @Type = 'Full-time', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-12-31';
+
+-- Incorrect case: Type too long
+-- EXEC dbo.CreateContract 
+   -- @EmployeeID = 1, 
+   -- @Type = 'ThisTypeIsWayTooLongForTheVarcharField',  -- 50+ characters
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-12-31';
+
+
+-----------------------------------------------------
+
+--2
+--Renew or extend an existing contract.
+--Signature:
+--Name: RenewContract.
+--Input: @ContractID int, @NewEndDate date.
+--Output: Confirmation message.
+CREATE PROCEDURE dbo.RenewContract
+    @ContractID INT,
+    @EndDate DATETIME
+    AS
+    BEGIN
+        UPDATE Contract
+        SET end_date = @EndDate
+        WHERE ContractID = @ContractID;
+        PRINT 'Contract renewed successfully';
+    END;
+    GO
+
+-- Correct case: Valid ContractID and EndDate
+-- EXEC dbo.RenewContract 
+  --  @ContractID = 101, 
+  --  @EndDate = '2026-12-31';
+
+-- Incorrect case: Non-existing ContractID
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 9999, 
+   -- @EndDate = '2026-12-31';
+
+-- Incorrect case: NULL EndDate
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 101, 
+   -- @EndDate = NULL;
+
+-- Incorrect case: Invalid EndDate (start date after end date)
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 101, 
+    -- @EndDate = '2024-12-31';  -- EndDate earlier than StartDate
+
+
+-- Incorrect case: Missing Contract table
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 101, 
+   -- @EndDate = '2026-12-31';
+ 
+-- Incorrect case: Invalid EndDate data type (passing a string)
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 101, 
+   -- @EndDate = 'InvalidDate';
+
+-- Incorrect case: Invalid ContractID data type (passing a string)
+-- EXEC dbo.RenewContract 
+   -- @ContractID = 'ABC',  -- Not an integer
+   -- @EndDate = '2026-12-31';
+
+
+-----------------------------------------------------
+
+--3
+--Approve or reject leave requests from employees.
+--Signature:
+--Name: ApproveLeaveRequest.
+--Input: @LeaveRequestID int, @ApproverID int, @Status varchar(20).
+--Output: Confirmation message.
+CREATE PROCEDURE dbo.ApproveLeaveRequest
+    @LeaveRequestID INT,
+    @ApproverID INT,
+    @Status VARCHAR(20)
+    AS
+    BEGIN
+        UPDATE LeaveRequest
+        SET status = @Status, approver_id = @ApproverID, decision_date = GETDATE()
+        WHERE LeaveRequestID = @LeaveRequestID;
+        PRINT 'Leave request updated successfully';
+    END;
+    GO
+
+-- Correct case: Valid LeaveRequestID, ApproverID, and Status
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 101, 
+   -- @ApproverID = 1001, 
+   -- @Status = 'Approved';
+
+-- Incorrect case: Non-existing LeaveRequestID
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 9999, 
+   -- @ApproverID = 1001, 
+   -- @Status = 'Approved';
+
+-- Incorrect case: Status exceeds the allowed length (more than 20 characters)
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 101, 
+   -- @ApproverID = 1001, 
+   -- @Status = 'Approved with extended terms';  -- 25 characters
+
+-- Incorrect case: NULL LeaveRequestID
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = NULL, 
+   -- @ApproverID = 1001, 
+   -- @Status = 'Approved';
+
+-- Incorrect case: NULL ApproverID
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 101, 
+   -- @ApproverID = NULL, 
+   --@Status = 'Approved';
+
+-- Incorrect case: Invalid Status data type (passing an integer)
+-- EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 101, 
+   -- @ApproverID = 1001, 
+   -- @Status = 1234;  -- Integer instead of VARCHAR
+
+-- Incorrect case: Missing LeaveRequest table
+--EXEC dbo.ApproveLeaveRequest 
+   -- @LeaveRequestID = 101, 
+   -- @ApproverID = 1001, 
+   -- @Status = 'Approved';
+
+-----------------------------------------------------
+
+--4
+--Assign missions or business trips to employees.
+--Signature:
+--Name: AssignMission.
+--Input: @EmployeeID int, @ManagerID int, @Destination varchar(50), @StartDate date, @EndDate date.
+--Output: Confirmation message.
+ 
+CREATE PROCEDURE dbo.AssignMission
+    @EmployeeID INT,
+    @ManagerID INT,
+    @Destination VARCHAR(50),
+    @StartDate DATE,
+    @EndDate DATE
+AS
+BEGIN
+    INSERT INTO Mission (destination, start_date, end_date, employee_id, manager_id)
+    VALUES (@Destination, @StartDate, @EndDate, @EmployeeID, @ManagerID);
+    
+    PRINT 'Mission assigned successfully to employee ';
+END;
+GO
+
+-- Correct case: Valid EmployeeID, ManagerID, Destination, StartDate, and EndDate
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 'New York', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-01-07';
+
+-- Incorrect case: Non-existing EmployeeID
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 9999, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 'Paris', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-01-07';
+
+-- Incorrect case: Invalid Destination data type (passing integer)
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 12345,  -- Integer instead of VARCHAR
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-01-07';
+
+-- Incorrect case: NULL StartDate
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 'Tokyo', 
+   -- @StartDate = NULL, 
+   -- @EndDate = '2025-01-07';
+
+-- Incorrect case: NULL EndDate
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 'Tokyo', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = NULL;
+
+-- Incorrect case: Missing Mission table
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 1001, 
+   -- @Destination = 'Berlin', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-01-07';
+
+-- Incorrect case: Invalid ManagerID data type (passing string instead of integer)
+-- EXEC dbo.AssignMission 
+   -- @EmployeeID = 101, 
+   -- @ManagerID = 'ManagerX',  -- String instead of INT
+   -- @Destination = 'Rome', 
+   -- @StartDate = '2025-01-01', 
+   -- @EndDate = '2025-01-07';
+------------------------------------------------------
+--5
+CREATE PROCEDURE dbo.ReviewReimbursement
+    @ReimbursementID INT,
+    @ApproverID INT,
+
+
+    
+
+
+
+
+
+
+
+
+
+
+

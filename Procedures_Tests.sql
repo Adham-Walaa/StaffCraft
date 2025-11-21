@@ -24,7 +24,19 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 2)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Manager', 'Manager role');
 GO
 
-/***** 1) Test AddEmployee *****/
+/***** 1) Test ViewEmployeeInfo *****/
+PRINT '--- ViewEmployeeInfo tests ---';
+DECLARE @Id1 INT, @Id2 INT;
+-- View Alice
+EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
+-- View Bob
+EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id2;
+-- Non-existent ID (should return 0 rows)
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 9999;
+GO
+
+
+/***** 2) Test AddEmployee *****/
 PRINT '--- AddEmployee tests ---';
 DECLARE @Id1 INT, @Id2 INT, @Id3 INT;
 
@@ -52,15 +64,6 @@ SELECT 'Created' AS Action, @Id2 AS EmployeeID;
 
 GO
 
-/***** 2) Test ViewEmployeeInfo *****/
-PRINT '--- ViewEmployeeInfo tests ---';
--- View Alice
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
--- View Bob
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id2;
--- Non-existent ID (should return 0 rows)
-EXEC dbo.ViewEmployeeInfo @EmployeeID = 9999;
-GO
 
 /***** 3) Test UpdateEmployeeInfo *****/
 PRINT '--- UpdateEmployeeInfo tests ---';

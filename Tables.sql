@@ -526,4 +526,3 @@ ALTER TABLE Attendance ADD CONSTRAINT FK_Attendance_Shift FOREIGN KEY (shift_id)
 ALTER TABLE Attendance ADD CONSTRAINT FK_Attendance_Exception FOREIGN KEY (exception_id) REFERENCES AttendanceException(ExceptionID);
 ALTER TABLE Payroll ADD CONSTRAINT FK_Payroll_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE Payroll ADD CONSTRAINT FK_Payroll_Period FOREIGN KEY (payroll_id) REFERENCES PayrollPeriod(PayrollID);
-

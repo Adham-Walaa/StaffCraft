@@ -1,4 +1,7 @@
 -- Test script for Procedures.sql
+
+--System Admin Tests
+
 USE MILESTONE2;
 GO
 
@@ -359,10 +362,3 @@ BEGIN
 END
 GO
 
-/***** Cleanup / verification queries (optional) *****/
--- Quick listing of employees created during tests
-SELECT EmployeeID, first_name, last_name, email, department_id, position_id, hire_date
-FROM dbo.Employee
-WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com',
-                'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
-GO

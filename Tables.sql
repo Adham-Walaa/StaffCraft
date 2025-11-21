@@ -707,6 +707,7 @@ ALTER TABLE ManagerNotes
 ADD CONSTRAINT FK_ManagerNotes_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
 
 
+--DROP TABLES PROCEDURE
 USE MILESTONE2;
 GO
 

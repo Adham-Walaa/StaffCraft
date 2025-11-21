@@ -359,10 +359,125 @@ BEGIN
 END
 GO
 
-/***** Cleanup / verification queries (optional) *****/
--- Quick listing of employees created during tests
-SELECT EmployeeID, first_name, last_name, email, department_id, position_id, hire_date
-FROM dbo.Employee
-WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com',
-                'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
+/***** SubmitLeaveRequest tests *****/
+USE MILESTONE2;
 GO
+
+PRINT '--- SubmitLeaveRequest tests ---';
+
+-- Ensure leave types exist
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 1)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (1, 'Vacation', 'Paid vacation');
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 2)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (2, 'Sick', 'Sick leave');
+
+-- Ensure a test employee exists (create via AddEmployee if required)
+DECLARE @TestEmp INT;
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'submit.leave.test@example.com')
+BEGIN
+    DECLARE @NewEmpID INT;
+    EXEC dbo.AddEmployee
+        @FullName = 'Submit Leave',
+        @Email = 'submit.leave.test@example.com',
+        @DepartmentID = 1,
+        @PositionID = 1,
+        @HireDate = '2025-01-01',
+        @NewEmployeeID = @NewEmpID OUTPUT;
+    SET @TestEmp = @NewEmpID;
+END
+ELSE
+    SELECT @TestEmp = EmployeeID FROM dbo.Employee WHERE email = 'submit.leave.test@example.com';
+
+PRINT 'Test employee id:' + CONVERT(VARCHAR(12), @TestEmp);
+
+-- 1) Normal submission (should succeed)
+PRINT 'Test 1: normal submission (Vacation 2025-09-01 to 2025-09-05)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-09-01',
+        @EndDate   = '2025-09-05',
+        @Reason    = 'Family vacation';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- 2) Empty reason (should succeed, normalized to NULL)
+PRINT 'Test 2: empty reason (should succeed)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-10-01',
+        @EndDate   = '2025-10-03',
+        @Reason    = '';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- 3) Invalid dates (StartDate > EndDate) - expect error
+PRINT 'Test 3: invalid dates (StartDate > EndDate) - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-12-10',
+        @EndDate   = '2025-12-01',
+        @Reason    = 'Invalid date test';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- 4) Non-existing employee - expect error
+PRINT 'Test 4: non-existing employee - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = 999999,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-11-01',
+        @EndDate   = '2025-11-03',
+        @Reason    = 'Should fail - no employee';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- 5) Non-existing leave type - expect error
+PRINT 'Test 5: non-existing leave type - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 9999,
+        @StartDate = '2025-11-10',
+        @EndDate   = '2025-11-12',
+        @Reason    = 'Should fail - invalid leave type';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- 6) Verify inserted LeaveRequest rows for the test employee and show durations
+PRINT 'Verifying created LeaveRequest rows for the test employee:';
+SELECT TOP (10)
+    RequestID,
+    employee_id,
+    leave_id,
+    justification,
+    duration,
+    approval_timing,
+    status,
+    CAST(RequestID AS VARCHAR(20)) + ' / ' + CAST(duration AS VARCHAR(10)) AS DebugInfo
+FROM dbo.LeaveRequest
+WHERE employee_id = @TestEmp
+ORDER BY RequestID DESC;
+
+GO
+
+--EMPLOYEE PROCEDURE TEST

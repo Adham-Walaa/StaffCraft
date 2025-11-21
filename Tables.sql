@@ -6,7 +6,7 @@ create Table Employee
 	last_name varchar(50),
 	full_name As (first_name + ' ' + last_name) PERSISTED,
 	national_id varchar(20) Unique,
-	date_of_birth date,
+	date_of_birth datetime,
 	country_of_birth varchar(50),
 	phone varchar(15),
 	email varchar(100) Unique,
@@ -19,16 +19,17 @@ create Table Employee
 	employment_progress varchar(100),
 	account_status varchar(50),
 	employment_status varchar(50),
-	hire_date date,
+	hire_date datetime,
 	is_active bit Default 1,
 	profile_completion_percentage int Check (profile_completion_percentage between 0 and 100),
-	department_id int Foreign Key References Department(DepartmentID),
-	position_id int Foreign Key References Position(PositionID),
-	manager_id int Foreign Key References Employee(EmployeeID),
-	contract_id int Foreign Key References Contract(ContractID),
-	tax_form_id int Foreign Key References TaxForm(TaxFormID),
-	salary_type_id int Foreign Key References SalaryType(SalaryTypeID),
-	pay_grade_id int Foreign Key References PayGrade(PayGradeID),
+	--Foreign Keys
+	--department_id int Foreign Key References Department(DepartmentID),
+	--position_id int Foreign Key References Position(PositionID),
+	--manager_id int Foreign Key References Employee(EmployeeID),
+	--contract_id int Foreign Key References Contract(ContractID),
+	--tax_form_id int Foreign Key References TaxForm(TaxFormID),
+	--salary_type_id int Foreign Key References SalaryType(SalaryTypeID),
+	--pay_grade_id int Foreign Key References PayGrade(PayGradeID),
 );
 create Table HRAdministrator 
 (
@@ -49,7 +50,7 @@ create Table PayrollSpecialist
 	employee_id int Foreign Key References Employee(EmployeeID),
 	assigned_region varchar(100),
 	processing_frequency varchar(50),
-	last_processed_period date,
+	last_processed_period datetime, 
 );
 create Table LineManager 
 (
@@ -74,7 +75,7 @@ create Table Department
 );
 create Table Skill 
 (
-	SkillID int Primary Key,
+	SkillID int  Primary Key,
 	skill_name varchar(100),
 	description text,
 );
@@ -86,7 +87,7 @@ create Table EmployeeSkill
 );
 create Table Verification 
 (
-	VerificationID int Primary Key,
+	VerificationID int  Primary Key,
 	verification_type varchar(100),
 	issuer varchar(100),
 	issue_date date,
@@ -99,7 +100,7 @@ create Table EmployeeVerification
 );
 create Table Role 
 (
-	RoleID int Primary Key,
+	RoleID int  Primary Key,
 	role_name varchar(100),
 	purpose text,
 );
@@ -107,7 +108,7 @@ create Table EmployeeRole
 (
 	employee_id int Foreign Key References Employee(EmployeeID),
 	role_id int Foreign Key References Role(RoleID),
-	assigned_date date,
+	assigned_date datetime,
 );
 create Table RolePermission 
 (
@@ -117,10 +118,10 @@ create Table RolePermission
 );
 create Table Contract 
 (
-	ContractID int Primary Key,
+	ContractID int  Primary Key,
 	type varchar(100),
-	start_date date,
-	end_date date,
+	start_date datetime,
+	end_date datetime,
 	current_state varchar(50),
 );
 create Table FullTimeContract 
@@ -152,40 +153,40 @@ create Table InternshipContract
 );
 create Table Insurance 
 (
-	InsuranceID int Primary Key,
+	InsuranceID int  Primary Key,
 	type varchar(100),
 	contribution_rate decimal(5,2),
 	coverage text,
 );
 create Table Termination 
 (
-	TerminationID int Primary Key,
+	TerminationID int  Primary Key,
 	date date,
 	reason text,
 	contract_id int Foreign Key References Contract(ContractID),
 );
 create Table Reimbursement 
 (
-	ReimbursementID int Primary Key,
+	ReimbursementID int  Primary Key,
 	type varchar(100),
 	claim_type varchar(100),
-	approval_date date,
+	approval_date datetime,
 	current_status varchar(50),
 	employee_id int Foreign Key References Employee(EmployeeID),
 );
 create Table Mission 
 (
-	MissionID int Primary Key,
+	MissionID int  Primary Key,
 	destination varchar(100),
-	start_date date,
-	end_date date,
+	start_date datetime,
+	end_date datetime,
 	status varchar(50),
 	employee_id int Foreign Key References Employee(EmployeeID),
 	manager_id int Foreign Key References Employee(EmployeeID),
 );
 create Table Leave 
 (
-	LeaveID int Primary Key,
+	LeaveID int  Primary Key,
 	leave_type varchar(100),
 	leave_description text,
 );
@@ -204,7 +205,7 @@ create Table SickLeave
 create Table ProbationLeave 
 (
 	leave_id int Foreign Key References Leave(LeaveID),
-	eligibility_start_date date,
+	eligibility_start_date datetime,
 	probation_period int,
 );
 create Table HolidayLeave 
@@ -216,36 +217,36 @@ create Table HolidayLeave
 );
 create Table LeavePolicy 
 (
-	PolicyID int Primary Key,
+	PolicyID int  Primary Key,
 	name varchar(100),
 	purpose text,
 	eligibility_rules text,
-	notice_period date, --check if date or int
+	notice_period datetime, --check if date or int
 	special_leave_type varchar(100),
 	reset_on_new_year bit,
 );
 create Table LeaveRequest 
 (
-	RequestID int Primary Key,
+	RequestID int  Primary Key,
 	employee_id int Foreign Key References Employee(EmployeeID),
 	leave_id int Foreign Key References Leave(LeaveID),
 	justification text,
 	duration int,
-	approval_timing date, --check if date or int
+	approval_timing datetime, --check if date or int
 	status varchar(50),
 );
 create Table LeaveEntitlement 
 (
-	employee_id int Foreign Key References Employee(EmployeeID),
+	employee_id int Foreign Key References Employee(EmloyeeID),
 	leave_type_id int Foreign Key References Leave(LeaveID),
 	entitlement int,
 );
 create Table LeaveDocument 
 (
-	document_id int Primary Key,
+	DocumentID int Primary Key,
 	leave_request_id int Foreign Key References LeaveRequest(RequestID),
 	file_path varchar(200),
-	uploaded_at date,
+	uploaded_at datetime,
 );
 create Table Attendance 
 (
@@ -261,7 +262,7 @@ create Table Attendance
 );
 create Table AttendanceLog 
 (
-	attendance_log_id int Primary Key,
+	AttendanceLogID int Primary Key,
 	attendance_id int Foreign Key References Attendance(AttendanceID),
 	actor varchar(100),
 	timestamp datetime,
@@ -269,7 +270,7 @@ create Table AttendanceLog
 );
 create Table AttendanceCorrectionRequest 
 (
-	request_id int Primary Key,
+	RequestID int Primary Key,
 	employee_id int Foreign Key References Employee(EmployeeID),
 	date date,
 	correction_type varchar(100),
@@ -282,8 +283,8 @@ create Table ShiftSchedule
 	ShiftID int Primary Key,
 	employee_id int Foreign Key References Employee(EmployeeID),
 	shift_id int Foreign Key References Shift(ShiftID),
-	start_date date,
-	end_date date,
+	start_date datetime,
+	end_date datetime,
 	status varchar(50),
 );
 create Table Exception
@@ -291,7 +292,7 @@ create Table Exception
 	ExceptionID int Primary Key,
 	name varchar(100),
 	category varchar(100),
-	date date,
+	date datetime,
 	status varchar(50),
 );
 create Table EmployeeException 
@@ -304,22 +305,22 @@ create Table Payroll
 	PayrollID int Primary Key,
 	employee_id int Foreign Key References Employee(EmployeeID),
 	taxes decimal(18,2),
-	period_start date,
-	period_end date,
+	period_start datetime,
+	period_end datetime,
 	base_amount decimal(18,2),
 	adjustments decimal(18,2),
 	contributions decimal(18,2),
 	actual_pay decimal(18,2),
 	net_salary decimal(18,2),
-	payment_date date,
+	payment_date datetime,
 );
 create Table Currency 
 (
 	CurrencyCode varchar(10) Primary Key,
 	currency_name varchar(50),
 	exchange_rate decimal(18,4),
-	created_date date,
-	last_updated date,
+	created_date datetime,
+	last_updated datetime,
 );
 create Table SalaryType 
 (
@@ -360,7 +361,7 @@ create Table AllowanceDeduction
 create Table PayrollPolicy 
 (
 	PolicyID int Primary Key,
-	effective_date date,
+	effective_date datetime,
 	type varchar(100),
 	description text,
 );
@@ -406,7 +407,7 @@ create Table TaxForm
 (
 	TaxFormID int Primary Key,
 	jurisdiction varchar(100),
-	validity_period date,
+	validity_period datetime,
 	form_content text,
 );
 create Table PayGrade 
@@ -420,8 +421,8 @@ create Table PayrollPeriod
 (
 	PayrollPeriodID int Primary Key,
 	payroll_id int Foreign Key References Payroll(PayrollID),
-	start_date date,
-	end_date date,
+	start_date datetime,
+	end_date datetime,
 	status varchar(50),
 );
 create Table Notification 
@@ -476,13 +477,13 @@ create Table ShiftCycleAssignment
 	shift_id int Foreign Key References Shift(ShiftID),
 	order_number int,
 );
-create Table ApprovalWorkflow --leave for now not complete 
+create Table ApprovalWorkflow 
 (
 	WorkflowID int Primary Key,
 	workflow_type varchar(100),
 	threshold_amount decimal(18,2),
 	approved_role varchar(100),
-	created_by int Foreign Key References Employee(EmployeeID), --check again
+	created_by int Foreign Key References Employee(EmployeeID), 
 	status varchar(50),
 );
 create Table ApprovalWorkflowStep 
@@ -494,9 +495,35 @@ create Table ApprovalWorkflowStep
 );
 create Table ManagerNotes
 (
-	note_id int Primary Key,
+	NoteID int Primary Key,
 	employee_id int Foreign Key References Employee(EmployeeID),
 	manager_id int Foreign Key References Employee(EmployeeID),
 	note_content text,
 	created_at datetime,
 );
+
+ALTER TABLE HRAdministrator ADD CONSTRAINT FK_HRAdministrator_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE SystemAdministrator ADD CONSTRAINT FK_SystemAdministrator_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE PayrollSpecialist ADD CONSTRAINT FK_PayrollSpecialist_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE LineManager ADD CONSTRAINT FK_LineManager_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Department ADD CONSTRAINT FK_Department_Employee FOREIGN KEY (department_head_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeSkill ADD CONSTRAINT FK_EmployeeSkill_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeSkill ADD CONSTRAINT FK_EmployeeSkill_Skill FOREIGN KEY (skill_id) REFERENCES Skill(SkillID);
+ALTER TABLE EmployeeVerification ADD CONSTRAINT FK_EmployeeVerification_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeVerification ADD CONSTRAINT FK_EmployeeVerification_Verification FOREIGN KEY (verification_id) REFERENCES Verification(VerificationID);
+ALTER TABLE EmployeeRole ADD CONSTRAINT FK_EmployeeRole_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeRole ADD CONSTRAINT FK_EmployeeRole_Role FOREIGN KEY (role_id) REFERENCES Role(RoleID);
+ALTER TABLE EmployeeHierarchy ADD CONSTRAINT FK_EmployeeHierarchy_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeHierarchy ADD CONSTRAINT FK_EmployeeHierarchy_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Mission ADD CONSTRAINT FK_Mission_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Mission ADD CONSTRAINT FK_Mission_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE LeaveRequest ADD CONSTRAINT FK_LeaveRequest_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE LeaveRequest ADD CONSTRAINT FK_LeaveRequest_Leave FOREIGN KEY (leave_id) REFERENCES Leave(LeaveID);
+ALTER TABLE EmployeeNotification ADD CONSTRAINT FK_EmployeeNotification_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE EmployeeNotification ADD CONSTRAINT FK_EmployeeNotification_Notification FOREIGN KEY (notification_id) REFERENCES Notification(NotificationID);
+ALTER TABLE Attendance ADD CONSTRAINT FK_Attendance_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Attendance ADD CONSTRAINT FK_Attendance_Shift FOREIGN KEY (shift_id) REFERENCES Shift(ShiftID);
+ALTER TABLE Attendance ADD CONSTRAINT FK_Attendance_Exception FOREIGN KEY (exception_id) REFERENCES AttendanceException(ExceptionID);
+ALTER TABLE Payroll ADD CONSTRAINT FK_Payroll_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Payroll ADD CONSTRAINT FK_Payroll_Period FOREIGN KEY (payroll_id) REFERENCES PayrollPeriod(PayrollID);
+

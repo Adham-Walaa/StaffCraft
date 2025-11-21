@@ -784,6 +784,95 @@ GO
 
 -- EMPLOYEE PROCEDURES
 
+CREATE OR ALTER PROCEDURE dbo.SubmitLeaveRequest
+(
+    @EmployeeID   INT,
+    @LeaveTypeID  INT,
+    @StartDate    DATE,
+    @EndDate      DATE,
+    @Reason       VARCHAR(100)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- basic validation
+    IF @EmployeeID IS NULL OR @LeaveTypeID IS NULL OR @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        RAISERROR('EmployeeID, LeaveTypeID, StartDate and EndDate are required.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('StartDate must be less than or equal to EndDate.', 16, 1);
+        RETURN;
+    END
+
+    IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+    BEGIN
+        SET @Reason = NULL; -- allow NULL justification, but normalize empty -> NULL
+    END
+
+    -- ensure referenced records exist
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Specified employee does not exist.', 16, 1);
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveTypeID)
+    BEGIN
+        RAISERROR('Specified leave type does not exist.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @RequestID INT;
+    DECLARE @Duration INT = DATEDIFF(DAY, @StartDate, @EndDate) + 1;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- generate a new RequestID safely to avoid race conditions
+        SELECT @RequestID = ISNULL(MAX(RequestID), 0) + 1
+        FROM dbo.LeaveRequest WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.LeaveRequest
+        (
+            RequestID,
+            employee_id,
+            leave_id,
+            justification,
+            duration,
+            approval_timing,
+            status
+        )
+        VALUES
+        (
+            @RequestID,
+            @EmployeeID,
+            @LeaveTypeID,
+            @Reason,
+            @Duration,
+            NULL,
+            'PENDING'
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Leave request submitted' AS Message, @RequestID AS RequestID, 'PENDING' AS Status, @Duration AS Duration;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('SubmitLeaveRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
 
 
 

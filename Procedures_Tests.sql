@@ -1,4 +1,68 @@
 -- Test script for Procedures.sql
+
+
+
+--DROP TABLES PROCEDURE
+USE MILESTONE2;
+GO
+
+IF OBJECT_ID('sp_DropAllTables', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DropAllTables;
+GO
+
+CREATE PROCEDURE sp_DropAllTables
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @sql NVARCHAR(MAX);
+
+    -- Disable FK checks
+    EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
+
+    -- Drop all foreign key constraints
+    DECLARE fk_cursor CURSOR FOR
+        SELECT 'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + '].[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT [' + name + '];'
+        FROM sys.foreign_keys;
+
+    OPEN fk_cursor;
+    FETCH NEXT FROM fk_cursor INTO @sql;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        EXEC sp_executesql @sql;
+        FETCH NEXT FROM fk_cursor INTO @sql;
+    END
+    CLOSE fk_cursor;
+    DEALLOCATE fk_cursor;
+
+    -- Drop all tables dynamically
+    DECLARE table_cursor CURSOR FOR
+        SELECT '[' + SCHEMA_NAME(schema_id) + '].[' + name + ']' 
+        FROM sys.tables;
+
+    OPEN table_cursor;
+    FETCH NEXT FROM table_cursor INTO @sql;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @sql = 'DROP TABLE ' + @sql;
+        EXEC sp_executesql @sql;
+        FETCH NEXT FROM table_cursor INTO @sql;
+    END
+    CLOSE table_cursor;
+    DEALLOCATE table_cursor;
+
+    PRINT 'All tables dropped successfully!';
+END
+GO
+
+-- Execute the procedure
+EXEC sp_DropAllTables;
+GO
+
+--System Admin Tests
+
 USE MILESTONE2;
 GO
 
@@ -359,10 +423,3 @@ BEGIN
 END
 GO
 
-/***** Cleanup / verification queries (optional) *****/
--- Quick listing of employees created during tests
-SELECT EmployeeID, first_name, last_name, email, department_id, position_id, hire_date
-FROM dbo.Employee
-WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com',
-                'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
-GO

@@ -1,4 +1,4 @@
-﻿--SYSTEM ADMIN PROCEDURES 123
+﻿--SYSTEM ADMIN PROCEDURES
 
 USE MILESTONE2;
 GO
@@ -130,7 +130,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.UpdateEmployeeInfo
 (
-    @EmployeeID INT,
+    @EmployeeID INT = NULL,
+    @IdentifierEmail VARCHAR(100) = NULL, -- optional: locate employee by email when ID isn't provided
     @Email      VARCHAR(100) = NULL,
     @Phone      VARCHAR(20)  = NULL,
     @Address    VARCHAR(150) = NULL
@@ -139,15 +140,38 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- validate employee exists
-    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    DECLARE @TargetEmployeeID INT;
+
+    -- Determine target employee: prefer explicit ID, otherwise try identifier email
+    IF @EmployeeID IS NOT NULL
     BEGIN
-        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+        BEGIN
+            RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+            RETURN;
+        END
+        SET @TargetEmployeeID = @EmployeeID;
+    END
+    ELSE IF @IdentifierEmail IS NOT NULL
+    BEGIN
+        SELECT @TargetEmployeeID = EmployeeID
+        FROM dbo.Employee
+        WHERE email = @IdentifierEmail;
+
+        IF @TargetEmployeeID IS NULL
+        BEGIN
+            RAISERROR('No employee found with the specified identifier email.', 16, 1);
+            RETURN;
+        END
+    END
+    ELSE
+    BEGIN
+        RAISERROR('Either @EmployeeID or @IdentifierEmail must be supplied to identify the employee.', 16, 1);
         RETURN;
     END
 
-    -- if email provided, ensure uniqueness (exclude current employee)
-    IF @Email IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Employee WHERE email = @Email AND EmployeeID <> @EmployeeID)
+    -- if email provided, ensure uniqueness (exclude target employee)
+    IF @Email IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Employee WHERE email = @Email AND EmployeeID <> @TargetEmployeeID)
     BEGIN
         RAISERROR('The provided email is already used by another employee.', 16, 1);
         RETURN;
@@ -161,11 +185,11 @@ BEGIN
             email   = CASE WHEN @Email   IS NOT NULL THEN @Email   ELSE email   END,
             phone   = CASE WHEN @Phone   IS NOT NULL THEN @Phone   ELSE phone   END,
             address = CASE WHEN @Address IS NOT NULL THEN @Address ELSE address END
-        WHERE EmployeeID = @EmployeeID;
+        WHERE EmployeeID = @TargetEmployeeID;
 
         COMMIT TRANSACTION;
 
-        SELECT 'Employee updated' AS Message, @EmployeeID AS EmployeeID;
+        SELECT 'Employee updated' AS Message, @TargetEmployeeID AS EmployeeID, @@ROWCOUNT AS RowsAffected;
     END TRY
     BEGIN CATCH
         IF XACT_STATE() <> 0
@@ -259,531 +283,183 @@ BEGIN
 END
 GO
 
--------------------------------------------------------------------------------------------------------------------
---HR Adminsator 
-
---1
---Create a new employment contract for an employee.
---Signature:
---Name: CreateContract.
---Input: @EmployeeID int, @Type varchar(50), @StartDate date, @EndDate date.
---Output: Confirmation message.
-CREATE PROCEDURE dbo.CreateContract
-    @EmployeeID INT,
-    @Type VARCHAR(50),
-    @StartDate DATETIME,
-    @EndDate DATETIME
-AS
-BEGIN
-    INSERT INTO Contract (type, start_date, end_date, current_state)
-    VALUES (@Type, @StartDate, @EndDate, @CurrentState, 'PENDING');
-
-    Update Employee
-    SET contract_id = SCOPE_IDENTITY()
-    WHERE EmployeeID = @EmployeeID;
-    
-    PRINT 'Contract created successfully';
-END;
-GO
--- Correct case: Valid EmployeeID, Type, StartDate, and EndDate
---EXEC dbo.CreateContract 
-   -- @EmployeeID = 1, 
-   -- @Type = 'Full-time', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-12-31';
-
---Testing (Incorrect one)
--- Incorrect case: Non-existing EmployeeID
---EXEC dbo.CreateContract 
-   -- @EmployeeID = 999, 
-   -- @Type = 'Full-time', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-12-31';
-
---Testing (Incorrect one)
--- Incorrect case: NULL StartDate or EndDate
---EXEC dbo.CreateContract 
-   -- @EmployeeID = 1, 
-   -- @Type = 'Full-time', 
-   -- @StartDate = NULL, 
-   -- @EndDate = '2025-12-31';
-
--- Incorrect case: Invalid EndDate (start date after end date)
--- EXEC dbo.CreateContract 
-   -- @EmployeeID = 1, 
-   -- @Type = 'Full-time', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2024-12-31';
-
--- Incorrect case: Missing Contract table
--- EXEC dbo.CreateContract 
-   -- @EmployeeID = 1, 
-   -- @Type = 'Full-time', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-12-31';
-
--- Incorrect case: Type too long
--- EXEC dbo.CreateContract 
-   -- @EmployeeID = 1, 
-   -- @Type = 'ThisTypeIsWayTooLongForTheVarcharField',  -- 50+ characters
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-12-31';
-
-
------------------------------------------------------
-
---2
---Renew or extend an existing contract.
---Signature:
---Name: RenewContract.
---Input: @ContractID int, @NewEndDate date.
---Output: Confirmation message.
-CREATE PROCEDURE dbo.RenewContract
-    @ContractID INT,
-    @EndDate DATETIME
-    AS
-    BEGIN
-        UPDATE Contract
-        SET end_date = @EndDate
-        WHERE ContractID = @ContractID;
-        PRINT 'Contract renewed successfully';
-    END;
-    GO
-
--- Correct case: Valid ContractID and EndDate
--- EXEC dbo.RenewContract 
-  --  @ContractID = 101, 
-  --  @EndDate = '2026-12-31';
-
--- Incorrect case: Non-existing ContractID
--- EXEC dbo.RenewContract 
-   -- @ContractID = 9999, 
-   -- @EndDate = '2026-12-31';
-
--- Incorrect case: NULL EndDate
--- EXEC dbo.RenewContract 
-   -- @ContractID = 101, 
-   -- @EndDate = NULL;
-
--- Incorrect case: Invalid EndDate (start date after end date)
--- EXEC dbo.RenewContract 
-   -- @ContractID = 101, 
-    -- @EndDate = '2024-12-31';  -- EndDate earlier than StartDate
-
-
--- Incorrect case: Missing Contract table
--- EXEC dbo.RenewContract 
-   -- @ContractID = 101, 
-   -- @EndDate = '2026-12-31';
- 
--- Incorrect case: Invalid EndDate data type (passing a string)
--- EXEC dbo.RenewContract 
-   -- @ContractID = 101, 
-   -- @EndDate = 'InvalidDate';
-
--- Incorrect case: Invalid ContractID data type (passing a string)
--- EXEC dbo.RenewContract 
-   -- @ContractID = 'ABC',  -- Not an integer
-   -- @EndDate = '2026-12-31';
-
-
------------------------------------------------------
-
---3
---Approve or reject leave requests from employees.
---Signature:
---Name: ApproveLeaveRequest.
---Input: @LeaveRequestID int, @ApproverID int, @Status varchar(20).
---Output: Confirmation message.
-CREATE PROCEDURE dbo.ApproveLeaveRequest
-    @LeaveRequestID INT,
-    @ApproverID INT,
-    @Status VARCHAR(20)
-    AS
-    BEGIN
-        UPDATE LeaveRequest
-        SET status = @Status, approver_id = @ApproverID, decision_date = GETDATE()
-        WHERE LeaveRequestID = @LeaveRequestID;
-        PRINT 'Leave request updated successfully';
-    END;
-    GO
-
--- Correct case: Valid LeaveRequestID, ApproverID, and Status
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 101, 
-   -- @ApproverID = 1001, 
-   -- @Status = 'Approved';
-
--- Incorrect case: Non-existing LeaveRequestID
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 9999, 
-   -- @ApproverID = 1001, 
-   -- @Status = 'Approved';
-
--- Incorrect case: Status exceeds the allowed length (more than 20 characters)
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 101, 
-   -- @ApproverID = 1001, 
-   -- @Status = 'Approved with extended terms';  -- 25 characters
-
--- Incorrect case: NULL LeaveRequestID
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = NULL, 
-   -- @ApproverID = 1001, 
-   -- @Status = 'Approved';
-
--- Incorrect case: NULL ApproverID
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 101, 
-   -- @ApproverID = NULL, 
-   --@Status = 'Approved';
-
--- Incorrect case: Invalid Status data type (passing an integer)
--- EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 101, 
-   -- @ApproverID = 1001, 
-   -- @Status = 1234;  -- Integer instead of VARCHAR
-
--- Incorrect case: Missing LeaveRequest table
---EXEC dbo.ApproveLeaveRequest 
-   -- @LeaveRequestID = 101, 
-   -- @ApproverID = 1001, 
-   -- @Status = 'Approved';
-
------------------------------------------------------
-
---4
---Assign missions or business trips to employees.
---Signature:
---Name: AssignMission.
---Input: @EmployeeID int, @ManagerID int, @Destination varchar(50), @StartDate date, @EndDate date.
---Output: Confirmation message.
- 
-CREATE PROCEDURE dbo.AssignMission
-    @EmployeeID INT,
-    @ManagerID INT,
-    @Destination VARCHAR(50),
-    @StartDate DATE,
-    @EndDate DATE
-AS
-BEGIN
-    INSERT INTO Mission (destination, start_date, end_date, employee_id, manager_id)
-    VALUES (@Destination, @StartDate, @EndDate, @EmployeeID, @ManagerID);
-    
-    PRINT 'Mission assigned successfully to employee ';
-END;
-GO
-
--- Correct case: Valid EmployeeID, ManagerID, Destination, StartDate, and EndDate
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 'New York', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-01-07';
-
--- Incorrect case: Non-existing EmployeeID
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 9999, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 'Paris', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-01-07';
-
--- Incorrect case: Invalid Destination data type (passing integer)
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 12345,  -- Integer instead of VARCHAR
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-01-07';
-
--- Incorrect case: NULL StartDate
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 'Tokyo', 
-   -- @StartDate = NULL, 
-   -- @EndDate = '2025-01-07';
-
--- Incorrect case: NULL EndDate
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 'Tokyo', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = NULL;
-
--- Incorrect case: Missing Mission table
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 1001, 
-   -- @Destination = 'Berlin', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-01-07';
-
--- Incorrect case: Invalid ManagerID data type (passing string instead of integer)
--- EXEC dbo.AssignMission 
-   -- @EmployeeID = 101, 
-   -- @ManagerID = 'ManagerX',  -- String instead of INT
-   -- @Destination = 'Rome', 
-   -- @StartDate = '2025-01-01', 
-   -- @EndDate = '2025-01-07';
-------------------------------------------------------
---5
---There is NO column for: approver_id, decision_date, status/decision except current_status. Any field that can store who approved a claim.
-
 --6
-CREATE PROCEDURE dbo.getActiveContracts
+-- Procedure: ReassignManager
+-- Input: @EmployeeID int, @NewManagerID int
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.ReassignManager
+(
+    @EmployeeID   INT,
+    @NewManagerID INT
+)
 AS
 BEGIN
-   SELECT *
-   FROM Contract
-   WHERE current_state = 'ACTIVE' or end_date > GETDATE();
-END;
+    SET NOCOUNT ON;
+
+    -- Validate inputs exist
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NewManagerID)
+    BEGIN
+        RAISERROR('New manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Prevent assigning an employee as their own manager
+    IF @EmployeeID = @NewManagerID
+    BEGIN
+        RAISERROR('An employee cannot be their own manager.', 16, 1);
+        RETURN;
+    END
+
+    -- Iteratively walk the manager chain upward from @NewManagerID to detect cycles
+    DECLARE @current INT = @NewManagerID;
+    WHILE @current IS NOT NULL
+    BEGIN
+        IF @current = @EmployeeID
+        BEGIN
+            RAISERROR('Reassign would create a circular manager relationship. Operation aborted.', 16, 1);
+            RETURN;
+        END
+
+        SELECT @current = manager_id
+        FROM dbo.Employee
+        WHERE EmployeeID = @current;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Employee
+        SET manager_id = @NewManagerID
+        WHERE EmployeeID = @EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Manager reassigned' AS Message, @EmployeeID AS EmployeeID, @NewManagerID AS NewManagerID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReassignManager failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
 GO
-
--- Correct case: Retrieve active contracts
--- EXEC dbo.GetActiveContracts;
-
--- Incorrect case: No active contracts
--- EXEC dbo.GetActiveContracts;
-
--- Incorrect case: Missing or empty Contract table
--- EXEC dbo.GetActiveContracts;
-
--- Incorrect case: Missing current_state or end_date columns in Contract table
--- EXEC dbo.GetActiveContracts;
-
--- Incorrect case: NULL values in current_state or end_date
--- EXEC dbo.GetActiveContracts;
-------------------------------------------------------
 
 --7
-CREATE PROCEDURE dbo.GetTeamByManager
-    @ManagerID INT
+-- Procedure: ReassignHierarchy
+-- Input: @EmployeeID int, @NewDepartmentID int, @NewManagerID int
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.ReassignHierarchy
+(
+    @EmployeeID      INT,
+    @NewDepartmentID INT = NULL,
+    @NewManagerID    INT = NULL
+)
 AS
 BEGIN
-    SELECT employee_id, first_name, last_name
-    FROM Employee
-    WHERE manager_id = @ManagerID;
-END;
-GO
+    SET NOCOUNT ON;
 
--- Correct case: Retrieve employees under ManagerID = 1001
--- EXEC dbo.GetTeamByManager 
-   -- @ManagerID = 1001;
-
--- Incorrect case: Non-existing ManagerID
--- EXEC dbo.GetTeamByManager 
-   -- @ManagerID = 9999;  -- Assuming 9999 is not a valid manager_id
-
--- Incorrect case: NULL ManagerID
--- EXEC dbo.GetTeamByManager 
-   -- @ManagerID = NULL;
-
--- Incorrect case: Missing Employee table
--- EXEC dbo.GetTeamByManager 
-   -- @ManagerID = 1001;
-
--- Incorrect case: Missing manager_id column in Employee table
--- EXEC dbo.GetTeamByManager 
-   -- @ManagerID = 1001;
-------------------------------------------------------
---8
-CREATE PROCEDURE dbo.UpdateLeavePolicy
-    @PolicyID INT,
-    @EligibilityRules VARCHAR(500),
-    @NoticePeriod INT
-    AS
+    -- basic validation
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
     BEGIN
-    UPDATE LeavePolicy
-    SET eligibility_rules = @EligibilityRules,
-        notice_period = @NoticePeriod
-    WHERE PolicyID = @PolicyID;
-    PRINT 'Leave policy updated successfully';
-    END;
-    GO
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
 
--- Correct case: Update leave policy with valid PolicyID, EligibilityRules, and NoticePeriod
--- EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = 101, 
-   -- @EligibilityRules = 'Employees must be with the company for at least 6 months to qualify for leave.', 
-   -- @NoticePeriod = 30;
+    IF @NewDepartmentID IS NULL AND @NewManagerID IS NULL
+    BEGIN
+        RAISERROR('Either @NewDepartmentID or @NewManagerID must be supplied.', 16, 1);
+        RETURN;
+    END
 
--- Incorrect case: Non-existing PolicyID
---EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = 9999, 
-   -- @EligibilityRules = 'New rules for leave eligibility.', 
-   -- @NoticePeriod = 15;
+    IF @NewDepartmentID IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = @NewDepartmentID)
+    BEGIN
+        RAISERROR('Target department does not exist.', 16, 1);
+        RETURN;
+    END
 
--- Incorrect case: NULL PolicyID
--- EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = NULL, 
-   -- @EligibilityRules = 'Updated eligibility rules.', 
-   -- @NoticePeriod = 20;
+    IF @NewManagerID IS NOT NULL
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NewManagerID)
+        BEGIN
+            RAISERROR('New manager with the specified ID does not exist.', 16, 1);
+            RETURN;
+        END
 
--- Incorrect case: Invalid data type for EligibilityRules (passing an integer)
--- EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = 101, 
-   -- @EligibilityRules = 12345,  -- Integer instead of VARCHAR
-   -- @NoticePeriod = 20;
+        IF @NewManagerID = @EmployeeID
+        BEGIN
+            RAISERROR('An employee cannot be assigned as their own manager.', 16, 1);
+            RETURN;
+        END
 
--- Incorrect case: Missing LeavePolicy table
--- EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = 101, 
-   -- @EligibilityRules = 'Updated eligibility rules.', 
-   -- @NoticePeriod = 20;
+        -- if both department and manager are supplied, ensure manager is in the new department
+        IF @NewDepartmentID IS NOT NULL
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM dbo.Employee m
+                WHERE m.EmployeeID = @NewManagerID
+                  AND ISNULL(m.department_id, -1) <> @NewDepartmentID
+            )
+            BEGIN
+                RAISERROR('The specified manager is not in the target department.', 16, 1);
+                RETURN;
+            END
+        END
 
--- Incorrect case: Invalid data type for NoticePeriod (passing a string)
--- EXEC dbo.UpdateLeavePolicy 
-   -- @PolicyID = 101, 
-   -- @EligibilityRules = 'Updated eligibility rules.', 
-   -- @NoticePeriod = 'Thirty';  -- String instead of INT
--------------------------------------------------------
---9
-CREATE PROCEDURE dbo.GetExpiringContracts
-    @DaysBefore INT
-AS
-BEGIN
-    SELECT contract_id, type, start_date, end_date, current_state
-    FROM Contract
-    WHERE DATEDIFF(DAY, GETDATE(), end_date) <= @DaysBefore
-      AND current_state = 'ACTIVE';
-END;
+        -- detect cycles by walking the manager chain upward from @NewManagerID
+        DECLARE @current INT = @NewManagerID;
+        WHILE @current IS NOT NULL
+        BEGIN
+            IF @current = @EmployeeID
+            BEGIN
+                RAISERROR('Reassign would create a circular manager relationship. Operation aborted.', 16, 1);
+                RETURN;
+            END
+
+            SELECT @current = manager_id
+            FROM dbo.Employee
+            WHERE EmployeeID = @current;
+        END
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Employee
+        SET
+            department_id = CASE WHEN @NewDepartmentID IS NOT NULL THEN @NewDepartmentID ELSE department_id END,
+            manager_id    = CASE WHEN @NewManagerID    IS NOT NULL THEN @NewManagerID    ELSE manager_id    END
+        WHERE EmployeeID = @EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        SELECT
+            'Reassignment completed' AS Message,
+            e.EmployeeID,
+            e.department_id AS NewDepartmentID,
+            e.manager_id    AS NewManagerID
+        FROM dbo.Employee e
+        WHERE e.EmployeeID = @EmployeeID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReassignHierarchy failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
 GO
-
--- Correct case: Retrieve contracts expiring within the next 30 days
--- EXEC dbo.GetExpiringContracts 
-   -- @DaysBefore = 30;
-
--- Incorrect case: No contracts expiring within the next 5 days
--- EXEC dbo.GetExpiringContracts 
-   -- @DaysBefore = 5;
-
--- Incorrect case: NULL DaysBefore
--- EXEC dbo.GetExpiringContracts 
-   -- @DaysBefore = NULL;
-
--- Incorrect case: Invalid data type for DaysBefore (passing string)
--- EXEC dbo.GetExpiringContracts 
-   -- @DaysBefore = 'Thirty';  -- String instead of INT
-
--- Incorrect case: Missing Contract table
--- EXEC dbo.GetExpiringContracts 
-   -- @DaysBefore = 30;
--------------------------------------------------------
---10
-CREATE PROCEDURE dbo.AssignDepartmentHead
-    @DepartmentID INT,
-    @ManagerID INT
-AS
-BEGIN
-    UPDATE Department
-    SET department_head_id = @ManagerID
-    WHERE department_id = @DepartmentID;
-
-    PRINT 'Department head assigned successfully';
-END;
-GO
-
--- Correct case: Assign manager with ID 1001 as the department head for department 1
--- EXEC dbo.AssignDepartmentHead 
-   -- @DepartmentID = 1, 
-   -- @ManagerID = 1001;
-
--- Incorrect case: Non-existing DepartmentID
--- EXEC dbo.AssignDepartmentHead 
-   -- @DepartmentID = 9999, 
-   -- @ManagerID = 1001;
-
--- Incorrect case: NULL ManagerID
--- EXEC dbo.AssignDepartmentHead 
-   -- @DepartmentID = 1, 
-   -- @ManagerID = NULL;
-
--- Incorrect case: Invalid data type for ManagerID (passing a string)
--- EXEC dbo.AssignDepartmentHead 
-   -- @DepartmentID = 1, 
-   -- @ManagerID = 'ManagerX';  -- String instead of INT
-
--- Incorrect case: Missing Department table
--- EXEC dbo.AssignDepartmentHead 
-   -- @DepartmentID = 1, 
-   -- @ManagerID = 1001;
----------------------------------------------------------
---11
-CREATE PROCEDURE dbo.CreateEmployeeProfile
-    @FirstName VARCHAR(50),
-    @LastName VARCHAR(50),
-    @DepartmentID INT,
-    @RoleID INT,
-    @HireDate DATE,
-    @Email VARCHAR(100),
-    @Phone VARCHAR(20)
-AS
-BEGIN
-    INSERT INTO Employee (first_name, last_name, hire_date, email, phone, department_id, position_id)
-    VALUES (@FirstName, @LastName, @HireDate, @Email, @Phone, @DepartmentID, @RoleID);
-
-    DECLARE @EmployeeID INT;
-    SET @EmployeeID = SCOPE_IDENTITY();
-
-    PRINT 'Employee profile created successfully with EmployeeID ';
-END;
-GO
-
--- Correct case: Insert new employee profile with valid data
--- EXEC dbo.CreateEmployeeProfile 
-   -- @FirstName = 'John', 
-   -- @LastName = 'Doe', 
-   -- @DepartmentID = 1, 
-   -- @RoleID = 2, 
-   -- @HireDate = '2025-01-01', 
-   -- @Email = 'john.doe@example.com', 
-   -- @Phone = '123-456-7890';
-
--- Incorrect case: Invalid DepartmentID or RoleID
--- EXEC dbo.CreateEmployeeProfile 
-   -- @FirstName = 'Jane', 
-   -- @LastName = 'Smith', 
-   -- @DepartmentID = 9999,  -- Non-existing DepartmentID
-   -- @RoleID = 9999,        -- Non-existing RoleID
-   -- @HireDate = '2025-01-01', 
-   -- @Email = 'jane.smith@example.com', 
-   -- @Phone = '987-654-3210';
-
--- Incorrect case: NULL FirstName or LastName
--- EXEC dbo.CreateEmployeeProfile 
-   -- @FirstName = NULL, 
-   -- @LastName = NULL, 
-   -- @DepartmentID = 1, 
-   -- @RoleID = 2, 
-   -- @HireDate = '2025-01-01', 
-   -- @Email = 'jane.smith@example.com', 
-   -- @Phone = '987-654-3210';
-
--- Incorrect case: Invalid email and phone number format
--- EXEC dbo.CreateEmployeeProfile 
-   -- @FirstName = 'Mark', 
-   -- @LastName = 'Taylor', 
-   -- @DepartmentID = 1, 
-   -- @RoleID = 2, 
-   -- @HireDate = '2025-01-01', 
-   -- @Email = 'invalidemail',  -- Invalid email format
-   -- @Phone = '12345';         -- Invalid phone format
-------------------------------------------------------------
---12 (Keep for now still)
-
-
---------------------------------------------------------
---13 (Keep for now still)
-
----------------------------------------------------------
---14
-
-
-
-
-
 

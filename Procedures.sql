@@ -463,3 +463,253 @@ BEGIN
 END
 GO
 
+--8
+-- Procedure: NotifyStructureChange
+-- Input: @AffectedEmployees varchar(500), @Message varchar(200)
+-- Output: new @NotificationID int (OUTPUT) and a confirmation row
+
+CREATE OR ALTER PROCEDURE dbo.NotifyStructureChange
+(
+    @AffectedEmployees VARCHAR(500),
+    @Message           VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate
+    IF @Message IS NULL OR LTRIM(RTRIM(@Message)) = ''
+    BEGIN
+        RAISERROR('Message is required.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @NotificationID INT;
+    DECLARE @ErrMsg NVARCHAR(4000);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Generate NotificationID (table uses manual PK pattern)
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1 FROM dbo.Notification WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.Notification
+        (
+            NotificationID,
+            mesage_content,
+            timestamp,
+            urgency,
+            read_status,
+            notification_type
+        )
+        VALUES
+        (
+            @NotificationID,
+            @Message,
+            GETDATE(),
+            'NORMAL',
+            0,
+            'STRUCTURE_CHANGE'
+        );
+
+        -- Parse comma-separated employee IDs and insert EmployeeNotification rows for existing employees
+        DECLARE @pos INT = 1;
+        DECLARE @len INT = LEN(ISNULL(@AffectedEmployees, ''));
+        DECLARE @next INT;
+        DECLARE @token VARCHAR(50);
+        DECLARE @empid INT;
+
+        WHILE @pos <= @len
+        BEGIN
+            SET @next = CHARINDEX(',', @AffectedEmployees, @pos);
+            IF @next = 0 SET @next = @len + 1;
+
+            SET @token = LTRIM(RTRIM(SUBSTRING(@AffectedEmployees, @pos, @next - @pos)));
+
+            IF @token <> ''
+            BEGIN
+                SET @empid = TRY_CONVERT(INT, @token);
+
+                IF @empid IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @empid)
+                BEGIN
+                    INSERT INTO dbo.EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+                    VALUES (@empid, @NotificationID, 'PENDING', NULL);
+                END
+                -- non-numeric tokens or non-existing employees are ignored silently
+            END
+
+            SET @pos = @next + 1;
+        END
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Notification created' AS Message, @NotificationID AS NotificationID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        SET @ErrMsg = ERROR_MESSAGE();
+        RAISERROR('NotifyStructureChange failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--9
+-- Procedure: ViewOrgHierarchy
+-- Input: @AffectedEmployees varchar(500), @Message varchar(200)
+-- Output: hierarchical view of the organization
+
+CREATE OR ALTER PROCEDURE dbo.ViewOrgHierarchy
+(
+    @AffectedEmployees VARCHAR(500) = NULL, -- kept for signature compatibility (not used)
+    @Message           VARCHAR(200) = NULL  -- kept for signature compatibility (not used)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Build hierarchy using a recursive CTE. Limit removed so deep orgs are allowed.
+    ;WITH OrgCTE AS
+    (
+        -- roots (top-level managers)
+        SELECT
+            e.EmployeeID,
+            ISNULL(e.first_name,'')   AS first_name,
+            ISNULL(e.last_name,'')    AS last_name,
+            (ISNULL(e.first_name,'') + ' ' + ISNULL(e.last_name,'')) AS EmployeeName,
+            e.manager_id,
+            e.department_id,
+            e.position_id,
+            CAST(RIGHT('0000' + CAST(e.EmployeeID AS VARCHAR(10)), 4) + '/' AS VARCHAR(MAX)) AS HierarchyPath,
+            0 AS HierarchyLevel
+        FROM dbo.Employee e
+        WHERE e.manager_id IS NULL
+
+        UNION ALL
+
+        -- children
+        SELECT
+            c.EmployeeID,
+            ISNULL(c.first_name,''),
+            ISNULL(c.last_name,''),
+            (ISNULL(c.first_name,'') + ' ' + ISNULL(c.last_name,'')),
+            c.manager_id,
+            c.department_id,
+            c.position_id,
+            CAST(p.HierarchyPath + RIGHT('0000' + CAST(c.EmployeeID AS VARCHAR(10)), 4) + '/' AS VARCHAR(MAX)),
+            p.HierarchyLevel + 1
+        FROM dbo.Employee c
+        INNER JOIN OrgCTE p ON c.manager_id = p.EmployeeID
+    )
+    SELECT
+        o.EmployeeID,
+        o.first_name,
+        o.last_name,
+        o.Manager_id AS ManagerID,
+        (mgr.first_name + ' ' + mgr.last_name) AS ManagerName,
+        o.department_id AS DepartmentID,
+        dept.department_name AS DepartmentName,
+        o.position_id AS PositionID,
+        pos.position_title AS PositionTitle,
+        o.HierarchyLevel,
+        o.HierarchyPath
+    FROM OrgCTE o
+    LEFT JOIN dbo.Employee mgr ON mgr.EmployeeID = o.manager_id
+    LEFT JOIN dbo.Department dept ON dept.DepartmentID = o.department_id
+    LEFT JOIN dbo.Position pos ON pos.PositionID = o.position_id
+    ORDER BY o.HierarchyPath, o.HierarchyLevel, o.EmployeeName
+    OPTION (MAXRECURSION 0); -- allow deep hierarchies
+END
+GO
+
+--10
+-- Procedure: AssignShiftToEmployee
+-- Input: @EmployeeID int, @ShiftID int, @StartDate date, @EndDate date
+-- Output: confirmation row with ShiftID, EmployeeID, StartDate, EndDate
+
+CREATE OR ALTER PROCEDURE dbo.AssignShiftToEmployee
+(
+    @EmployeeID INT,
+    @ShiftID    INT,
+    @StartDate  DATE,
+    @EndDate    DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- validations
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        RAISERROR('StartDate and EndDate are required.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('StartDate must be on or before EndDate.', 16, 1);
+        RETURN;
+    END
+
+    -- ensure provided ShiftID is not already used (ShiftID is primary key in ShiftSchedule)
+    IF EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftID)
+    BEGIN
+        RAISERROR('ShiftID already exists. Provide a unique ShiftID or update existing schedule.', 16, 1);
+        RETURN;
+    END
+
+    -- prevent overlapping shifts for the same employee
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.ShiftSchedule ss
+        WHERE ss.employee_id = @EmployeeID
+          AND NOT (ss.end_date < @StartDate OR ss.start_date > @EndDate)  -- overlap condition
+    )
+    BEGIN
+        RAISERROR('Employee already has a shift that overlaps the specified term.', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        INSERT INTO dbo.ShiftSchedule
+        (
+            ShiftID,
+            employee_id,
+            start_date,
+            end_date,
+            status
+        )
+        VALUES
+        (
+            @ShiftID,
+            @EmployeeID,
+            @StartDate,
+            @EndDate,
+            'ASSIGNED'
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Shift assigned' AS Message, @ShiftID AS ShiftID, @EmployeeID AS EmployeeID, @StartDate AS StartDate, @EndDate AS EndDate;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('AssignShiftToEmployee failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+

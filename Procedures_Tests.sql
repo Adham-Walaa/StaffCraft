@@ -148,8 +148,6 @@ EXEC dbo.ViewEmployeeInfo @EmployeeID = 1; --input
 EXEC dbo.ViewEmployeeInfo @EmployeeID = 2; --input
 
 /***** 2) Test AddEmployee *****/
-DECLARE @Id3 INT, @Id4 INT;
-GO
 
 -- Successful inserts
 EXEC dbo.AddEmployee
@@ -158,17 +156,15 @@ EXEC dbo.AddEmployee
     @DepartmentID = 3,  --input
     @PositionID = 2,  --input
     @HireDate = '2025-01-01',  --input
-    @NewEmployeeID = @Id3 OUTPUT; --input
-SELECT 'Created' AS Action, @Id3 AS EmployeeID;
+    @NewEmployeeID = 6; --input
 
 EXEC dbo.AddEmployee
-    @FullName = 'Bob Johnson',  --input
-    @Email = 'bob.johnson@example.com',  --input
+    @FullName = 'Jaquavius Johnson',  --input
+    @Email = 'JAQ.johnson@example.com',  --input
     @DepartmentID = 2,  --input
     @PositionID = 2,  --input
     @HireDate = '2024-10-01',  --input
-    @NewEmployeeID = @Id4 OUTPUT;  --input
-SELECT 'Created' AS Action, @Id4 AS EmployeeID;
+    @NewEmployeeID =7;  --input
 GO
 
 /***** 3) Test UpdateEmployeeInfo *****/
@@ -346,4 +342,114 @@ SELECT EmployeeID, first_name, last_name, department_id, manager_id
 FROM dbo.Employee
 WHERE EmployeeID IN (1,2,3,4)
 ORDER BY EmployeeID;
+GO
+
+
+/***** 8) Test NotifyStructureChange  *****/
+USE MILESTONE2;
+GO
+
+-- Clean up any prior test notifications for deterministic results (optional)
+DELETE en
+FROM dbo.EmployeeNotification en
+JOIN dbo.Notification n ON en.notification_id = n.NotificationID
+WHERE n.notification_type = 'STRUCTURE_CHANGE';
+
+DELETE FROM dbo.Notification WHERE notification_type = 'STRUCTURE_CHANGE';
+GO
+
+-- Test 1: normal case (some valid, one invalid id)
+EXEC dbo.NotifyStructureChange
+    @AffectedEmployees = '1,2,9999,abc', 
+    @Message = 'Organizational restructure approved. Please check new assignments.';
+
+-- Verify created notification and employee links
+SELECT n.NotificationID, n.mesage_content, n.timestamp, n.notification_type
+FROM dbo.Notification n
+WHERE n.notification_type = 'STRUCTURE_CHANGE';
+
+SELECT en.employee_id, en.notification_id, en.delivery_status, en.delivered_at
+FROM dbo.EmployeeNotification en
+WHERE en.notification_id IN (SELECT NotificationID FROM dbo.Notification WHERE notification_type = 'STRUCTURE_CHANGE')
+ORDER BY en.employee_id;
+GO
+
+-- Test 2: missing message (expected to error)
+BEGIN TRY
+    EXEC dbo.NotifyStructureChange @AffectedEmployees = '1,2', @Message = '';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+
+/***** 9) Test ViewOrgHierarchy *****/
+USE MILESTONE2;
+GO
+
+-- Ensure required reference rows exist (idempotent)
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (2, 'Manager', 'Manages team', 'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (1, 'Human Resources', 'HR');
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (2, 'Finance', 'Payroll');
+
+-- Ensure sample employees and manager links
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 10)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (10, 'Top', 'Manager', 'top.manager@example.com', GETDATE(), 1, 1, 2);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 11)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
+    VALUES (11, 'Mid', 'Manager', 'mid.manager@example.com', GETDATE(), 1, 2, 2, 10);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 12)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
+    VALUES (12, 'Junior', 'Staff', 'junior.staff@example.com', GETDATE(), 1, 2, 1, 11);
+
+-- Run the procedure (parameters accepted but not used)
+EXEC dbo.ViewOrgHierarchy @AffectedEmployees = NULL, @Message = NULL;
+GO
+
+
+/***** 10) Test AssignShiftToEmployee *****/
+USE MILESTONE2;
+GO
+
+-- Clean up any prior test shifts we will use (idempotent)
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID IN (1001, 1002);
+GO
+
+-- Test 1: valid assignment; Assign shift 1001 to employee 1
+BEGIN TRY
+    EXEC dbo.AssignShiftToEmployee @EmployeeID = 1, @ShiftID = 1001, @StartDate = '2025-06-01', @EndDate = '2025-06-07';
+    SELECT * FROM dbo.ShiftSchedule WHERE ShiftID = 1001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS Test, ERROR_MESSAGE() AS Msg;
+END CATCH;
+GO
+
+-- Test 2: overlapping assignment for same employee (should error)
+BEGIN TRY
+    EXEC dbo.AssignShiftToEmployee @EmployeeID = 1, @ShiftID = 1002, @StartDate = '2025-06-05', @EndDate = '2025-06-10';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS Test, ERROR_MESSAGE() AS Msg;
+END CATCH;
+GO
+
+-- Test 3: non-existent employee (should error)
+BEGIN TRY
+    PRINT 'Test 3: non-existent employee (expect error)';
+    EXEC dbo.AssignShiftToEmployee @EmployeeID = 9999, @ShiftID = 2001, @StartDate = '2025-07-01', @EndDate = '2025-07-07';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS Test, ERROR_MESSAGE() AS Msg;
+END CATCH;
 GO

@@ -1,4 +1,4 @@
-﻿--SYSTEM ADMIN PROCEDURES 123
+﻿--SYSTEM ADMIN PROCEDURES
 
 USE MILESTONE2;
 GO
@@ -130,7 +130,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.UpdateEmployeeInfo
 (
-    @EmployeeID INT,
+    @EmployeeID INT = NULL,
+    @IdentifierEmail VARCHAR(100) = NULL, -- optional: locate employee by email when ID isn't provided
     @Email      VARCHAR(100) = NULL,
     @Phone      VARCHAR(20)  = NULL,
     @Address    VARCHAR(150) = NULL
@@ -139,15 +140,38 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- validate employee exists
-    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    DECLARE @TargetEmployeeID INT;
+
+    -- Determine target employee: prefer explicit ID, otherwise try identifier email
+    IF @EmployeeID IS NOT NULL
     BEGIN
-        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+        BEGIN
+            RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+            RETURN;
+        END
+        SET @TargetEmployeeID = @EmployeeID;
+    END
+    ELSE IF @IdentifierEmail IS NOT NULL
+    BEGIN
+        SELECT @TargetEmployeeID = EmployeeID
+        FROM dbo.Employee
+        WHERE email = @IdentifierEmail;
+
+        IF @TargetEmployeeID IS NULL
+        BEGIN
+            RAISERROR('No employee found with the specified identifier email.', 16, 1);
+            RETURN;
+        END
+    END
+    ELSE
+    BEGIN
+        RAISERROR('Either @EmployeeID or @IdentifierEmail must be supplied to identify the employee.', 16, 1);
         RETURN;
     END
 
-    -- if email provided, ensure uniqueness (exclude current employee)
-    IF @Email IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Employee WHERE email = @Email AND EmployeeID <> @EmployeeID)
+    -- if email provided, ensure uniqueness (exclude target employee)
+    IF @Email IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Employee WHERE email = @Email AND EmployeeID <> @TargetEmployeeID)
     BEGIN
         RAISERROR('The provided email is already used by another employee.', 16, 1);
         RETURN;
@@ -161,11 +185,11 @@ BEGIN
             email   = CASE WHEN @Email   IS NOT NULL THEN @Email   ELSE email   END,
             phone   = CASE WHEN @Phone   IS NOT NULL THEN @Phone   ELSE phone   END,
             address = CASE WHEN @Address IS NOT NULL THEN @Address ELSE address END
-        WHERE EmployeeID = @EmployeeID;
+        WHERE EmployeeID = @TargetEmployeeID;
 
         COMMIT TRANSACTION;
 
-        SELECT 'Employee updated' AS Message, @EmployeeID AS EmployeeID;
+        SELECT 'Employee updated' AS Message, @TargetEmployeeID AS EmployeeID, @@ROWCOUNT AS RowsAffected;
     END TRY
     BEGIN CATCH
         IF XACT_STATE() <> 0

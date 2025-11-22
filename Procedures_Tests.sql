@@ -61,113 +61,158 @@ GO
 
 ------------------------
 --System Admin Tests
+------------------------
 
-USE MILESTONE2;
-GO
-
-/***** Setup required reference data *****/
--- Departments
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (1, 'Human Resources', 'HR and People Ops');
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (2, 'Finance', 'Payroll and Finance');
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (3, 'Engineering', 'Engineering Dept');
+-- Currency required by SalaryType
+IF NOT EXISTS (SELECT 1 FROM dbo.Currency WHERE CurrencyCode = 'USD')
+INSERT INTO dbo.Currency (CurrencyCode, currency_name, exchange_rate, created_date, last_updated)
+VALUES ('USD', 'US Dollar', 1.0000, GETDATE(), GETDATE());
 
 -- Positions
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
-    INSERT INTO dbo.Position (PositionID, position_title, responsibilities) VALUES (1, 'Developer', 'Develops software');
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
-    INSERT INTO dbo.Position (PositionID, position_title, responsibilities) VALUES (2, 'Manager', 'Manages team');
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (2, 'Manager', 'Manages team', 'ACTIVE');
 
--- Roles
+-- Departments
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (1, 'Human Resources', 'HR and People Ops', NULL);
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (2, 'Finance', 'Payroll and Finance', NULL);
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (3, 'Engineering', 'Engineering Dept', NULL);
+
+-- Roles (used by AssignRole tests)
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 1)
-    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (1, 'Payroll Officer', 'Handles payroll');
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (1, 'System Administrator', 'Full system privileges');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 2)
-    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Manager', 'Manager role');
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Payroll Officer', 'Handles payroll');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 3)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (3, 'HR Administrator', 'HR administration and records');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 4)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (4, 'Line Manager', 'Shift management');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 5)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (5, 'Employee', 'Regular employee role');
 GO
+
+-- PayGrade
+IF NOT EXISTS (SELECT 1 FROM dbo.PayGrade WHERE PayGradeID = 1)
+    INSERT INTO dbo.PayGrade (PayGradeID, grade_name, min_salary, max_salary) VALUES (1, 'P1', 30000.00, 50000.00);
+
+-- TaxForm
+IF NOT EXISTS (SELECT 1 FROM dbo.TaxForm WHERE TaxFormID = 1)
+    INSERT INTO dbo.TaxForm (TaxFormID, jurisdiction, validity_period, form_content) VALUES (1, 'Default', DATEADD(YEAR, 1, GETDATE()), 'Standard tax form');
+
+-- SalaryType (references Currency)
+IF NOT EXISTS (SELECT 1 FROM dbo.SalaryType WHERE SalaryTypeID = 1)
+    INSERT INTO dbo.SalaryType (SalaryTypeID, type, payment_frequency, currency) VALUES (1, 'Monthly', 'Monthly', 'USD');
+
+-- Contract
+IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = 1)
+    INSERT INTO dbo.Contract (ContractID, type, start_date, end_date, current_state) VALUES (1, 'Standard', '2025-01-01', '9999-12-31', 'ACTIVE');
+GO
+
+-- Use high, reserved test IDs to avoid duplicate PK collisions
+USE MILESTONE2;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 1)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (1, 'Alice', 'Smith', 'alice.smith@example.com', '2025-01-15', 1, 1, 1, '555-0100', '123 Main St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 2)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (2, 'Bob', 'Johnson', 'bob.johnson@example.com', '2024-10-01', 1, 2, 2, '555-0200', '456 Elm St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 3)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (3, 'John', 'Doe', 'john.doe@example.com', '2025-02-20', 1, 3, 1, '555-0300', '789 Oak St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 4)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (4, 'Jane', 'Roe', 'jane.roe@example.com', '2023-12-05', 1, 2, 2, '555-0400', '321 Pine St');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 5)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, national_id, country_of_birth, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (5, 'Jaaffar', 'Yakub', 'jaaffar.garry@example.com', '6742069', 'Agartha' , '2007-05-03', 1, 1, 5, '01227425396', 'Land Down Under');
+GO
+
 
 /***** 1) Test ViewEmployeeInfo *****/
-PRINT '--- ViewEmployeeInfo tests ---';
-DECLARE @Id1 INT, @Id2 INT;
--- View Alice
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
--- View Bob
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id2;
--- Non-existent ID (should return 0 rows)
-EXEC dbo.ViewEmployeeInfo @EmployeeID = 9999;
-GO
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 1; --input
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 2; --input
 
 /***** 2) Test AddEmployee *****/
-PRINT '--- AddEmployee tests ---';
-DECLARE @Id1 INT, @Id2 INT, @Id3 INT;
+DECLARE @Id3 INT, @Id4 INT;
+GO
 
 -- Successful inserts
 EXEC dbo.AddEmployee
-    @FullName = 'Alice Smith',
-    @Email = 'alice.smith@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-01-15',
-    @NewEmployeeID = @Id1 OUTPUT;
-SELECT 'Created' AS Action, @Id1 AS EmployeeID;
+    @FullName = 'Taher Khalaf',  --input
+    @Email = 'taher.skhalaf@gmail.com',  --input
+    @DepartmentID = 3,  --input
+    @PositionID = 2,  --input
+    @HireDate = '2025-01-01',  --input
+    @NewEmployeeID = @Id3 OUTPUT; --input
+SELECT 'Created' AS Action, @Id3 AS EmployeeID;
 
 EXEC dbo.AddEmployee
-    @FullName = 'Bob Johnson',
-    @Email = 'bob.johnson@example.com',
-    @DepartmentID = 2,
-    @PositionID = 2,
-    @HireDate = '2024-10-01',
-    @NewEmployeeID = @Id2 OUTPUT;
-SELECT 'Created' AS Action, @Id2 AS EmployeeID;
-
--- Attempt duplicate email (expected to error) - commented out; uncomment to verify error path
--- EXEC dbo.AddEmployee @FullName='Alice Dup', @Email='alice.smith@example.com', @DepartmentID=1, @PositionID=1, @HireDate='2025-02-01', @NewEmployeeID=@Id3 OUTPUT;
+    @FullName = 'Bob Johnson',  --input
+    @Email = 'bob.johnson@example.com',  --input
+    @DepartmentID = 2,  --input
+    @PositionID = 2,  --input
+    @HireDate = '2024-10-01',  --input
+    @NewEmployeeID = @Id4 OUTPUT;  --input
+SELECT 'Created' AS Action, @Id4 AS EmployeeID;
 GO
 
 /***** 3) Test UpdateEmployeeInfo *****/
-PRINT '--- UpdateEmployeeInfo tests ---';
--- Update Alice's contact details
-EXEC dbo.UpdateEmployeeInfo
-    @EmployeeID = @Id1,
-    @Email = 'alice.updated@example.com',
-    @Phone = '555-0101',
-    @Address = '123 Main St';
--- Verify update
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
+-- Use a local test variable (avoid colliding with later @Id1/@Id2)
 
--- Attempt update with existing email of another employee (should RAISERROR) - commented
--- EXEC dbo.UpdateEmployeeInfo @EmployeeID = @Id1, @Email = 'bob.johnson@example.com';
+EXEC dbo.UpdateEmployeeInfo
+    @EmployeeID = 3,  --input
+    @Email      = 'new.updated@example.com',  --input
+    @Phone      = '555-0101',  --input
+    @Address    = '123 Main St';  --input
+
+-- Verify update
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 3;
 GO
 
-/***** 4) Test AssignRole *****/
-PRINT '--- AssignRole tests ---';
--- Assign Payroll Officer to Alice
-EXEC dbo.AssignRole @EmployeeID = @Id1, @RoleID = 1;
--- Assign Manager role to Bob
-EXEC dbo.AssignRole @EmployeeID = @Id2, @RoleID = 2;
--- Re-assign same role (should return already assigned message)
-EXEC dbo.AssignRole @EmployeeID = @Id1, @RoleID = 1;
+--PROC TUPLE CHECK:
+Select *
+From Employee
 
+/***** 4) Test AssignRole *****/
+-- Assign Payroll Officer to Alice
+EXEC dbo.AssignRole @EmployeeID = 1, @RoleID = 1;  --input
+-- Assign Manager role to Bob
+EXEC dbo.AssignRole @EmployeeID = 2, @RoleID = 2;  --input
+-- Re-assign same role (should return already assigned message)
+EXEC dbo.AssignRole @EmployeeID = 1, @RoleID = 1;  --input
+
+EXEC dbo.AssignRole @EmployeeID = 3, @RoleID = 3;  --input
+EXEC dbo.AssignRole @EmployeeID = 4, @RoleID = 4;  --input
 -- Show EmployeeRole contents for test employees
-SELECT * FROM dbo.EmployeeRole WHERE employee_id IN (@Id1, @Id2);
+SELECT * FROM dbo.EmployeeRole er INNER JOIN Role r on er.role_id = r.RoleID WHERE employee_id IN (1, 2, 3, 4);
 GO
 
 /***** 5) Test GetDepartmentEmployeeStats *****/
-PRINT '--- GetDepartmentEmployeeStats tests ---';
 -- Add a third employee to Department 1 to exercise counts
 DECLARE @Id4 INT;
-EXEC dbo.AddEmployee
-    @FullName = 'Carol White',
-    @Email = 'carol.white@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-03-10',
-    @NewEmployeeID = @Id4 OUTPUT;
+EXEC dbo.AddEmployee 
+    @FullName = 'Carol White',  --input
+    @Email = 'carol.white@example.com',  --input
+    @DepartmentID = 1,  --input
+    @PositionID = 1,  --input 
+    @HireDate = '2025-03-10',  --input 
+    @NewEmployeeID = @Id4 OUTPUT;  --input
 
 -- Run stats
 EXEC dbo.GetDepartmentEmployeeStats;
 GO
-
-
-

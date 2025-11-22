@@ -16,11 +16,11 @@ CREATE TABLE Employee
     first_name varchar(50),
     last_name varchar(50),
     full_name AS (first_name + ' ' + last_name) PERSISTED,
-    national_id varchar(20) UNIQUE,
+    national_id varchar(20),
     date_of_birth datetime,
     country_of_birth varchar(50),
     phone varchar(15),
-    email varchar(100) UNIQUE,
+    email varchar(100),
     address varchar(200),
     emergency_contact_name varchar(100),
     emergency_contact_phone varchar(15),
@@ -32,6 +32,13 @@ CREATE TABLE Employee
     employment_status varchar(50),
     hire_date datetime,
     is_active bit DEFAULT 1,
+    department_id int,
+    position_id int,
+    paygrade_id int,
+    taxform_id int,
+    manager_id int,
+    salary_type_id int,
+    contract_id int,
     profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
 );
 
@@ -705,3 +712,17 @@ ALTER TABLE ManagerNotes
 ADD CONSTRAINT FK_ManagerNotes_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE ManagerNotes
 ADD CONSTRAINT FK_ManagerNotes_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Position FOREIGN KEY (position_id) REFERENCES Position(PositionID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_PayGrade FOREIGN KEY (paygrade_id) REFERENCES PayGrade(PayGradeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_TaxForm FOREIGN KEY (taxform_id) REFERENCES TaxForm(TaxFormID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Department FOREIGN KEY (department_id) REFERENCES Department(DepartmentID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_SalaryType FOREIGN KEY (salary_type_id) REFERENCES SalaryType(SalaryTypeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Contract FOREIGN KEY (contract_id) REFERENCES Contract(ContractID);

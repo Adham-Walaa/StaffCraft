@@ -774,13 +774,165 @@ GO
    -- @Phone = '12345';         -- Invalid phone format
 ------------------------------------------------------------
 --12 (Keep for now still)
+CREATE PROCEDURE dbo.UpdateEmployeeProfile
+    @EmployeeID INT,
+    @FieldName VARCHAR(50),
+    @NewValue VARCHAR(255)
+AS
+BEGIN
+    -- Declare a variable to hold the dynamic SQL query
+    DECLARE @SQL NVARCHAR(MAX);
+    
+    -- Build the dynamic SQL query to update the specified field
+    SET @SQL = 'UPDATE Employee 
+                SET ' + QUOTENAME(@FieldName) + ' = @NewValue 
+                WHERE employee_id = @EmployeeID';
+    
+    -- Execute the dynamic SQL
+    EXEC sp_executesql @SQL, N'@NewValue VARCHAR(255), @EmployeeID INT', @NewValue, @EmployeeID;
+
+    -- Print a success message
+    PRINT 'Employee profile updated successfully';
+END;
+GO
+
+-- Correct case: Update first_name for EmployeeID = 101
+-- EXEC dbo.UpdateEmployeeProfile 
+   -- @EmployeeID = 101, 
+   -- @FieldName = 'first_name', 
+   -- @NewValue = 'John';
+
+-- Incorrect case: Non-existing EmployeeID
+-- EXEC dbo.UpdateEmployeeProfile 
+   -- @EmployeeID = 9999, 
+   -- @FieldName = 'first_name', 
+   -- @NewValue = 'Jane';
+
+-- Incorrect case: Invalid FieldName
+-- EXEC dbo.UpdateEmployeeProfile 
+   -- @EmployeeID = 101, 
+   -- @FieldName = 'invalid_field', 
+   -- @NewValue = 'NewValue';
+
+-- Incorrect case: NULL FieldName
+-- EXEC dbo.UpdateEmployeeProfile 
+   -- @EmployeeID = 101, 
+   -- @FieldName = NULL, 
+   -- @NewValue = 'NewValue';
+
+-- Incorrect case: Invalid data type for NewValue (passing integer instead of string)
+-- EXEC dbo.UpdateEmployeeProfile 
+   -- @EmployeeID = 101, 
+   -- @FieldName = 'first_name', 
+   -- @NewValue = 12345;  -- Invalid, should be a string
 
 
 --------------------------------------------------------
---13 (Keep for now still)
+--13 
+
+CREATE PROCEDURE dbo.SetProfileCompleteness
+    @EmployeeID INT,
+    @CompletenessPercentage INT
+AS
+BEGIN
+    -- Update the profile_completion_percentage for the specified employee
+    UPDATE Employee
+    SET profile_completion_percentage = @CompletenessPercentage
+    WHERE EmployeeID = @EmployeeID;
+
+    -- Print a success message or return the updated value
+    PRINT 'Employee profile completeness for EmployeeID ' + CAST(@EmployeeID AS VARCHAR) + 
+          ' updated to ' + CAST(@CompletenessPercentage AS VARCHAR) + '%';
+END;
+GO
+
+-- Correct case: Update profile completeness for EmployeeID = 101
+-- EXEC dbo.SetProfileCompleteness 
+   -- @EmployeeID = 101, 
+   -- @CompletenessPercentage = 85;
+
+-- Incorrect case: Non-existing EmployeeID
+-- EXEC dbo.SetProfileCompleteness 
+   -- @EmployeeID = 9999, 
+   -- @CompletenessPercentage = 90;
+
+-- Incorrect case: NULL EmployeeID
+-- EXEC dbo.SetProfileCompleteness 
+   -- @EmployeeID = NULL, 
+   -- @CompletenessPercentage = 80;
+
+-- Incorrect case: Invalid data type for CompletenessPercentage (passing a string instead of an integer)
+-- EXEC dbo.SetProfileCompleteness 
+   -- @EmployeeID = 101, 
+   -- @CompletenessPercentage = 'Eighty';  -- String instead of INT
+
+-- Incorrect case: CompletenessPercentage outside valid range
+-- EXEC dbo.SetProfileCompleteness 
+   -- @EmployeeID = 101, 
+   -- @CompletenessPercentage = 110;  -- Invalid percentage
+
 
 ---------------------------------------------------------
 --14
+CREATE PROCEDURE dbo.GenerateProfileReport
+    @FilterField VARCHAR(50),
+    @FilterValue VARCHAR(100)
+AS
+BEGIN
+    -- Declare a variable to hold the dynamic SQL query
+    DECLARE @SQL NVARCHAR(MAX);
+    
+    -- Build the dynamic SQL query
+    IF @FilterField = 'department_id'
+    BEGIN
+        SET @SQL = 'SELECT e.employee_id, e.first_name, e.last_name, e.email, e.phone, e.department_id, e.position_id, e.employment_status
+                    FROM Employee e
+                    INNER JOIN Department d ON e.department_id = d.department_id
+                    WHERE d.department_name = @FilterValue';
+    END
+    ELSE IF @FilterField = 'position_id'
+    BEGIN
+        SET @SQL = 'SELECT e.employee_id, e.first_name, e.last_name, e.email, e.phone, e.department_id, e.position_id, e.employment_status
+                    FROM Employee e
+                    INNER JOIN Position p ON e.position_id = p.position_id
+                    WHERE p.position_title = @FilterValue';
+    END
+    ELSE
+    BEGIN
+        SET @SQL = 'SELECT employee_id, first_name, last_name, email, phone, department_id, position_id, employment_status
+                    FROM Employee
+                    WHERE ' + QUOTENAME(@FilterField) + ' = @FilterValue';
+    END
+
+    -- Execute the dynamic SQL query
+    EXEC sp_executesql @SQL, N'@FilterValue VARCHAR(100)', @FilterValue;
+
+    -- Print a success message
+    PRINT 'Report generated successfully based on ' + @FilterField + ' = ' + @FilterValue;
+END;
+GO
+
+-- Correct case: Filter by department_name 'IT'
+-- EXEC dbo.GenerateProfileReport 
+   -- @FilterField = 'department_id', 
+   -- @FilterValue = 'IT';
+
+-- Correct case: Filter by position_title 'Manager'
+-- EXEC dbo.GenerateProfileReport 
+   -- @FilterField = 'position_id', 
+   -- @FilterValue = 'Manager';
+
+-- Incorrect case: Invalid FilterField
+-- EXEC dbo.GenerateProfileReport 
+   -- @FilterField = 'invalid_field', 
+   -- @FilterValue = 'Value';
+
+-- Incorrect case: NULL FilterField
+-- EXEC dbo.GenerateProfileReport 
+   -- @FilterField = NULL, 
+   -- @FilterValue = 'Value';
+
+
 
 
 

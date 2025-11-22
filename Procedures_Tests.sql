@@ -366,3 +366,186 @@ FROM dbo.Employee
 WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.white@example.com',
                 'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
 GO
+
+
+--HR Administrator
+--1
+-- Correct case: Valid EmployeeID, Type, StartDate, and EndDate
+EXEC dbo.CreateContract 
+   @EmployeeID = 1, 
+   @Type = 'Full-time', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-12-31';
+
+-- Incorrect case: Non-existing EmployeeID
+EXEC dbo.CreateContract 
+   @EmployeeID = 999, 
+   @Type = 'Full-time', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-12-31';
+
+-- Incorrect case: NULL StartDate or EndDate
+EXEC dbo.CreateContract 
+   @EmployeeID = 1, 
+   @Type = 'Full-time', 
+   @StartDate = NULL, 
+   @EndDate = '2025-12-31';
+
+-- Incorrect case: Invalid EndDate (start date after end date)
+EXEC dbo.CreateContract 
+   @EmployeeID = 1, 
+   @Type = 'Full-time', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2024-12-31';
+
+-- Incorrect case: Missing Contract table
+EXEC dbo.CreateContract 
+   @EmployeeID = 1, 
+   @Type = 'Full-time', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-12-31';
+
+-- Incorrect case: Type too long
+EXEC dbo.CreateContract 
+   @EmployeeID = 1, 
+   @Type = 'ThisTypeIsWayTooLongForTheVarcharField',  -- 50+ characters
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-12-31';
+-----------------------------------------------
+--2
+-- Correct case: Valid ContractID and EndDate
+EXEC dbo.RenewContract 
+   @ContractID = 101, 
+   @EndDate = '2026-12-31';
+
+-- Incorrect case: Non-existing ContractID
+EXEC dbo.RenewContract 
+   @ContractID = 9999, 
+   @EndDate = '2026-12-31';
+
+-- Incorrect case: NULL EndDate
+EXEC dbo.RenewContract 
+   @ContractID = 101, 
+   @EndDate = NULL;
+
+-- Incorrect case: Invalid EndDate (start date after end date)
+EXEC dbo.RenewContract 
+   @ContractID = 101, 
+   @EndDate = '2024-12-31';  -- EndDate earlier than StartDate
+
+-- Incorrect case: Missing Contract table
+EXEC dbo.RenewContract 
+   @ContractID = 101, 
+   @EndDate = '2026-12-31';
+
+-- Incorrect case: Invalid EndDate data type (passing a string)
+EXEC dbo.RenewContract 
+   @ContractID = 101, 
+   @EndDate = 'InvalidDate';
+
+-- Incorrect case: Invalid ContractID data type (passing a string)
+EXEC dbo.RenewContract 
+   @ContractID = 'ABC',  -- Not an integer
+   @EndDate = '2026-12-31';
+-----------------------------------------------------------
+--3
+-- Correct case: Valid LeaveRequestID, ApproverID, and Status
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 101, 
+   @ApproverID = 1001, 
+   @Status = 'Approved';
+
+-- Incorrect case: Non-existing LeaveRequestID
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 9999, 
+   @ApproverID = 1001, 
+   @Status = 'Approved';
+
+-- Incorrect case: Status exceeds the allowed length (more than 20 characters)
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 101, 
+   @ApproverID = 1001, 
+   @Status = 'Approved with extended terms';  -- 25 characters
+
+-- Incorrect case: NULL LeaveRequestID
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = NULL, 
+   @ApproverID = 1001, 
+   @Status = 'Approved';
+
+-- Incorrect case: NULL ApproverID
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 101, 
+   @ApproverID = NULL, 
+   @Status = 'Approved';
+
+-- Incorrect case: Invalid Status data type (passing an integer)
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 101, 
+   @ApproverID = 1001, 
+   @Status = 1234;  -- Integer instead of VARCHAR
+
+-- Incorrect case: Missing LeaveRequest table
+EXEC dbo.ApproveLeaveRequest 
+   @LeaveRequestID = 101, 
+   @ApproverID = 1001, 
+   @Status = 'Approved';
+-------------------------------------------------------------
+--4
+-- Correct case: Valid EmployeeID, ManagerID, Destination, StartDate, and EndDate
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 1001, 
+   @Destination = 'New York', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-01-07';
+
+-- Incorrect case: Non-existing EmployeeID
+EXEC dbo.AssignMission 
+   @EmployeeID = 9999, 
+   @ManagerID = 1001, 
+   @Destination = 'Paris', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-01-07';
+
+-- Incorrect case: Invalid Destination data type (passing integer)
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 1001, 
+   @Destination = 12345,  -- Integer instead of VARCHAR
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-01-07';
+
+-- Incorrect case: NULL StartDate
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 1001, 
+   @Destination = 'Tokyo', 
+   @StartDate = NULL, 
+   @EndDate = '2025-01-07';
+
+-- Incorrect case: NULL EndDate
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 1001, 
+   @Destination = 'Tokyo', 
+   @StartDate = '2025-01-01', 
+   @EndDate = NULL;
+
+-- Incorrect case: Missing Mission table
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 1001, 
+   @Destination = 'Berlin', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-01-07';
+
+-- Incorrect case: Invalid ManagerID data type (passing string instead of integer)
+EXEC dbo.AssignMission 
+   @EmployeeID = 101, 
+   @ManagerID = 'ManagerX',  -- String instead of INT
+   @Destination = 'Rome', 
+   @StartDate = '2025-01-01', 
+   @EndDate = '2025-01-07';
+------------------------------------------------------
+--5

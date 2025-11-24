@@ -587,24 +587,29 @@ END;
 GO
 
 --------------------------------------------------------------
---16 in progress
+--16
 CREATE PROCEDURE dbo.AssignRotationalShift
     @EmployeeID INT, 
-    @ShiftCycle INT,  -- Now using ShiftCycleID (1, 2, 3, etc.)
+    @ShiftCycle INT,  
     @StartDate DATE, 
     @EndDate DATE, 
     @Status VARCHAR(20)
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM ShiftCycle WHERE CycleID = @ShiftCycle)
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
     BEGIN
-        RAISERROR('Invalid ShiftCycleID. Please provide a valid ID from the ShiftCycle table.', 16, 1);
+        RAISERROR('No employee', 16, 1);
         RETURN;
     END
-
-    INSERT INTO ShiftAssignment (EmployeeID, ShiftCycleID, StartDate, EndDate, Status)
-    VALUES (@EmployeeID, @ShiftCycle, @StartDate, @EndDate, @Status);
-
+    DECLARE @RequieedShiftID INT;
+    SELECT @RequieedShiftID = ShiftID FROM ShiftCycle WHERE ShiftCycleID = @ShiftCycle;
+    IF @RequieedShiftID IS NULL
+    BEGIN
+        RAISERROR('Invalid ShiftCycleID provided.', 16, 1);
+        RETURN;
+    END
+    INSERT INTO ShiftAssignment (EmployeeID, ShiftID, StartDate, EndDate, Status)
+    VALUES (@EmployeeID, @RequieedShiftID, @StartDate, @EndDate, @Status);
     SELECT 'Employee shift assigned successfully.' AS ConfirmationMessage;
 
     IF @@ROWCOUNT = 0
@@ -612,9 +617,57 @@ BEGIN
         RAISERROR('Failed to assign shift. Invalid EmployeeID or other issue.', 16, 1);
     END
 END;
+GO
+--------------------------------------------------------------
+--17
+CREATE PROCEDURE dbo.NotifyShiftExpiry
+    @EmployeeID INT, 
+    @ShiftAssignmentID INT, 
+    @ExpiryDate DATE
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM ShiftAssignment WHERE EmployeeID = @EmployeeID AND ShiftAssignmentID = @ShiftAssignmentID)
+    BEGIN
+        RAISERROR('No shift assignment found for the given EmployeeID and ShiftAssignmentID.', 16, 1);
+        RETURN;
+    END
 
+    IF DATEDIFF(DAY, GETDATE(), @ExpiryDate) <= 7
+    BEGIN
+        SELECT 'Your shift assignment is nearing expiry. Please review your schedule.' AS NotificationMessage;
+    END
+    ELSE
+    BEGIN
+        SELECT 'The shift assignment is not nearing expiry.' AS NotificationMessage;
+    END
+END;
+GO
 
+--------------------------------------------------------------
+--18 (revise later)
+CREATE PROCEDURE DefineShortTimeRules
+    @RuleName VARCHAR(50),
+    @LateMinutes INT,
+    @EarlyLeaveMinutes INT,
+    @PenaltyType VARCHAR(50)
 
+    AS
+    BEGIN
+        -- Insert the rule into the PayrollPolicy table first
+    INSERT INTO PayrollPolicy (RuleName, PenaltyType)
+    VALUES (@RuleName, @PenaltyType);
+
+    -- Get the PayrollPolicyID of the newly inserted rule
+    DECLARE @PayrollPolicyID INT = SCOPE_IDENTITY();  -- Get the last inserted PayrollPolicyID
+
+    -- Insert the lateness details into the LatenessPolicy table
+    INSERT INTO LatenessPolicy (PayrollPolicyID, LateMinutes, EarlyLeaveMinutes)
+    VALUES (@PayrollPolicyID, @LateMinutes, @EarlyLeaveMinutes);
+
+    -- Confirmation message
+    SELECT 'Short time rules defined successfully.' AS ConfirmationMessage;
+END;
+GO
 
 
 

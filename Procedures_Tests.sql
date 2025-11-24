@@ -861,6 +861,115 @@ EXEC CreateShiftType
 
 
 --16
+-- Test Case 1: Assign a valid shift cycle (Morning) to an employee
+EXEC AssignRotationalShift 
+    @EmployeeID = 1, 
+    @ShiftCycle = 1, 
+    @StartDate = '2025-11-15',
+    @EndDate = '2025-11-15', 
+    @Status = 'Active';
 
+-- Test Case 2: Assign a valid shift cycle (Evening) to an employee
+EXEC AssignRotationalShift 
+    @EmployeeID = 2, 
+    @ShiftCycle = 2, 
+    @StartDate = '2025-11-16', 
+    @EndDate = '2025-11-16', 
+    @Status = 'Active';
+
+-- Test Case 3: Assign a valid shift cycle (Night) to an employee
+EXEC AssignRotationalShift 
+    @EmployeeID = 3, 
+    @ShiftCycle = 3, 
+    @StartDate = '2025-11-17', 
+    @EndDate = '2025-11-17', 
+    @Status = 'Active';
+
+-- Test Case 1: Invalid Employee ID (Employee doesn't exist)
+EXEC AssignRotationalShift 
+    @EmployeeID = 9999, 
+    @ShiftCycle = 1, 
+    @StartDate = '2025-11-18', 
+    @EndDate = '2025-11-18', 
+    @Status = 'Active';
+
+-- Test Case 2: Invalid ShiftCycle ID (ID doesn't exist in ShiftCycle table)
+EXEC AssignRotationalShift 
+    @EmployeeID = 1, 
+    @ShiftCycle = 999, 
+    @StartDate = '2025-11-19', 
+    @EndDate = '2025-11-19', 
+    @Status = 'Active';
+
+-- Test Case 3: Missing or NULL ShiftCycle parameter
+EXEC AssignRotationalShift 
+    @EmployeeID = 2, 
+    @ShiftCycle = NULL, 
+    @StartDate = '2025-11-20', 
+    @EndDate = '2025-11-20', 
+    @Status = 'Active';
+
+-- Test Case 4: Invalid status field length (exceeds 20 characters)
+EXEC AssignRotationalShift 
+    @EmployeeID = 3, 
+    @ShiftCycle = 1, 
+    @StartDate = '2025-11-21', 
+    @EndDate = '2025-11-21', 
+    @Status = 'ThisStatusIsWayTooLongForTheField';
 
 --17
+-- Test Case 1: Notify employee when shift assignment is nearing expiry
+EXEC NotifyShiftExpiry 
+    @EmployeeID = 1, 
+    @ShiftAssignmentID = 101, 
+    @ExpiryDate = '2025-11-20';
+
+-- Test Case 2: Do not notify if the shift assignment expiry is not near (more than 7 days away)
+EXEC NotifyShiftExpiry 
+    @EmployeeID = 2, 
+    @ShiftAssignmentID = 102, 
+    @ExpiryDate = '2025-12-01';
+
+-- Test Case 1: Invalid ShiftAssignmentID or EmployeeID
+EXEC NotifyShiftExpiry 
+    @EmployeeID = 9999, 
+    @ShiftAssignmentID = 9999, 
+    @ExpiryDate = '2025-11-25';
+
+-- Test Case 2: Invalid Expiry Date format (non-date value)
+EXEC NotifyShiftExpiry 
+    @EmployeeID = 3, 
+    @ShiftAssignmentID = 103, 
+    @ExpiryDate = 'InvalidDate';
+
+
+--18
+-- Test Case 1: Define a Late Arrival rule
+EXEC DefineShortTimeRules 
+    @RuleName = 'Late Arrival', 
+    @LateMinutes = 15, 
+    @EarlyLeaveMinutes = 0, 
+    @PenaltyType = 'Deduction';
+
+-- Test Case 2: Define an Early Out rule
+EXEC DefineShortTimeRules 
+    @RuleName = 'Early Out', 
+    @LateMinutes = 0, 
+    @EarlyLeaveMinutes = 10, 
+    @PenaltyType = 'Warning';
+
+-- Test Case 1: Missing Rule Name
+EXEC DefineShortTimeRules 
+    @RuleName = NULL, 
+    @LateMinutes = 15, 
+    @EarlyLeaveMinutes = 0, 
+    @PenaltyType = 'Deduction';
+
+-- Test Case 2: Invalid Penalty Type Length
+EXEC DefineShortTimeRules 
+    @RuleName = 'Late Arrival', 
+    @LateMinutes = 15, 
+    @EarlyLeaveMinutes = 0, 
+    @PenaltyType = 'This penalty type is way too long to fit in the 50 character limit';
+
+

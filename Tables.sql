@@ -32,12 +32,12 @@ CREATE TABLE Employee
     employment_status varchar(50),
     hire_date datetime,
     is_active bit DEFAULT 1,
-    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
+    profile_completion int
 );
 
 CREATE TABLE HRAdministrator
 (
-    employee_id int,
+    employee_id int PRIMARY KEY, --added primary key
     approval_level varchar(50),
     record_access_scope varchar(100),
     document_validation_rights bit
@@ -103,7 +103,7 @@ CREATE TABLE Verification
     verification_type varchar(100),
     issuer varchar(100),
     issue_date date,
-    expiry_period date
+    expiry_period datetime
 );
 
 CREATE TABLE EmployeeVerification
@@ -287,6 +287,7 @@ CREATE TABLE Attendance
 (
     AttendanceID int PRIMARY KEY,
     employee_id int,
+    shift_id int,
     entry_time time,
     exit_time time,
     duration int,
@@ -312,17 +313,31 @@ CREATE TABLE AttendanceCorrectionRequest
     correction_type varchar(100),
     reason text,
     status varchar(50),
-    recommended_by int
+    recorded_by int
 );
 
 CREATE TABLE ShiftSchedule
 (
     ShiftID int PRIMARY KEY,
+    name varchar(50),
+    type varchar(50),
+    start_time datetime,
+    end_time datetime,
+    break_duration int,
+    shift_date datetime,
+    status varchar(50),
+    description VARCHAR(200),
+);
+CREATE TABLE ShiftAssignment
+(
+    AssignmentID int PRIMARY KEY,
     employee_id int,
+    shift_id int,
     start_date datetime,
     end_date datetime,
     status varchar(50)
 );
+
 
 CREATE TABLE Exception
 (
@@ -423,7 +438,7 @@ CREATE TABLE OvertimePolicy
 CREATE TABLE LatenessPolicy
 (
     policy_id int,
-    grace_period_minutes int,
+    grace_period_mins int,
     deduction_rate decimal(5,2)
 );
 
@@ -641,6 +656,10 @@ ALTER TABLE AttendanceCorrectionRequest
 ADD CONSTRAINT FK_AttendanceCorrectionRequest_RecommendedBy FOREIGN KEY (recommended_by) REFERENCES Employee(EmployeeID);
 ALTER TABLE ShiftSchedule
 ADD CONSTRAINT FK_ShiftSchedule_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE ShiftAssignment 
+ADD CONSTRAINT FK_ShiftAssignment_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE ShiftAssignment
+ADD CONSTRAINT FK_ShiftAssignment_ShiftSchedule FOREIGN KEY (shift_id) REFERENCES ShiftSchedule(ShiftID);
 ALTER TABLE EmployeeException
 ADD CONSTRAINT FK_EmployeeException_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE EmployeeException

@@ -723,8 +723,8 @@ CREATE PROCEDURE dbo.CreateEmployeeProfile
     @Phone VARCHAR(20)
 AS
 BEGIN
-    INSERT INTO Employee (first_name, last_name, hire_date, email, phone, department_id, position_id)
-    VALUES (@FirstName, @LastName, @HireDate, @Email, @Phone, @DepartmentID, @RoleID);
+    INSERT INTO Employee (first_name, last_name, hire_date, email, phone, department_id, role_id, national_id, date_of_birth, country_of_birth)
+    VALUES (@FirstName, @LastName, @HireDate, @Email, @Phone, @DepartmentID, @RoleID, @NationalID, @DateOfBirth, @CountryOfBirth);
 
     DECLARE @EmployeeID INT;
     SET @EmployeeID = SCOPE_IDENTITY();
@@ -781,20 +781,38 @@ CREATE PROCEDURE dbo.UpdateEmployeeProfile
 AS
 BEGIN
     -- Declare a variable to hold the dynamic SQL query
-    DECLARE @SQL NVARCHAR(MAX);
-    
-    -- Build the dynamic SQL query to update the specified field
-    SET @SQL = 'UPDATE Employee 
-                SET ' + QUOTENAME(@FieldName) + ' = @NewValue 
-                WHERE employee_id = @EmployeeID';
-    
-    -- Execute the dynamic SQL
-    EXEC sp_executesql @SQL, N'@NewValue VARCHAR(255), @EmployeeID INT', @NewValue, @EmployeeID;
-
-    -- Print a success message
+    IF @FieldName = 'email' 
+    Update Employee SET email = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'phone'
+    Update Employee SET phone = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'address'
+    Update Employee SET address = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'employment_status'
+    Update Employee SET employment_status = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'emergency_contact_phone'
+    Update Employee SET emergency_contact_phone = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'emergency_contact_name'
+    Update Employee SET emergency_contact_name = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'is_active'
+    Update Employee SET is_active = CASE WHEN @NewValue = '1' THEN 1 ELSE 0 END WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'profile_completion_percentage'
+    Update Employee SET profile_completion_percentage = CAST(@NewValue AS INT) WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'account_status'
+    Update Employee SET account_status = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'employment_progress'
+    Update Employee SET employment_progress = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'relationship'
+    Update Employee SET relationship = @NewValue WHERE EmployeeID = @EmployeeID;
+    ELSE IF @FieldName = 'biography'
+    Update Employee SET biography = @NewValue WHERE EmployeeID = @EmployeeID;
+    BEGIN
+        RAISERROR('Invalid FieldName provided.', 16, 1);
+        RETURN;
+    END
     PRINT 'Employee profile updated successfully';
-END;
-GO
+    END;
+
+
 
 -- Correct case: Update first_name for EmployeeID = 101
 -- EXEC dbo.UpdateEmployeeProfile 
@@ -931,6 +949,8 @@ GO
 -- EXEC dbo.GenerateProfileReport 
    -- @FilterField = NULL, 
    -- @FilterValue = 'Value';
+--------------------------------------------------------------
+--15
 
 
 

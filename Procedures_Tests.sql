@@ -367,46 +367,46 @@ WHERE email IN ('alice.updated@example.com','bob.johnson@example.com','carol.whi
                 'test.notify.one@example.com','test.notify.two@example.com','test.notify.three@example.com');
 GO
 
-
+------------------------------------------------------------------------------------------------------------------------
 --HR Administrator
 --1
 -- Correct case: Valid EmployeeID, Type, StartDate, and EndDate
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 1, 
    @Type = 'Full-time', 
    @StartDate = '2025-01-01', 
    @EndDate = '2025-12-31';
 
 -- Incorrect case: Non-existing EmployeeID
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 999, 
    @Type = 'Full-time', 
    @StartDate = '2025-01-01', 
    @EndDate = '2025-12-31';
 
 -- Incorrect case: NULL StartDate or EndDate
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 1, 
    @Type = 'Full-time', 
    @StartDate = NULL, 
    @EndDate = '2025-12-31';
 
 -- Incorrect case: Invalid EndDate (start date after end date)
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 1, 
    @Type = 'Full-time', 
    @StartDate = '2025-01-01', 
    @EndDate = '2024-12-31';
 
 -- Incorrect case: Missing Contract table
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 1, 
    @Type = 'Full-time', 
    @StartDate = '2025-01-01', 
    @EndDate = '2025-12-31';
 
 -- Incorrect case: Type too long
-EXEC dbo.CreateContract 
+EXEC CreateContract 
    @EmployeeID = 1, 
    @Type = 'ThisTypeIsWayTooLongForTheVarcharField',  -- 50+ characters
    @StartDate = '2025-01-01', 
@@ -414,86 +414,86 @@ EXEC dbo.CreateContract
 -----------------------------------------------
 --2
 -- Correct case: Valid ContractID and EndDate
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 101, 
    @EndDate = '2026-12-31';
 
 -- Incorrect case: Non-existing ContractID
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 9999, 
    @EndDate = '2026-12-31';
 
 -- Incorrect case: NULL EndDate
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 101, 
    @EndDate = NULL;
 
 -- Incorrect case: Invalid EndDate (start date after end date)
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 101, 
    @EndDate = '2024-12-31';  -- EndDate earlier than StartDate
 
 -- Incorrect case: Missing Contract table
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 101, 
    @EndDate = '2026-12-31';
 
 -- Incorrect case: Invalid EndDate data type (passing a string)
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 101, 
    @EndDate = 'InvalidDate';
 
 -- Incorrect case: Invalid ContractID data type (passing a string)
-EXEC dbo.RenewContract 
+EXEC RenewContract 
    @ContractID = 'ABC',  -- Not an integer
    @EndDate = '2026-12-31';
 -----------------------------------------------------------
 --3
 -- Correct case: Valid LeaveRequestID, ApproverID, and Status
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 101, 
    @ApproverID = 1001, 
    @Status = 'Approved';
 
 -- Incorrect case: Non-existing LeaveRequestID
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 9999, 
    @ApproverID = 1001, 
    @Status = 'Approved';
 
 -- Incorrect case: Status exceeds the allowed length (more than 20 characters)
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 101, 
    @ApproverID = 1001, 
    @Status = 'Approved with extended terms';  -- 25 characters
 
 -- Incorrect case: NULL LeaveRequestID
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = NULL, 
    @ApproverID = 1001, 
    @Status = 'Approved';
 
 -- Incorrect case: NULL ApproverID
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 101, 
    @ApproverID = NULL, 
    @Status = 'Approved';
 
 -- Incorrect case: Invalid Status data type (passing an integer)
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 101, 
    @ApproverID = 1001, 
    @Status = 1234;  -- Integer instead of VARCHAR
 
 -- Incorrect case: Missing LeaveRequest table
-EXEC dbo.ApproveLeaveRequest 
+EXEC ApproveLeaveRequest 
    @LeaveRequestID = 101, 
    @ApproverID = 1001, 
    @Status = 'Approved';
 -------------------------------------------------------------
 --4
 -- Correct case: Valid EmployeeID, ManagerID, Destination, StartDate, and EndDate
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 1001, 
    @Destination = 'New York', 
@@ -501,7 +501,7 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 
 -- Incorrect case: Non-existing EmployeeID
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 9999, 
    @ManagerID = 1001, 
    @Destination = 'Paris', 
@@ -509,7 +509,7 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 
 -- Incorrect case: Invalid Destination data type (passing integer)
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 1001, 
    @Destination = 12345,  -- Integer instead of VARCHAR
@@ -517,7 +517,7 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 
 -- Incorrect case: NULL StartDate
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 1001, 
    @Destination = 'Tokyo', 
@@ -525,7 +525,7 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 
 -- Incorrect case: NULL EndDate
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 1001, 
    @Destination = 'Tokyo', 
@@ -533,7 +533,7 @@ EXEC dbo.AssignMission
    @EndDate = NULL;
 
 -- Incorrect case: Missing Mission table
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 1001, 
    @Destination = 'Berlin', 
@@ -541,7 +541,7 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 
 -- Incorrect case: Invalid ManagerID data type (passing string instead of integer)
-EXEC dbo.AssignMission 
+EXEC AssignMission 
    @EmployeeID = 101, 
    @ManagerID = 'ManagerX',  -- String instead of INT
    @Destination = 'Rome', 
@@ -549,3 +549,318 @@ EXEC dbo.AssignMission
    @EndDate = '2025-01-07';
 ------------------------------------------------------
 --5 
+
+
+--6
+-- Correct case: Retrieve active contracts
+EXEC GetActiveContracts;
+
+--7
+-- Correct case: Retrieve employees under ManagerID = 1001
+EXEC GetTeamByManager 
+   @ManagerID = 1001;
+
+-- Incorrect case: Non-existing ManagerID
+EXEC GetTeamByManager 
+   @ManagerID = 9999;  -- Assuming 9999 is not a valid manager_id
+
+-- Incorrect case: NULL ManagerID
+EXEC GetTeamByManager 
+   @ManagerID = NULL;
+
+-- Incorrect case: Missing Employee table
+EXEC GetTeamByManager 
+   @ManagerID = 1001;
+
+-- Incorrect case: Missing manager_id column in Employee table
+EXEC GetTeamByManager 
+   @ManagerID = 1001;
+
+--8
+-- Correct case: Update leave policy with valid PolicyID, EligibilityRules, and NoticePeriod
+EXEC UpdateLeavePolicy 
+   @PolicyID = 101, 
+   @EligibilityRules = 'Employees must be with the company for at least 6 months to qualify for leave.', 
+   @NoticePeriod = 30;
+
+-- Incorrect case: Non-existing PolicyID
+EXEC UpdateLeavePolicy 
+   @PolicyID = 9999, 
+   @EligibilityRules = 'New rules for leave eligibility.', 
+   @NoticePeriod = 15;
+
+-- Incorrect case: NULL PolicyID
+EXEC UpdateLeavePolicy 
+   @PolicyID = NULL, 
+   @EligibilityRules = 'Updated eligibility rules.', 
+   @NoticePeriod = 20;
+
+-- Incorrect case: Invalid data type for EligibilityRules (passing an integer)
+EXEC UpdateLeavePolicy 
+   @PolicyID = 101, 
+   @EligibilityRules = 12345,  -- Integer instead of VARCHAR
+   @NoticePeriod = 20;
+
+-- Incorrect case: Missing LeavePolicy table
+EXEC UpdateLeavePolicy 
+   @PolicyID = 101, 
+   @EligibilityRules = 'Updated eligibility rules.', 
+   @NoticePeriod = 20;
+
+-- Incorrect case: Invalid data type for NoticePeriod (passing a string)
+EXEC UpdateLeavePolicy 
+   @PolicyID = 101, 
+   @EligibilityRules = 'Updated eligibility rules.', 
+   @NoticePeriod = 'Thirty';  -- String instead of INT
+
+--9
+-- Correct case: Retrieve contracts expiring within the next 30 days
+EXEC GetExpiringContracts 
+   @DaysBefore = 30;
+
+-- Incorrect case: No contracts expiring within the next 5 days
+EXEC GetExpiringContracts 
+   @DaysBefore = 5;
+
+-- Incorrect case: NULL DaysBefore
+EXEC GetExpiringContracts 
+   @DaysBefore = NULL;
+
+-- Incorrect case: Invalid data type for DaysBefore (passing string)
+EXEC GetExpiringContracts 
+   @DaysBefore = 'Thirty';  -- String instead of INT
+
+-- Incorrect case: Missing Contract table
+EXEC GetExpiringContracts 
+   @DaysBefore = 30;
+
+
+--10
+-- Correct case: Assign manager with ID 1001 as the department head for department 1
+EXEC AssignDepartmentHead 
+   @DepartmentID = 1, 
+   @ManagerID = 1001;
+
+-- Incorrect case: Non-existing DepartmentID
+EXEC AssignDepartmentHead 
+   @DepartmentID = 9999, 
+   @ManagerID = 1001;
+
+-- Incorrect case: NULL ManagerID
+EXEC AssignDepartmentHead 
+   @DepartmentID = 1, 
+   @ManagerID = NULL;
+
+-- Incorrect case: Invalid data type for ManagerID (passing a string)
+EXEC AssignDepartmentHead 
+   @DepartmentID = 1, 
+   @ManagerID = 'ManagerX';  -- String instead of INT
+
+-- Incorrect case: Missing Department table
+EXEC AssignDepartmentHead 
+   @DepartmentID = 1, 
+   @ManagerID = 1001;
+
+--11
+-- Correct case: Insert new employee profile with valid data
+EXEC CreateEmployeeProfile 
+   @FirstName = 'John', 
+   @LastName = 'Doe', 
+   @DepartmentID = 1, 
+   @RoleID = 2, 
+   @HireDate = '2025-01-01', 
+   @Email = 'john.doe@example.com', 
+   @Phone = '123-456-7890';
+
+-- Incorrect case: Invalid DepartmentID or RoleID
+EXEC CreateEmployeeProfile 
+   @FirstName = 'Jane', 
+   @LastName = 'Smith', 
+   @DepartmentID = 9999,  -- Non-existing DepartmentID
+   @RoleID = 9999,        -- Non-existing RoleID
+   @HireDate = '2025-01-01', 
+   @Email = 'jane.smith@example.com', 
+   @Phone = '987-654-3210';
+
+-- Incorrect case: NULL FirstName or LastName
+EXEC CreateEmployeeProfile 
+   @FirstName = NULL, 
+   @LastName = NULL, 
+   @DepartmentID = 1, 
+   @RoleID = 2, 
+   @HireDate = '2025-01-01', 
+   @Email = 'jane.smith@example.com', 
+   @Phone = '987-654-3210';
+
+-- Incorrect case: Invalid email and phone number format
+EXEC CreateEmployeeProfile 
+   @FirstName = 'Mark', 
+   @LastName = 'Taylor', 
+   @DepartmentID = 1, 
+   @RoleID = 2, 
+   @HireDate = '2025-01-01', 
+   @Email = 'invalidemail',  -- Invalid email format
+   @Phone = '12345';         -- Invalid phone format
+
+--12
+-- Correct case: Update first_name for EmployeeID = 101
+EXEC UpdateEmployeeProfile 
+   @EmployeeID = 101, 
+   @FieldName = 'first_name', 
+   @NewValue = 'John';
+
+-- Incorrect case: Non-existing EmployeeID
+EXEC UpdateEmployeeProfile 
+   @EmployeeID = 9999, 
+   @FieldName = 'first_name', 
+   @NewValue = 'Jane';
+
+-- Incorrect case: Invalid FieldName
+EXEC UpdateEmployeeProfile 
+   @EmployeeID = 101, 
+   @FieldName = 'invalid_field', 
+   @NewValue = 'NewValue';
+
+-- Incorrect case: NULL FieldName
+EXEC UpdateEmployeeProfile 
+   @EmployeeID = 101, 
+   @FieldName = NULL, 
+   @NewValue = 'NewValue';
+
+-- Incorrect case: Invalid data type for NewValue (passing integer instead of string)
+EXEC UpdateEmployeeProfile 
+   @EmployeeID = 101, 
+   @FieldName = 'first_name', 
+   @NewValue = 12345;  -- Invalid, should be a string
+
+--13
+-- Test Case 1: Update Profile Completeness to 75%
+EXEC dbo.SetProfileCompleteness 
+    @EmployeeID = 1, 
+    @CompletenessPercentage = 75;
+
+-- Test Case 2: Update Profile Completeness to 100%
+EXEC dbo.SetProfileCompleteness 
+    @EmployeeID = 2, 
+    @CompletenessPercentage = 100;
+
+-- Test Case 1: Invalid Completeness Percentage (Negative Value)
+EXEC dbo.SetProfileCompleteness 
+    @EmployeeID = 3, 
+    @CompletenessPercentage = -5;
+
+-- Test Case 2: Invalid Completeness Percentage (Greater than 100)
+EXEC dbo.SetProfileCompleteness 
+    @EmployeeID = 4,   
+    @CompletenessPercentage = 105;
+
+-- Test Case 3: Invalid Employee ID (Non-Existent Employee)
+EXEC dbo.SetProfileCompleteness 
+    @EmployeeID = 9999, 
+    @CompletenessPercentage = 80;
+
+
+--14
+-- Test Case 1: Filter by Department (Valid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'department', 
+    @FilterValue = 'Sales';
+
+-- Test Case 2: Filter by Position (Valid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'position', 
+    @FilterValue = 'Manager';
+
+-- Test Case 3: Filter by Employment Status (Valid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'employment_status', 
+    @FilterValue = 'Active';
+
+-- Test Case 4: Filter by Hire Date (Valid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'hire_date', 
+    @FilterValue = '2022-01-01';
+
+-- Test Case 5: Invalid Filter Field (Invalid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'gender', 
+    @FilterValue = 'Male';
+
+-- Test Case 6: No Matching Records (Invalid Case)
+EXEC GenerateProfileReport 
+    @FilterField = 'department', 
+    @FilterValue = 'NonExistentDept';
+
+
+--15
+-- Test Case 1: Create a Normal Shift Type
+EXEC CreateShiftType   
+    @ShiftID = 1, 
+    @Name = 'Morning Shift', 
+    @Type = 'Normal', 
+    @Start_Time = '09:00:00', 
+    @End_Time = '17:00:00', 
+    @Break_Duration = 60, 
+    @Shift_Date = '2025-11-15', 
+    @Status = 'Active';
+
+-- Test Case 2: Create a Split Shift Type (e.g., 9 AM to 12 PM, and 1 PM to 5 PM)
+EXEC CreateShiftType 
+    @ShiftID = 2, 
+    @Name = 'Split Shift', 
+    @Type = 'Split', 
+    @Start_Time = '09:00:00', 
+    @End_Time = '17:00:00', 
+    @Break_Duration = 120, 
+    @Shift_Date = '2025-11-15', 
+    @Status = 'Active';
+
+-- Test Case 3: Create an Overnight Shift Type (e.g., 8 PM to 4 AM)
+EXEC CreateShiftType 
+    @ShiftID = 3, 
+    @Name = 'Overnight Shift', 
+    @Type = 'Overnight', 
+    @Start_Time = '20:00:00', 
+    @End_Time = '04:00:00', 
+    @Break_Duration = 30, 
+    @Shift_Date = '2025-11-15', 
+    @Status = 'Active';
+
+-- Test Case 4: Create a Mission Shift Type
+EXEC CreateShiftType 
+    @ShiftID = 4,
+    @Name = 'Mission Shift',
+    @Type = 'Mission', 
+    @Start_Time = '10:00:00', 
+    @End_Time = '18:00:00', 
+    @Break_Duration = 45, 
+    @Shift_Date = '2025-11-15', 
+    @Status = 'Active';
+
+-- Test Case 1: Missing required field (e.g., missing @Shift_Date)
+EXEC CreateShiftType 
+    @ShiftID = 6, 
+    @Name = 'Morning Shift', 
+    @Type = 'Normal', 
+    @Start_Time = '08:00:00', 
+    @End_Time = '16:00:00', 
+    @Break_Duration = 60, 
+    @Shift_Date = NULL, 
+    @Status = 'Active';
+
+-- Test Case 2: Invalid time format (e.g., '25:00:00' is invalid)
+EXEC CreateShiftType 
+    @ShiftID = 7, 
+    @Name = 'Invalid Shift', 
+    @Type = 'Normal', 
+    @Start_Time = '25:00:00', 
+    @End_Time = '26:00:00', 
+    @Break_Duration = 60, 
+    @Shift_Date = '2025-11-15', 
+    @Status = 'Active';
+
+
+--16
+
+
+--17

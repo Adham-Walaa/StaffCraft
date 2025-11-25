@@ -32,12 +32,19 @@ CREATE TABLE Employee
     employment_status varchar(50),
     hire_date datetime,
     is_active bit DEFAULT 1,
-    profile_completion int
+    department_id int,
+    position_id int,
+    paygrade_id int,
+    taxform_id int,
+    manager_id int,
+    salary_type_id int,
+    contract_id int,
+    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
 );
 
 CREATE TABLE HRAdministrator
 (
-    employee_id int PRIMARY KEY, --added primary key
+    employee_id int,
     approval_level varchar(50),
     record_access_scope varchar(100),
     document_validation_rights bit
@@ -103,7 +110,7 @@ CREATE TABLE Verification
     verification_type varchar(100),
     issuer varchar(100),
     issue_date date,
-    expiry_period datetime
+    expiry_period date
 );
 
 CREATE TABLE EmployeeVerification
@@ -287,7 +294,6 @@ CREATE TABLE Attendance
 (
     AttendanceID int PRIMARY KEY,
     employee_id int,
-    shift_id int,
     entry_time time,
     exit_time time,
     duration int,
@@ -313,31 +319,17 @@ CREATE TABLE AttendanceCorrectionRequest
     correction_type varchar(100),
     reason text,
     status varchar(50),
-    recorded_by int
+    recommended_by int
 );
 
 CREATE TABLE ShiftSchedule
 (
     ShiftID int PRIMARY KEY,
-    name varchar(50),
-    type varchar(50),
-    start_time datetime,
-    end_time datetime,
-    break_duration int,
-    shift_date datetime,
-    status varchar(50),
-    description VARCHAR(200),
-);
-CREATE TABLE ShiftAssignment
-(
-    AssignmentID int PRIMARY KEY,
     employee_id int,
-    shift_id int,
     start_date datetime,
     end_date datetime,
     status varchar(50)
 );
-
 
 CREATE TABLE Exception
 (
@@ -438,7 +430,7 @@ CREATE TABLE OvertimePolicy
 CREATE TABLE LatenessPolicy
 (
     policy_id int,
-    grace_period_mins int,
+    grace_period_minutes int,
     deduction_rate decimal(5,2)
 );
 
@@ -656,10 +648,6 @@ ALTER TABLE AttendanceCorrectionRequest
 ADD CONSTRAINT FK_AttendanceCorrectionRequest_RecommendedBy FOREIGN KEY (recommended_by) REFERENCES Employee(EmployeeID);
 ALTER TABLE ShiftSchedule
 ADD CONSTRAINT FK_ShiftSchedule_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
-ALTER TABLE ShiftAssignment 
-ADD CONSTRAINT FK_ShiftAssignment_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
-ALTER TABLE ShiftAssignment
-ADD CONSTRAINT FK_ShiftAssignment_ShiftSchedule FOREIGN KEY (shift_id) REFERENCES ShiftSchedule(ShiftID);
 ALTER TABLE EmployeeException
 ADD CONSTRAINT FK_EmployeeException_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE EmployeeException
@@ -724,62 +712,17 @@ ALTER TABLE ManagerNotes
 ADD CONSTRAINT FK_ManagerNotes_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE ManagerNotes
 ADD CONSTRAINT FK_ManagerNotes_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
-
-
-USE MILESTONE2;
-GO
-
-IF OBJECT_ID('sp_DropAllTables', 'P') IS NOT NULL
-    DROP PROCEDURE sp_DropAllTables;
-GO
-
-CREATE PROCEDURE sp_DropAllTables
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @sql NVARCHAR(MAX);
-
-    -- Disable FK checks
-    EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
-
-    -- Drop all foreign key constraints
-    DECLARE fk_cursor CURSOR FOR
-        SELECT 'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + '].[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT [' + name + '];'
-        FROM sys.foreign_keys;
-
-    OPEN fk_cursor;
-    FETCH NEXT FROM fk_cursor INTO @sql;
-
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        EXEC sp_executesql @sql;
-        FETCH NEXT FROM fk_cursor INTO @sql;
-    END
-    CLOSE fk_cursor;
-    DEALLOCATE fk_cursor;
-
-    -- Drop all tables dynamically
-    DECLARE table_cursor CURSOR FOR
-        SELECT '[' + SCHEMA_NAME(schema_id) + '].[' + name + ']' 
-        FROM sys.tables;
-
-    OPEN table_cursor;
-    FETCH NEXT FROM table_cursor INTO @sql;
-
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        SET @sql = 'DROP TABLE ' + @sql;
-        EXEC sp_executesql @sql;
-        FETCH NEXT FROM table_cursor INTO @sql;
-    END
-    CLOSE table_cursor;
-    DEALLOCATE table_cursor;
-
-    PRINT 'All tables dropped successfully!';
-END
-GO
-
--- Execute the procedure
-EXEC sp_DropAllTables;
-GO
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Position FOREIGN KEY (position_id) REFERENCES Position(PositionID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_PayGrade FOREIGN KEY (paygrade_id) REFERENCES PayGrade(PayGradeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_TaxForm FOREIGN KEY (taxform_id) REFERENCES TaxForm(TaxFormID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Department FOREIGN KEY (department_id) REFERENCES Department(DepartmentID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Manager FOREIGN KEY (manager_id) REFERENCES Employee(EmployeeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_SalaryType FOREIGN KEY (salary_type_id) REFERENCES SalaryType(SalaryTypeID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Contract FOREIGN KEY (contract_id) REFERENCES Contract(ContractID);

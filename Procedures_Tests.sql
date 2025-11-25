@@ -973,3 +973,46 @@ EXEC DefineShortTimeRules
     @PenaltyType = 'This penalty type is way too long to fit in the 50 character limit';
 
 
+-------------------------------------------------------------------------------
+--19
+
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------
+--20
+-- Test Case 1: Normal valid grace period
+EXEC SetGracePeriod @Minutes = 10;
+
+-- Test Case 2: Zero minutes (allowed)
+EXEC SetGracePeriod @Minutes = 0;
+
+-- Test Case 3: Negative grace period should fail
+EXEC SetGracePeriod @Minutes = -5;
+
+-- Test Case 4: LatenessPolicy table empty ? should fail
+-- (Run only if LatenessPolicy has no rows)
+EXEC SetGracePeriod @Minutes = 5;
+--------------------------------------------------------------------------------
+--21
+-- Test Case 1: Normal threshold rule
+EXEC DefinePenaltyThreshold @LateMinutes = 15, @DeductionType = 'Half-day deduction';
+
+-- Test Case 2: Small threshold
+EXEC DefinePenaltyThreshold @LateMinutes = 5, @DeductionType = 'Minor deduction';
+
+-- Test Case 3: Negative minutes (invalid)
+EXEC DefinePenaltyThreshold @LateMinutes = -10, @DeductionType = 'Half-day deduction';
+
+-- Test Case 4: No LatenessPolicy rows exist
+-- (Only works if the table is empty)
+EXEC DefinePenaltyThreshold @LateMinutes = 20, @DeductionType = 'Full deduction';
+-----------------------------------------------------------------------------------
+--22
+
+
+

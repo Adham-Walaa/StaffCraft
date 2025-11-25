@@ -675,16 +675,61 @@ END;
 GO
 --------------------------------------------------------------
 --20
+CREATE PROCEDURE SetGracePeriod
+    @Minutes INT
+AS
+BEGIN
+    IF @Minutes < 0
+    BEGIN
+        RAISERROR('Grace period cannot be negative.', 16, 1);
+        RETURN;
 
+    END
+    IF NOT EXISTS (SELECT 1 FROM LatenessPolicy)
+    BEGIN
+        RAISERROR('No lateness policy found to update.', 16, 1);
+        RETURN;
+    END
 
+    UPDATE LatenessPolicy
+    SET grace_period_mins = @Minutes;
 
+    SELECT 'Grace period set successfully.' AS ConfirmationMessage;
+END;
+GO
 --------------------------------------------------------------
 --21
+CREATE PROCEDURE DefinePenaltyThreshold
+    @LateMinutes INT,
+    @DeductionType VARCHAR(50)
+AS
+BEGIN
+    IF @LateMinutes < 0
+    BEGIN
+        RAISERROR('Late minutes cannot be negative.', 16, 1);
+        RETURN;
+    END
 
+    IF NOT EXISTS (SELECT 1 FROM LatenessPolicy)
+    BEGIN
+        RAISERROR('No lateness policy found to update.', 16, 1);
+        RETURN;
+    END
 
+    INSERT INTO PayrollPolicy (type, description)
+    VALUES ('Penalty Threshold', @DeductionType);
 
+    DECLARE @PolicyID INT = SCOPE_IDENTITY();
+
+    INSERT INTO LatenessPolicy (policy_id, grace_period_mins, deduction_rate)
+    VALUES (@PolicyID, NULL, @LateMinutes);
+
+    SELECT 'Penalty threshold defined successfully.' AS ConfirmationMessage;
+END;
+GO
 --------------------------------------------------------------
 --22
+
 
 
 

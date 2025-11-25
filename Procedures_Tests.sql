@@ -1,362 +1,326 @@
 -- Test script for Procedures.sql
+
+--DROP TABLES PROCEDURE
 USE MILESTONE2;
 GO
 
-/***** Setup required reference data *****/
--- Departments
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (1, 'Human Resources', 'HR and People Ops');
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (2, 'Finance', 'Payroll and Finance');
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (3, 'Engineering', 'Engineering Dept');
+IF OBJECT_ID('sp_DropAllTables', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DropAllTables;
+GO
+
+CREATE PROCEDURE sp_DropAllTables
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @sql NVARCHAR(MAX);
+
+    -- Disable FK checks
+    EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
+
+    -- Drop all foreign key constraints
+    DECLARE fk_cursor CURSOR FOR
+        SELECT 'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + '].[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT [' + name + '];'
+        FROM sys.foreign_keys;
+
+    OPEN fk_cursor;
+    FETCH NEXT FROM fk_cursor INTO @sql;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        EXEC sp_executesql @sql;
+        FETCH NEXT FROM fk_cursor INTO @sql;
+    END
+    CLOSE fk_cursor;
+    DEALLOCATE fk_cursor;
+
+    -- Drop all tables dynamically
+    DECLARE table_cursor CURSOR FOR
+        SELECT '[' + SCHEMA_NAME(schema_id) + '].[' + name + ']' 
+        FROM sys.tables;
+
+    OPEN table_cursor;
+    FETCH NEXT FROM table_cursor INTO @sql;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @sql = 'DROP TABLE ' + @sql;
+        EXEC sp_executesql @sql;
+        FETCH NEXT FROM table_cursor INTO @sql;
+    END
+    CLOSE table_cursor;
+    DEALLOCATE table_cursor;
+
+    PRINT 'All tables dropped successfully!';
+END
+GO
+
+-- Execute the procedure
+EXEC sp_DropAllTables;
+GO
+
+------------------------
+--System Admin Tests
+------------------------
+
+-- Currency required by SalaryType
+IF NOT EXISTS (SELECT 1 FROM dbo.Currency WHERE CurrencyCode = 'USD')
+INSERT INTO dbo.Currency (CurrencyCode, currency_name, exchange_rate, created_date, last_updated)
+VALUES ('USD', 'US Dollar', 1.0000, GETDATE(), GETDATE());
 
 -- Positions
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
-    INSERT INTO dbo.Position (PositionID, position_title, responsibilities) VALUES (1, 'Developer', 'Develops software');
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
-    INSERT INTO dbo.Position (PositionID, position_title, responsibilities) VALUES (2, 'Manager', 'Manages team');
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (2, 'Manager', 'Manages team', 'ACTIVE');
 
--- Roles
+-- Departments
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (1, 'Human Resources', 'HR and People Ops', NULL);
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (2, 'Finance', 'Payroll and Finance', NULL);
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (3, 'Engineering', 'Engineering Dept', NULL);
+
+-- Roles (used by AssignRole tests)
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 1)
-    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (1, 'Payroll Officer', 'Handles payroll');
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (1, 'System Administrator', 'Full system privileges');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 2)
-    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Manager', 'Manager role');
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Payroll Officer', 'Handles payroll');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 3)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (3, 'HR Administrator', 'HR administration and records');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 4)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (4, 'Line Manager', 'Shift management');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 5)
+    INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (5, 'Employee', 'Regular employee role');
 GO
+
+-- PayGrade
+IF NOT EXISTS (SELECT 1 FROM dbo.PayGrade WHERE PayGradeID = 1)
+    INSERT INTO dbo.PayGrade (PayGradeID, grade_name, min_salary, max_salary) VALUES (1, 'P1', 30000.00, 50000.00);
+
+-- TaxForm
+IF NOT EXISTS (SELECT 1 FROM dbo.TaxForm WHERE TaxFormID = 1)
+    INSERT INTO dbo.TaxForm (TaxFormID, jurisdiction, validity_period, form_content) VALUES (1, 'Default', DATEADD(YEAR, 1, GETDATE()), 'Standard tax form');
+
+-- SalaryType (references Currency)
+IF NOT EXISTS (SELECT 1 FROM dbo.SalaryType WHERE SalaryTypeID = 1)
+    INSERT INTO dbo.SalaryType (SalaryTypeID, type, payment_frequency, currency) VALUES (1, 'Monthly', 'Monthly', 'USD');
+
+-- Contract
+IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = 1)
+    INSERT INTO dbo.Contract (ContractID, type, start_date, end_date, current_state) VALUES (1, 'Standard', '2025-01-01', '9999-12-31', 'ACTIVE');
+GO
+
+-- Use high, reserved test IDs to avoid duplicate PK collisions
+USE MILESTONE2;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 1)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (1, 'Alice', 'Smith', 'alice.smith@example.com', '2025-01-15', 1, 1, 1, '555-0100', '123 Main St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 2)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (2, 'Bob', 'Johnson', 'bob.johnson@example.com', '2024-10-01', 1, 2, 2, '555-0200', '456 Elm St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 3)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (3, 'John', 'Doe', 'john.doe@example.com', '2025-02-20', 1, 3, 1, '555-0300', '789 Oak St');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 4)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (4, 'Jane', 'Roe', 'jane.roe@example.com', '2023-12-05', 1, 2, 2, '555-0400', '321 Pine St');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 5)
+INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, national_id, country_of_birth, hire_date, is_active, department_id, position_id, phone, address)
+VALUES (5, 'Jaaffar', 'Yakub', 'jaaffar.garry@example.com', '6742069', 'Agartha' , '2007-05-03', 1, 1, 5, '01227425396', 'Land Down Under');
+GO
+
 
 /***** 1) Test ViewEmployeeInfo *****/
-PRINT '--- ViewEmployeeInfo tests ---';
-DECLARE @Id1 INT, @Id2 INT;
--- View Alice
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
--- View Bob
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id2;
--- Non-existent ID (should return 0 rows)
-EXEC dbo.ViewEmployeeInfo @EmployeeID = 9999;
-GO
-
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 1; --input
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 2; --input
 
 /***** 2) Test AddEmployee *****/
-PRINT '--- AddEmployee tests ---';
-DECLARE @Id1 INT, @Id2 INT, @Id3 INT;
+DECLARE @Id3 INT, @Id4 INT;
+GO
 
 -- Successful inserts
 EXEC dbo.AddEmployee
-    @FullName = 'Alice Smith',
-    @Email = 'alice.smith@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-01-15',
-    @NewEmployeeID = @Id1 OUTPUT;
-SELECT 'Created' AS Action, @Id1 AS EmployeeID;
+    @FullName = 'Taher Khalaf',  --input
+    @Email = 'taher.skhalaf@gmail.com',  --input
+    @DepartmentID = 3,  --input
+    @PositionID = 2,  --input
+    @HireDate = '2025-01-01',  --input
+    @NewEmployeeID = @Id3 OUTPUT; --input
+SELECT 'Created' AS Action, @Id3 AS EmployeeID;
 
 EXEC dbo.AddEmployee
-    @FullName = 'Bob Johnson',
-    @Email = 'bob.johnson@example.com',
-    @DepartmentID = 2,
-    @PositionID = 2,
-    @HireDate = '2024-10-01',
-    @NewEmployeeID = @Id2 OUTPUT;
-SELECT 'Created' AS Action, @Id2 AS EmployeeID;
-
--- Attempt duplicate email (expected to error) - commented out; uncomment to verify error path
--- EXEC dbo.AddEmployee @FullName='Alice Dup', @Email='alice.smith@example.com', @DepartmentID=1, @PositionID=1, @HireDate='2025-02-01', @NewEmployeeID=@Id3 OUTPUT;
-
+    @FullName = 'Bob Johnson',  --input
+    @Email = 'bob.johnson@example.com',  --input
+    @DepartmentID = 2,  --input
+    @PositionID = 2,  --input
+    @HireDate = '2024-10-01',  --input
+    @NewEmployeeID = @Id4 OUTPUT;  --input
+SELECT 'Created' AS Action, @Id4 AS EmployeeID;
 GO
-
 
 /***** 3) Test UpdateEmployeeInfo *****/
-PRINT '--- UpdateEmployeeInfo tests ---';
--- Update Alice's contact details
-EXEC dbo.UpdateEmployeeInfo
-    @EmployeeID = @Id1,
-    @Email = 'alice.updated@example.com',
-    @Phone = '555-0101',
-    @Address = '123 Main St';
--- Verify update
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @Id1;
+-- Use a local test variable (avoid colliding with later @Id1/@Id2)
 
--- Attempt update with existing email of another employee (should RAISERROR) - commented
--- EXEC dbo.UpdateEmployeeInfo @EmployeeID = @Id1, @Email = 'bob.johnson@example.com';
+EXEC dbo.UpdateEmployeeInfo
+    @EmployeeID = 3,  --input
+    @Email      = 'new.updated@example.com',  --input
+    @Phone      = '555-0101',  --input
+    @Address    = '123 Main St';  --input
+
+-- Verify update
+EXEC dbo.ViewEmployeeInfo @EmployeeID = 3;
 GO
+
+--PROC TUPLE CHECK:
+Select *
+From Employee
 
 /***** 4) Test AssignRole *****/
-PRINT '--- AssignRole tests ---';
 -- Assign Payroll Officer to Alice
-EXEC dbo.AssignRole @EmployeeID = @Id1, @RoleID = 1;
+EXEC dbo.AssignRole @EmployeeID = 1, @RoleID = 1;  --input
 -- Assign Manager role to Bob
-EXEC dbo.AssignRole @EmployeeID = @Id2, @RoleID = 2;
+EXEC dbo.AssignRole @EmployeeID = 2, @RoleID = 2;  --input
 -- Re-assign same role (should return already assigned message)
-EXEC dbo.AssignRole @EmployeeID = @Id1, @RoleID = 1;
+EXEC dbo.AssignRole @EmployeeID = 1, @RoleID = 1;  --input
 
+EXEC dbo.AssignRole @EmployeeID = 3, @RoleID = 3;  --input
+EXEC dbo.AssignRole @EmployeeID = 4, @RoleID = 4;  --input
 -- Show EmployeeRole contents for test employees
-SELECT * FROM dbo.EmployeeRole WHERE employee_id IN (@Id1, @Id2);
+SELECT * FROM dbo.EmployeeRole er INNER JOIN Role r on er.role_id = r.RoleID WHERE employee_id IN (1, 2, 3, 4);
 GO
 
-/***** 5) Test GetDepartmentEmployeeStats *****/
-PRINT '--- GetDepartmentEmployeeStats tests ---';
--- Add a third employee to Department 1 to exercise counts
-DECLARE @Id4 INT;
-EXEC dbo.AddEmployee
-    @FullName = 'Carol White',
-    @Email = 'carol.white@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-03-10',
-    @NewEmployeeID = @Id4 OUTPUT;
-
--- Run stats
-EXEC dbo.GetDepartmentEmployeeStats;
+/***** SubmitLeaveRequest tests *****/
+USE MILESTONE2;
 GO
 
-/***** 6) Test ReassignManager *****/
-PRINT '--- ReassignManager tests ---';
+PRINT '--- SubmitLeaveRequest tests ---';
 
--- Create two employees in the same batch and capture their IDs
-DECLARE @MgrID INT, @EmpID INT;
+-- Ensure leave types exist
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 1)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (1, 'Vacation', 'Paid vacation');
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 2)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (2, 'Sick', 'Sick leave');
 
-EXEC dbo.AddEmployee
-    @FullName = 'Manager Test',
-    @Email = 'manager.test@example.com',
-    @DepartmentID = 1,
-    @PositionID = 2,
-    @HireDate = '2025-01-01',
-    @NewEmployeeID = @MgrID OUTPUT;
-
-EXEC dbo.AddEmployee
-    @FullName = 'Employee Test',
-    @Email = 'employee.test@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-02-01',
-    @NewEmployeeID = @EmpID OUTPUT;
-
-SELECT 'Created' AS Action, @MgrID AS ManagerID, @EmpID AS EmployeeID;
-
--- Reassign manager (normal case)
-EXEC dbo.ReassignManager @EmployeeID = @EmpID, @NewManagerID = @MgrID;
-
--- Verify assignment
-PRINT 'Verify manager assignment for employee:';
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @EmpID;
-
--- Attempt to create a cycle: assign employee as manager of their manager (should error)
-PRINT 'Attempt cycle creation (expected error):';
--- The following call is expected to RAISERROR due to cycle prevention
-EXEC dbo.ReassignManager @EmployeeID = @MgrID, @NewManagerID = @EmpID;
-
-GO
-
-/***** 7) Test ReassignHierarchy *****/
-PRINT '--- ReassignHierarchy tests ---';
-
-DECLARE @MgrA INT, @MgrB INT, @EmpA INT, @Dept3 INT;
-
--- ensure a third department exists for testing
-IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
-    INSERT INTO dbo.Department (DepartmentID, department_name, purpose) VALUES (3, 'Engineering', 'Engineering Dept');
-
-SET @Dept3 = 3;
-
--- create two managers and one employee
-EXEC dbo.AddEmployee
-    @FullName = 'Manager A',
-    @Email = 'manager.a@example.com',
-    @DepartmentID = 1,
-    @PositionID = 2,
-    @HireDate = '2025-01-01',
-    @NewEmployeeID = @MgrA OUTPUT;
-
-EXEC dbo.AddEmployee
-    @FullName = 'Manager B',
-    @Email = 'manager.b@example.com',
-    @DepartmentID = 2,
-    @PositionID = 2,
-    @HireDate = '2025-01-02',
-    @NewEmployeeID = @MgrB OUTPUT;
-
-EXEC dbo.AddEmployee
-    @FullName = 'Employee A',
-    @Email = 'employee.a@example.com',
-    @DepartmentID = 1,
-    @PositionID = 1,
-    @HireDate = '2025-02-01',
-    @NewEmployeeID = @EmpA OUTPUT;
-
-SELECT 'Created' AS Action, @MgrA AS ManagerAID, @MgrB AS ManagerBID, @EmpA AS EmployeeAID;
-
--- 1) Change department only
-PRINT 'Test: change department only';
-EXEC dbo.ReassignHierarchy @EmployeeID = @EmpA, @NewDepartmentID = @Dept3, @NewManagerID = NULL;
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @EmpA;
-
--- 2) Change manager only
-PRINT 'Test: change manager only';
-EXEC dbo.ReassignHierarchy @EmployeeID = @EmpA, @NewDepartmentID = NULL, @NewManagerID = @MgrB;
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @EmpA;
-
--- 3) Change both department and manager
-PRINT 'Test: change both department and manager';
-EXEC dbo.ReassignHierarchy @EmployeeID = @EmpA, @NewDepartmentID = 2, @NewManagerID = @MgrB;
-EXEC dbo.ViewEmployeeInfo @EmployeeID = @EmpA;
-
--- 4) Attempt invalid manager (cycle) - create a subordinate relationship and attempt reverse
-PRINT 'Test: cycle prevention (expected error)';
--- make EmpA manager of MgrA (to create subordinate)
-EXEC dbo.ReassignManager @EmployeeID = @MgrA, @NewManagerID = @EmpA;
-
--- Now attempt to set EmpA's manager to MgrA which would create a cycle (expected RAISERROR)
--- This call should fail due to cycle detection
-EXEC dbo.ReassignHierarchy @EmployeeID = @EmpA, @NewManagerID = @MgrA;
-
-GO
-
-/***** 8) Test NotifyStructureChange *****/
-PRINT '--- NotifyStructureChange tests ---';
-
-DECLARE @Nt1 INT, @Nt2 INT, @Nt3 INT;
-
-/* create three test employees if they do not exist; reuse existing ones if present */
-IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.one@example.com')
+-- Ensure a test employee exists (create via AddEmployee if required)
+DECLARE @TestEmp INT;
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'submit.leave.test@example.com')
 BEGIN
+    DECLARE @NewEmpID INT;
     EXEC dbo.AddEmployee
-        @FullName = 'Test Notify One',
-        @Email = 'test.notify.one@example.com',
+        @FullName = 'Submit Leave',
+        @Email = 'submit.leave.test@example.com',
         @DepartmentID = 1,
         @PositionID = 1,
         @HireDate = '2025-01-01',
-        @NewEmployeeID = @Nt1 OUTPUT;
+        @NewEmployeeID = @NewEmpID OUTPUT;
+    SET @TestEmp = @NewEmpID;
 END
 ELSE
-BEGIN
-    SELECT @Nt1 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.one@example.com';
-END
+    SELECT @TestEmp = EmployeeID FROM dbo.Employee WHERE email = 'submit.leave.test@example.com';
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.two@example.com')
-BEGIN
-    EXEC dbo.AddEmployee
-        @FullName = 'Test Notify Two',
-        @Email = 'test.notify.two@example.com',
-        @DepartmentID = 1,
-        @PositionID = 1,
-        @HireDate = '2025-01-02',
-        @NewEmployeeID = @Nt2 OUTPUT;
-END
-ELSE
-BEGIN
-    SELECT @Nt2 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.two@example.com';
-END
+PRINT 'Test employee id:' + CONVERT(VARCHAR(12), @TestEmp);
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'test.notify.three@example.com')
-BEGIN
-    EXEC dbo.AddEmployee
-        @FullName = 'Test Notify Three',
-        @Email = 'test.notify.three@example.com',
-        @DepartmentID = 1,
-        @PositionID = 1,
-        @HireDate = '2025-01-03',
-        @NewEmployeeID = @Nt3 OUTPUT;
-END
-ELSE
-BEGIN
-    SELECT @Nt3 = EmployeeID FROM dbo.Employee WHERE email = 'test.notify.three@example.com';
-END
+-- 1) Normal submission (should succeed)
+PRINT 'Test 1: normal submission (Vacation 2025-09-01 to 2025-09-05)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-09-01',
+        @EndDate   = '2025-09-05',
+        @Reason    = 'Family vacation';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH
 
-PRINT 'Test employees for notifications:';
-SELECT @Nt1 AS Nt1, @Nt2 AS Nt2, @Nt3 AS Nt3;
+-- 2) Empty reason (should succeed, normalized to NULL)
+PRINT 'Test 2: empty reason (should succeed)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-10-01',
+        @EndDate   = '2025-10-03',
+        @Reason    = '';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH
 
--- Build comma-separated list
-DECLARE @AffectedList VARCHAR(500) = CONVERT(VARCHAR(12), @Nt1) + ',' + CONVERT(VARCHAR(12), @Nt2) + ',' + CONVERT(VARCHAR(12), @Nt3);
-DECLARE @NotifyMsg VARCHAR(200) = 'Test structure change notification: please review changes.';
+-- 3) Invalid dates (StartDate > EndDate) - expect error
+PRINT 'Test 3: invalid dates (StartDate > EndDate) - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-12-10',
+        @EndDate   = '2025-12-01',
+        @Reason    = 'Invalid date test';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
 
--- Normal execution
-PRINT 'Executing NotifyStructureChange:';
-EXEC dbo.NotifyStructureChange @AffectedEmployees = @AffectedList, @Message = @NotifyMsg;
+-- 4) Non-existing employee - expect error
+PRINT 'Test 4: non-existing employee - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = 999999,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-11-01',
+        @EndDate   = '2025-11-03',
+        @Reason    = 'Should fail - no employee';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
 
--- Verify entries created
-PRINT 'Verify Notification and EmployeeNotification entries:';
-SELECT TOP (5) NotificationID, mesage_content, timestamp, urgency, read_status, notification_type
-FROM dbo.Notification
-WHERE notification_type = 'StructureChange'
-ORDER BY NotificationID DESC;
+-- 5) Non-existing leave type - expect error
+PRINT 'Test 5: non-existing leave type - expect error';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 9999,
+        @StartDate = '2025-11-10',
+        @EndDate   = '2025-11-12',
+        @Reason    = 'Should fail - invalid leave type';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
 
-SELECT en.employee_id, en.notification_id, en.delivery_status, n.mesage_content
-FROM dbo.EmployeeNotification en
-JOIN dbo.Notification n ON n.NotificationID = en.notification_id
-WHERE en.employee_id IN (@Nt1, @Nt2, @Nt3)
-ORDER BY en.employee_id;
-GO
+-- 6) Verify inserted LeaveRequest rows for the test employee and show durations
+PRINT 'Verifying created LeaveRequest rows for the test employee:';
+SELECT TOP (10)
+    RequestID,
+    employee_id,
+    leave_id,
+    justification,
+    duration,
+    approval_timing,
+    status,
+    CAST(RequestID AS VARCHAR(20)) + ' / ' + CAST(duration AS VARCHAR(10)) AS DebugInfo
+FROM dbo.LeaveRequest
+WHERE employee_id = @TestEmp
+ORDER BY RequestID DESC;
 
-/***** 9) Test ViewOrgHierarchy *****/
-PRINT '--- ViewOrgHierarchy tests ---';
-
--- Ensure a simple hierarchy: make @Nt1 the manager of @Nt2 and @Nt3
-BEGIN
-    -- If ReassignManager raises an error it will abort the batch; use conditional to avoid duplicate attempts
-    IF EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt2) AND NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt2 AND manager_id = @Nt1)
-        EXEC dbo.ReassignManager @EmployeeID = @Nt2, @NewManagerID = @Nt1;
-
-    IF EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt3) AND NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Nt3 AND manager_id = @Nt1)
-        EXEC dbo.ReassignManager @EmployeeID = @Nt3, @NewManagerID = @Nt1;
-END
-
-PRINT 'Full organization hierarchy (sample):';
-EXEC dbo.ViewOrgHierarchy @AffectedEmployees = NULL, @Message = NULL;
-
-PRINT 'Filtered hierarchy for test employees:';
-EXEC dbo.ViewOrgHierarchy @AffectedEmployees = @AffectedList, @Message = NULL;
-GO
-
-/***** 10) Test AssignShiftToEmployee *****/
-PRINT '--- AssignShiftToEmployee tests ---';
-
--- Validate required tables exist
-IF OBJECT_ID('dbo.ShiftSchedule', 'U') IS NULL
-BEGIN
-    PRINT 'Skipping AssignShiftToEmployee tests: dbo.ShiftSchedule table is missing.';
-END
-ELSE
-BEGIN
-    -- find a ShiftID to reference
-    DECLARE @TestShiftID INT;
-    IF OBJECT_ID('dbo.Shift', 'U') IS NULL
-    BEGIN
-        PRINT 'dbo.Shift table is missing; attempt to insert into ShiftSchedule would fail due to FK. Skipping shift assignment tests.';
-    END
-    ELSE
-    BEGIN
-        SELECT TOP (1) @TestShiftID = ShiftID FROM dbo.Shift;
-
-        IF @TestShiftID IS NULL
-        BEGIN
-            PRINT 'dbo.Shift exists but contains no rows. Insert a Shift row first to run AssignShiftToEmployee tests.';
-        END
-        ELSE
-        BEGIN
-            -- prepare a non-overlapping term for @Nt2
-            DECLARE @SStart DATE = '2025-08-01';
-            DECLARE @SEnd   DATE = '2025-08-31';
-
-            PRINT 'Assigning a shift (normal case):';
-            EXEC dbo.AssignShiftToEmployee @EmployeeID = @Nt2, @ShiftID = @TestShiftID, @StartDate = @SStart, @EndDate = @SEnd;
-
-            -- show recent ShiftSchedule rows for the employee
-            SELECT ShiftID AS ShiftSchedulePK, employee_id, shift_id AS ShiftRef, start_date, end_date, status
-            FROM dbo.ShiftSchedule
-            WHERE employee_id = @Nt2
-            ORDER BY ShiftID DESC;
-
-            -- attempt overlapping assignment (should be rejected)
-            PRINT 'Attempt overlapping assignment (expected to fail):';
-            BEGIN TRY
-                EXEC dbo.AssignShiftToEmployee @EmployeeID = @Nt2, @ShiftID = @TestShiftID, @StartDate = '2025-08-15', @EndDate = '2025-09-15';
-            END TRY
-            BEGIN CATCH
-                PRINT 'Overlapping assignment prevented (caught RAISERROR).';
-            END CATCH
-        END
-    END
-END
 GO
 
 /***** Cleanup / verification queries (optional) *****/

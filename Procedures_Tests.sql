@@ -55,7 +55,7 @@ BEGIN
 END
 GO
 
--- Execute the procedure
+-- Execute the drop-all (keeps script deterministic for repeated runs)
 EXEC sp_DropAllTables;
 GO
 
@@ -67,33 +67,45 @@ GO
 IF NOT EXISTS (SELECT 1 FROM dbo.Currency WHERE CurrencyCode = 'USD')
 INSERT INTO dbo.Currency (CurrencyCode, currency_name, exchange_rate, created_date, last_updated)
 VALUES ('USD', 'US Dollar', 1.0000, GETDATE(), GETDATE());
+GO
 
 -- Positions
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
     INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
+GO
 IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
     INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status) VALUES (2, 'Manager', 'Manages team', 'ACTIVE');
+GO
 
 -- Departments
 IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
     INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (1, 'Human Resources', 'HR and People Ops', NULL);
+GO
+
 IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
     INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (2, 'Finance', 'Payroll and Finance', NULL);
+GO
+
 IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 3)
     INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id) VALUES (3, 'Engineering', 'Engineering Dept', NULL);
+GO
 
 -- Roles (used by AssignRole tests)
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 1)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (1, 'System Administrator', 'Full system privileges');
+GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 2)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (2, 'Payroll Officer', 'Handles payroll');
+GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 3)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (3, 'HR Administrator', 'HR administration and records');
+GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 4)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (4, 'Line Manager', 'Shift management');
+GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 5)
     INSERT INTO dbo.Role (RoleID, role_name, purpose) VALUES (5, 'Employee', 'Regular employee role');
@@ -102,14 +114,17 @@ GO
 -- PayGrade
 IF NOT EXISTS (SELECT 1 FROM dbo.PayGrade WHERE PayGradeID = 1)
     INSERT INTO dbo.PayGrade (PayGradeID, grade_name, min_salary, max_salary) VALUES (1, 'P1', 30000.00, 50000.00);
+GO
 
 -- TaxForm
 IF NOT EXISTS (SELECT 1 FROM dbo.TaxForm WHERE TaxFormID = 1)
     INSERT INTO dbo.TaxForm (TaxFormID, jurisdiction, validity_period, form_content) VALUES (1, 'Default', DATEADD(YEAR, 1, GETDATE()), 'Standard tax form');
+GO
 
 -- SalaryType (references Currency)
 IF NOT EXISTS (SELECT 1 FROM dbo.SalaryType WHERE SalaryTypeID = 1)
     INSERT INTO dbo.SalaryType (SalaryTypeID, type, payment_frequency, currency) VALUES (1, 'Monthly', 'Monthly', 'USD');
+GO
 
 -- Contract
 IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = 1)
@@ -139,7 +154,7 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 5)
 INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, national_id, country_of_birth, hire_date, is_active, department_id, position_id, phone, address)
-VALUES (5, 'Jaaffar', 'Yakub', 'jaaffar.garry@example.com', '6742069', 'Agartha' , '2007-05-03', 1, 1, 5, '01227425396', 'Land Down Under');
+VALUES (5, 'Jaaffar', 'Yakub', 'jaaffar.garry@example.com', '6742069', 'Agartha' , '2007-05-03', 1, 1, 1, '01227425396', 'Land Down Under');
 GO
 
 
@@ -149,22 +164,69 @@ EXEC dbo.ViewEmployeeInfo @EmployeeID = 2; --input
 
 /***** 2) Test AddEmployee *****/
 
--- Successful inserts
-EXEC dbo.AddEmployee
-    @FullName = 'Taher Khalaf',  --input
-    @Email = 'taher.skhalaf@gmail.com',  --input
-    @DepartmentID = 3,  --input
-    @PositionID = 2,  --input
-    @HireDate = '2025-01-01',  --input
-    @NewEmployeeID = 6; --input
+-- Successful inserts: updated to new signature. Use OUTPUT variable to capture new ID.
+DECLARE @NewEmpID INT;
 
 EXEC dbo.AddEmployee
-    @FullName = 'Jaquavius Johnson',  --input
-    @Email = 'JAQ.johnson@example.com',  --input
-    @DepartmentID = 2,  --input
-    @PositionID = 2,  --input
-    @HireDate = '2024-10-01',  --input
-    @NewEmployeeID =7;  --input
+    @FullName = 'Taher Khalaf',
+    @NationalID = 'NID-0001',
+    @DateOfBirth = '1990-05-10',
+    @CountryOfBirth = 'Egypt',
+    @Phone = '555-1000',
+    @Email = 'taher.skhalaf@gmail.com',
+    @Address = '1 Example St',
+    @EmergencyContactName = 'Ali Khalaf',
+    @EmergencyContactPhone = '555-9999',
+    @Relationship = 'Brother',
+    @Biography = 'Experienced developer',
+    @EmploymentProgress = 'Onboarding',
+    @AccountStatus = 'Active',
+    @EmploymentStatus = 'Full-time',
+    @HireDate = '2025-01-01',
+    @IsActive = 1,
+    @ProfileCompletion = 80,
+    @DepartmentID = 3,
+    @PositionID = 2,
+    @ManagerID = 1,
+    @ContractID = 1,
+    @TaxFormID = 1,
+    @SalaryTypeID = 1,
+    @PayGrade = 'P1',
+    @NewEmployeeID = @NewEmpID OUTPUT;
+
+SELECT @NewEmpID AS NewEmployeeID;
+
+-- Second insert
+DECLARE @NewEmpID INT;
+
+EXEC dbo.AddEmployee
+    @FullName = 'Jaquavius Johnson',
+    @NationalID = 'NID-0002',
+    @DateOfBirth = '1992-08-12',
+    @CountryOfBirth = 'CountryY',
+    @Phone = '555-2000',
+    @Email = 'JAQ.johnson@example.com',
+    @Address = '2 Example Ave',
+    @EmergencyContactName = 'Jane Doe',
+    @EmergencyContactPhone = '555-8888',
+    @Relationship = 'Friend',
+    @Biography = 'Contractor',
+    @EmploymentProgress = 'Active',
+    @AccountStatus = 'Active',
+    @EmploymentStatus = 'Contractor',
+    @HireDate = '2024-10-01',
+    @IsActive = 1,
+    @ProfileCompletion = 60,
+    @DepartmentID = 2,
+    @PositionID = 2,
+    @ManagerID = NULL,
+    @ContractID = 1,
+    @TaxFormID = 1,
+    @SalaryTypeID = 1,
+    @PayGrade = 'P1',
+    @NewEmployeeID = @NewEmpID OUTPUT;
+
+SELECT @NewEmpID AS NewEmployeeID;
 GO
 
 /***** 3) Test UpdateEmployeeInfo *****/
@@ -412,8 +474,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 12)
     INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
     VALUES (12, 'Junior', 'Staff', 'junior.staff@example.com', GETDATE(), 1, 2, 1, 11);
 
--- Run the procedure (parameters accepted but not used)
-EXEC dbo.ViewOrgHierarchy @AffectedEmployees = NULL, @Message = NULL;
+-- Run the procedure (no parameters)
+EXEC dbo.ViewOrgHierarchy;
 GO
 
 
@@ -452,4 +514,623 @@ END TRY
 BEGIN CATCH
     SELECT 'Expected error' AS Test, ERROR_MESSAGE() AS Msg;
 END CATCH;
+GO
+
+-- TEST SCRIPT FOR PROCEDURES 11-15
+
+USE MILESTONE2;
+GO
+
+-- Ensure test employees exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 100)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (100, 'Test', 'Employee100', 'test.emp100@example.com', GETDATE(), 1, 1, 1);
+    GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 101)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (101, 'Test', 'Employee101', 'test.emp101@example.com', GETDATE(), 1, 1, 1);
+    GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 102)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (102, 'Test', 'Employee102', 'test.emp102@example.com', GETDATE(), 1, 2, 1);
+    GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 103)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (103, 'Test', 'Employee103', 'test.emp103@example.com', GETDATE(), 1, 3, 1);
+GO
+
+PRINT 'Test data setup complete.';
+GO
+
+/***** 11) Test UpdateShiftStatus *****/
+
+-- Clean up test shifts
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 2001 AND 2010;
+GO
+
+-- Setup: Create test shifts with different statuses
+INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+VALUES 
+    (2001, 100, '2025-06-01', '2025-06-07', 'ASSIGNED'),
+    (2002, 100, '2025-06-08', '2025-06-14', 'Submitted'),
+    (2003, 100, '2025-06-15', '2025-06-21', 'Approved'),
+    (2004, 100, '2025-06-22', '2025-06-28', 'Rejected'),
+    (2005, 100, '2025-06-29', '2025-07-05', 'Expired');
+GO
+
+-- Test 1: Valid status update (ASSIGNED -> Submitted)
+PRINT 'Test 1: Valid status update (ASSIGNED -> Submitted)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2001, @Status = 'Submitted';
+    SELECT status FROM dbo.ShiftSchedule WHERE ShiftID = 2001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid status update (Submitted -> Approved)
+PRINT 'Test 2: Valid status update (Submitted -> Approved)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2002, @Status = 'Approved';
+    SELECT status FROM dbo.ShiftSchedule WHERE ShiftID = 2002;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Invalid status value
+PRINT 'Test 3: Invalid status value (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2001, @Status = 'InvalidStatus';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Non-existent shift ID
+PRINT 'Test 4: Non-existent shift ID (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 9999, @Status = 'Approved';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 5: Direct Approved to Rejected transition (should fail)
+PRINT 'Test 5: Direct Approved to Rejected transition (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2003, @Status = 'Rejected';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 6: Direct Rejected to Approved transition (should fail)
+PRINT 'Test 6: Direct Rejected to Approved transition (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2004, @Status = 'Approved';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 7: Modifying expired shift (should fail)
+PRINT 'Test 7: Modifying expired shift (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2005, @Status = 'Approved';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 8: Valid status update (ASSIGNED -> Cancelled)
+PRINT 'Test 8: Valid status update (ASSIGNED -> Cancelled)';
+-- Create a fresh shift for this test
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID = 2006;
+INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+VALUES (2006, 100, '2025-07-06', '2025-07-12', 'ASSIGNED');
+GO
+
+BEGIN TRY
+    EXEC dbo.UpdateShiftStatus @ShiftAssignmentID = 2006, @Status = 'Cancelled';
+    SELECT status FROM dbo.ShiftSchedule WHERE ShiftID = 2006;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+/***** 12) Test AssignShiftToDepartment *****/
+
+-- Clean up test shifts for department assignment
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 3001 AND 3100;
+GO
+
+-- Test 1: Valid department shift assignment
+PRINT 'Test 1: Valid department shift assignment';
+BEGIN TRY
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 1, 
+        @ShiftID = 3001, 
+        @StartDate = '2025-08-01', 
+        @EndDate = '2025-08-07';
+    
+    -- Verify assignments
+    SELECT COUNT(*) AS AssignedShifts, MIN(ShiftID) AS FirstShiftID, MAX(ShiftID) AS LastShiftID
+    FROM dbo.ShiftSchedule
+    WHERE ShiftID >= 3001 AND employee_id IN (SELECT EmployeeID FROM dbo.Employee WHERE department_id = 1);
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Invalid department ID
+PRINT 'Test 2: Invalid department ID (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 9999, 
+        @ShiftID = 3050, 
+        @StartDate = '2025-08-08', 
+        @EndDate = '2025-08-14';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Duplicate ShiftID
+PRINT 'Test 3: Duplicate ShiftID (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 1, 
+        @ShiftID = 3001, -- Already used
+        @StartDate = '2025-08-15', 
+        @EndDate = '2025-08-21';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Invalid date range (start after end)
+PRINT 'Test 4: Invalid date range (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 1, 
+        @ShiftID = 3060, 
+        @StartDate = '2025-08-30', 
+        @EndDate = '2025-08-23';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 5: Department with no active employees
+PRINT 'Test 5: Department with no active employees';
+-- Create a department with no employees
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 99)
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose)
+    VALUES (99, 'Empty Dept', 'Test department with no employees');
+GO
+
+BEGIN TRY
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 99, 
+        @ShiftID = 3070, 
+        @StartDate = '2025-08-22', 
+        @EndDate = '2025-08-28';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 6: Overlapping shifts (some employees may be skipped)
+PRINT 'Test 6: Overlapping shifts handling';
+BEGIN TRY
+    -- First assignment
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 2, 
+        @ShiftID = 3080, 
+        @StartDate = '2025-09-01', 
+        @EndDate = '2025-09-07';
+    
+    -- Attempt overlapping assignment
+    EXEC dbo.AssignShiftToDepartment 
+        @DepartmentID = 2, 
+        @ShiftID = 3090, 
+        @StartDate = '2025-09-05', 
+        @EndDate = '2025-09-11';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 12 complete.';
+PRINT '';
+GO
+
+/***** 13) Test AssignCustomShift *****/
+
+-- Clean up test custom shifts
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 4001 AND 4020 OR shift_name LIKE 'CustomTest%';
+GO
+
+-- Test 1: Valid custom shift assignment (regular day shift)
+PRINT 'Test 1: Valid custom shift assignment (day shift)';
+BEGIN TRY
+    DECLARE @NewShiftID1 INT;
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 101,
+        @ShiftName = 'CustomTest-DayShift',
+        @ShiftType = 'Regular',
+        @StartTime = '09:00:00',
+        @EndTime = '17:00:00',
+        @StartDate = '2025-10-01',
+        @EndDate = '2025-10-31';
+    
+    -- Verify
+    SELECT ShiftID, employee_id, shift_name, shift_type, start_time, end_time, start_date, end_date
+    FROM dbo.ShiftSchedule
+    WHERE shift_name = 'CustomTest-DayShift';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid custom shift assignment (night shift / overnight)
+PRINT 'Test 2: Valid custom shift assignment (overnight shift)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 102,
+        @ShiftName = 'CustomTest-NightShift',
+        @ShiftType = 'Overnight',
+        @StartTime = '22:00:00',
+        @EndTime = '06:00:00',
+        @StartDate = '2025-11-01',
+        @EndDate = '2025-11-30';
+    
+    -- Verify
+    SELECT ShiftID, employee_id, shift_name, shift_type, start_time, end_time
+    FROM dbo.ShiftSchedule
+    WHERE shift_name = 'CustomTest-NightShift';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Non-existent employee
+PRINT 'Test 3: Non-existent employee (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 9999,
+        @ShiftName = 'CustomTest-Invalid',
+        @ShiftType = 'Regular',
+        @StartTime = '09:00:00',
+        @EndTime = '17:00:00',
+        @StartDate = '2025-11-01',
+        @EndDate = '2025-11-30';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Missing required field (shift name)
+PRINT 'Test 4: Missing shift name (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 101,
+        @ShiftName = '',
+        @ShiftType = 'Regular',
+        @StartTime = '09:00:00',
+        @EndTime = '17:00:00',
+        @StartDate = '2025-12-01',
+        @EndDate = '2025-12-31';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 5: Invalid date range
+PRINT 'Test 5: Invalid date range (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 101,
+        @ShiftName = 'CustomTest-InvalidDates',
+        @ShiftType = 'Regular',
+        @StartTime = '09:00:00',
+        @EndTime = '17:00:00',
+        @StartDate = '2025-12-31',
+        @EndDate = '2025-12-01';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 6: Overlapping custom shift
+PRINT 'Test 6: Overlapping custom shift (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 101,
+        @ShiftName = 'CustomTest-Overlap',
+        @ShiftType = 'Regular',
+        @StartTime = '10:00:00',
+        @EndTime = '18:00:00',
+        @StartDate = '2025-10-15', -- Overlaps with first test shift
+        @EndDate = '2025-10-20';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 7: Split shift timing
+PRINT 'Test 7: Split shift timing (valid)';
+BEGIN TRY
+    EXEC dbo.AssignCustomShift 
+        @EmployeeID = 103,
+        @ShiftName = 'CustomTest-SplitStyle',
+        @ShiftType = 'Split',
+        @StartTime = '08:00:00',
+        @EndTime = '12:00:00', -- First part of split shift
+        @StartDate = '2025-12-01',
+        @EndDate = '2025-12-31';
+    
+    SELECT ShiftID, shift_name, start_time, end_time
+    FROM dbo.ShiftSchedule
+    WHERE shift_name = 'CustomTest-SplitStyle';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 13 complete.';
+PRINT '';
+GO
+
+/***** 14) Test ConfigureSplitShift *****/
+GO
+
+-- Clean up test split shift configurations
+DELETE FROM dbo.SplitShiftConfiguration WHERE shift_name LIKE 'TestSplit%';
+GO
+
+-- Test 1: Valid split shift configuration (8-12, 4-8 pattern)
+PRINT 'Test 1: Valid split shift configuration (8-12, 4-8)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-Morning-Evening',
+        @FirstSlotStart = '08:00:00',
+        @FirstSlotEnd = '12:00:00',
+        @SecondSlotStart = '16:00:00',
+        @SecondSlotEnd = '20:00:00';
+    
+    -- Verify
+    SELECT * FROM dbo.SplitShiftConfiguration WHERE shift_name = 'TestSplit-Morning-Evening';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid split shift configuration (different pattern)
+PRINT 'Test 2: Valid split shift configuration (6-10, 2-6)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-EarlyLate',
+        @FirstSlotStart = '06:00:00',
+        @FirstSlotEnd = '10:00:00',
+        @SecondSlotStart = '14:00:00',
+        @SecondSlotEnd = '18:00:00';
+    
+    -- Verify
+    SELECT shift_name, total_hours, break_duration_minutes 
+    FROM dbo.SplitShiftConfiguration 
+    WHERE shift_name = 'TestSplit-EarlyLate';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Missing shift name
+PRINT 'Test 3: Missing shift name (should fail)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = '',
+        @FirstSlotStart = '08:00:00',
+        @FirstSlotEnd = '12:00:00',
+        @SecondSlotStart = '16:00:00',
+        @SecondSlotEnd = '20:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Invalid first slot (start >= end)
+PRINT 'Test 4: Invalid first slot timing (should fail)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-Invalid1',
+        @FirstSlotStart = '12:00:00',
+        @FirstSlotEnd = '08:00:00',
+        @SecondSlotStart = '16:00:00',
+        @SecondSlotEnd = '20:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 5: Invalid second slot (start >= end)
+PRINT 'Test 5: Invalid second slot timing (should fail)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-Invalid2',
+        @FirstSlotStart = '08:00:00',
+        @FirstSlotEnd = '12:00:00',
+        @SecondSlotStart = '20:00:00',
+        @SecondSlotEnd = '16:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 6: Second slot starts before first slot ends
+PRINT 'Test 6: Second slot overlaps first slot (should fail)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-Overlap',
+        @FirstSlotStart = '08:00:00',
+        @FirstSlotEnd = '12:00:00',
+        @SecondSlotStart = '11:00:00',
+        @SecondSlotEnd = '15:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 7: Duplicate shift name
+PRINT 'Test 7: Duplicate shift name (should fail)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-Morning-Evening', -- Already exists from Test 1
+        @FirstSlotStart = '09:00:00',
+        @FirstSlotEnd = '13:00:00',
+        @SecondSlotStart = '17:00:00',
+        @SecondSlotEnd = '21:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 8: Very short break between slots
+PRINT 'Test 8: Short break between slots (valid)';
+BEGIN TRY
+    EXEC dbo.ConfigureSplitShift 
+        @ShiftName = 'TestSplit-ShortBreak',
+        @FirstSlotStart = '08:00:00',
+        @FirstSlotEnd = '12:00:00',
+        @SecondSlotStart = '12:30:00',
+        @SecondSlotEnd = '16:30:00';
+    
+    SELECT shift_name, break_duration_minutes 
+    FROM dbo.SplitShiftConfiguration 
+    WHERE shift_name = 'TestSplit-ShortBreak';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 14 complete.';
+PRINT '';
+GO
+
+/***** 15) Test EnableFirstInLastOut *****/
+
+-- Test 1: Enable First In/Last Out
+PRINT 'Test 1: Enable First In/Last Out';
+BEGIN TRY
+    EXEC dbo.EnableFirstInLastOut @Enable = 1;
+    
+    -- Verify
+    SELECT ConfigKey, ConfigValue, LastModified
+    FROM dbo.SystemConfiguration
+    WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Disable First In/Last Out
+PRINT 'Test 2: Disable First In/Last Out';
+BEGIN TRY
+    EXEC dbo.EnableFirstInLastOut @Enable = 0;
+    
+    -- Verify
+    SELECT ConfigKey, ConfigValue, LastModified
+    FROM dbo.SystemConfiguration
+    WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Re-enable (update existing configuration)
+PRINT 'Test 3: Re-enable (update existing configuration)';
+BEGIN TRY
+    EXEC dbo.EnableFirstInLastOut @Enable = 1;
+    
+    -- Verify
+    SELECT ConfigKey, ConfigValue, ModifiedBy, LastModified
+    FROM dbo.SystemConfiguration
+    WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: NULL parameter (should fail)
+PRINT 'Test 4: NULL parameter (should fail)';
+BEGIN TRY
+    EXEC dbo.EnableFirstInLastOut @Enable = NULL;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 5: Multiple toggles (stress test)
+PRINT 'Test 5: Multiple toggles';
+BEGIN TRY
+    EXEC dbo.EnableFirstInLastOut @Enable = 0;
+    EXEC dbo.EnableFirstInLastOut @Enable = 1;
+    EXEC dbo.EnableFirstInLastOut @Enable = 0;
+    EXEC dbo.EnableFirstInLastOut @Enable = 1;
+    
+    -- Final state
+    SELECT ConfigKey, ConfigValue, LastModified
+    FROM dbo.SystemConfiguration
+    WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+--Additional tests for Procs 12, 13, 14, 15
+-- Show final state of key tables
+PRINT 'Final state verification:';
+SELECT 'ShiftSchedule' AS TableName, COUNT(*) AS RecordCount FROM dbo.ShiftSchedule WHERE ShiftID >= 2001
+UNION ALL
+SELECT 'SplitShiftConfiguration', COUNT(*) FROM dbo.SplitShiftConfiguration WHERE shift_name LIKE 'TestSplit%'
+UNION ALL
+SELECT 'SystemConfiguration', COUNT(*) FROM dbo.SystemConfiguration WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
 GO

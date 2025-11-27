@@ -1412,3 +1412,755 @@ BEGIN
     END CATCH
 END
 GO
+
+--16
+-- Procedure: TagAttendanceSource
+-- Input: @AttendanceID int, @SourceType varchar(20), @DeviceID int, @Latitude decimal(10,7), @Longitude decimal(10,7)
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.TagAttendanceSource
+(
+    @AttendanceID INT,
+    @SourceType   VARCHAR(20),
+    @DeviceID     INT = NULL,
+    @Latitude     DECIMAL(10,7) = NULL,
+    @Longitude    DECIMAL(10,7) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate attendance record exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Attendance WHERE AttendanceID = @AttendanceID)
+    BEGIN
+        RAISERROR('Attendance record with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate source type
+    IF @SourceType NOT IN ('Device', 'Terminal', 'GPS', 'Mobile', 'Web', 'Biometric', 'Manual')
+    BEGIN
+        RAISERROR('Invalid source type. Valid types are: Device, Terminal, GPS, Mobile, Web, Biometric, Manual.', 16, 1);
+        RETURN;
+    END
+       
+    -- Validate device exists if DeviceID provided
+    IF @DeviceID IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Device WHERE DeviceID = @DeviceID)
+    BEGIN
+        RAISERROR('Device with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate GPS coordinates if provided (basic range check)
+    IF @Latitude IS NOT NULL AND (@Latitude < -90 OR @Latitude > 90)
+    BEGIN
+        RAISERROR('Latitude must be between -90 and 90 degrees.', 16, 1);
+        RETURN;
+    END
+
+    IF @Longitude IS NOT NULL AND (@Longitude < -180 OR @Longitude > 180)
+    BEGIN
+        RAISERROR('Longitude must be between -180 and 180 degrees.', 16, 1);
+        RETURN;
+    END
+
+    -- For GPS source type, coordinates are required
+    IF @SourceType = 'GPS' AND (@Latitude IS NULL OR @Longitude IS NULL)
+    BEGIN
+        RAISERROR('GPS coordinates (Latitude and Longitude) are required for GPS source type.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if attendance source already exists for this attendance record
+    IF EXISTS (SELECT 1 FROM dbo.AttendanceSource WHERE attendance_id = @AttendanceID)
+    BEGIN
+        RAISERROR('Attendance source already tagged for this record. Use update instead of create.', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        INSERT INTO dbo.AttendanceSource
+        (
+            attendance_id,
+            device_id,
+            source_type,
+            latitude,
+            longitude,
+            recorded_at
+        )
+        VALUES
+        (
+            @AttendanceID,
+            @DeviceID,
+            @SourceType,
+            @Latitude,
+            @Longitude,
+            GETDATE()
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Attendance source tagged' AS Message,
+               @AttendanceID AS AttendanceID,
+               @SourceType AS SourceType,
+               @DeviceID AS DeviceID,
+               @Latitude AS Latitude,
+               @Longitude AS Longitude;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('TagAttendanceSource failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--17
+-- Procedure: SyncOfflineAttendance
+-- Input: @DeviceID int, @EmployeeID int, @ClockTime datetime, @Type varchar(10)
+-- Output: Confirmation message
+-- Note: This requires a table to store offline attendance records before they're synced
+
+-- Create OfflineAttendanceQueue table if it doesn't exist
+IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID('dbo.OfflineAttendanceQueue') AND type = 'U')
+BEGIN
+    CREATE TABLE dbo.OfflineAttendanceQueue
+    (
+        QueueID INT PRIMARY KEY IDENTITY(1,1),
+        device_id INT NOT NULL,
+        employee_id INT NOT NULL,
+        clock_time DATETIME NOT NULL,
+        clock_type VARCHAR(10) NOT NULL, -- 'IN' or 'OUT'
+        sync_status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, SYNCED, FAILED
+        created_at DATETIME DEFAULT GETDATE(),
+        synced_at DATETIME NULL,
+        attendance_id INT NULL, -- Reference to created Attendance record after sync
+        error_message VARCHAR(500) NULL,
+        CONSTRAINT FK_OfflineQueue_Device FOREIGN KEY (device_id) REFERENCES Device(DeviceID),
+        CONSTRAINT FK_OfflineQueue_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID)
+    );
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SyncOfflineAttendance
+(
+    @DeviceID   INT,
+    @EmployeeID INT,
+    @ClockTime  DATETIME,
+    @Type       VARCHAR(10)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate device exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Device WHERE DeviceID = @DeviceID)
+    BEGIN
+        RAISERROR('Device with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate clock type
+    IF @Type NOT IN ('IN', 'OUT', 'BREAK_START', 'BREAK_END')
+    BEGIN
+        RAISERROR('Invalid clock type. Valid types are: IN, OUT, BREAK_START, BREAK_END.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate clock time is not in the future
+    IF @ClockTime > GETDATE()
+    BEGIN
+        RAISERROR('Clock time cannot be in the future.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate clock time is not too old (e.g., more than 30 days)
+    IF DATEDIFF(DAY, @ClockTime, GETDATE()) > 30
+    BEGIN
+        RAISERROR('Clock time is too old (more than 30 days). Please contact HR for manual correction.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @NewAttendanceID INT;
+    DECLARE @QueueID INT;
+    DECLARE @SyncStatus VARCHAR(20) = 'SYNCED';
+    DECLARE @ErrorMsg VARCHAR(500) = NULL;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Try to create attendance record
+        -- Generate new AttendanceID
+        SELECT @NewAttendanceID = ISNULL(MAX(AttendanceID), 0) + 1
+        FROM dbo.Attendance WITH (TABLOCKX, HOLDLOCK);
+
+        -- Determine entry/exit time based on type
+        DECLARE @EntryTime TIME = NULL;
+        DECLARE @ExitTime TIME = NULL;
+
+        IF @Type IN ('IN', 'BREAK_END')
+            SET @EntryTime = CAST(@ClockTime AS TIME);
+        ELSE IF @Type IN ('OUT', 'BREAK_START')
+            SET @ExitTime = CAST(@ClockTime AS TIME);
+
+        -- Insert into Attendance table
+        INSERT INTO dbo.Attendance
+        (
+            AttendanceID,
+            employee_id,
+            entry_time,
+            exit_time,
+            duration,
+            login_method,
+            logout_method,
+            exception_id
+        )
+        VALUES
+        (
+            @NewAttendanceID,
+            @EmployeeID,
+            @EntryTime,
+            @ExitTime,
+            NULL, -- Duration calculated later by another process
+            CASE WHEN @Type IN ('IN', 'BREAK_END') THEN 'Device_' + CAST(@DeviceID AS VARCHAR(10)) ELSE NULL END,
+            CASE WHEN @Type IN ('OUT', 'BREAK_START') THEN 'Device_' + CAST(@DeviceID AS VARCHAR(10)) ELSE NULL END,
+            NULL
+        );
+
+        -- Tag the attendance source
+        INSERT INTO dbo.AttendanceSource
+        (
+            attendance_id,
+            device_id,
+            source_type,
+            latitude,
+            longitude,
+            recorded_at
+        )
+        SELECT
+            @NewAttendanceID,
+            @DeviceID,
+            'Device',
+            d.latitude,
+            d.longitude,
+            @ClockTime
+        FROM dbo.Device d
+        WHERE d.DeviceID = @DeviceID;
+
+        -- Record in offline queue for tracking
+        INSERT INTO dbo.OfflineAttendanceQueue
+        (
+            device_id,
+            employee_id,
+            clock_time,
+            clock_type,
+            sync_status,
+            synced_at,
+            attendance_id,
+            error_message
+        )
+        VALUES
+        (
+            @DeviceID,
+            @EmployeeID,
+            @ClockTime,
+            @Type,
+            @SyncStatus,
+            GETDATE(),
+            @NewAttendanceID,
+            NULL
+        );
+
+        SET @QueueID = SCOPE_IDENTITY();
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Offline attendance synced successfully' AS Message,
+               @QueueID AS QueueID,
+               @NewAttendanceID AS AttendanceID,
+               @EmployeeID AS EmployeeID,
+               @DeviceID AS DeviceID,
+               @ClockTime AS ClockTime,
+               @Type AS ClockType;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        SET @ErrorMsg = ERROR_MESSAGE();
+        SET @SyncStatus = 'FAILED';
+
+        -- Log failed sync attempt
+        BEGIN TRY
+            INSERT INTO dbo.OfflineAttendanceQueue
+            (device_id, employee_id, clock_time, clock_type, sync_status, error_message)
+            VALUES
+            (@DeviceID, @EmployeeID, @ClockTime, @Type, @SyncStatus, @ErrorMsg);
+        END TRY
+        BEGIN CATCH
+            -- If even logging fails, just report the original error
+        END CATCH
+
+        RAISERROR('SyncOfflineAttendance failed: %s', 16, 1, @ErrorMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--18
+-- Procedure: LogAttendanceEdit
+-- Input: @AttendanceID int, @EditedBy int, @OldValue datetime, @NewValue datetime, @EditTimestamp datetime
+-- Output: Confirmation message
+-- Note: The signature in requirements mentions @HolidayID but description says attendance edits
+--       I'm implementing for attendance edits as per the description
+
+CREATE OR ALTER PROCEDURE dbo.LogAttendanceEdit
+(
+    @AttendanceID   INT,
+    @EditedBy       INT,
+    @OldValue       DATETIME,
+    @NewValue       DATETIME,
+    @EditTimestamp  DATETIME = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Use current time if not provided
+    IF @EditTimestamp IS NULL
+        SET @EditTimestamp = GETDATE();
+
+    -- Validate attendance record exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Attendance WHERE AttendanceID = @AttendanceID)
+    BEGIN
+        RAISERROR('Attendance record with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate editor exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EditedBy)
+    BEGIN
+        RAISERROR('Editor employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate that old and new values are different
+    IF @OldValue = @NewValue
+    BEGIN
+        RAISERROR('Old value and new value are identical. No change to log.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate timestamp is not in the future
+    IF @EditTimestamp > GETDATE()
+    BEGIN
+        RAISERROR('Edit timestamp cannot be in the future.', 16, 1);
+        RETURN;
+    END
+
+    -- Get employee associated with attendance record for the reason
+    DECLARE @AttendanceEmployeeID INT;
+    SELECT @AttendanceEmployeeID = employee_id
+    FROM dbo.Attendance
+    WHERE AttendanceID = @AttendanceID;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Generate new AttendanceLogID
+        DECLARE @NewLogID INT;
+        SELECT @NewLogID = ISNULL(MAX(AttendanceLogID), 0) + 1
+        FROM dbo.AttendanceLog WITH (TABLOCKX, HOLDLOCK);
+
+        -- Build reason text
+        DECLARE @ReasonText VARCHAR(500);
+        SET @ReasonText = 'Time changed from ' + 
+                         CONVERT(VARCHAR(20), @OldValue, 120) + 
+                         ' to ' + 
+                         CONVERT(VARCHAR(20), @NewValue, 120) +
+                         ' by Employee ID ' + CAST(@EditedBy AS VARCHAR(10));
+
+        -- Insert log entry
+        INSERT INTO dbo.AttendanceLog
+        (
+            AttendanceLogID,
+            attendance_id,
+            actor,
+            timestamp,
+            reason
+        )
+        VALUES
+        (
+            @NewLogID,
+            @AttendanceID,
+            'Employee_' + CAST(@EditedBy AS VARCHAR(10)),
+            @EditTimestamp,
+            @ReasonText
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Attendance edit logged' AS Message,
+               @NewLogID AS LogID,
+               @AttendanceID AS AttendanceID,
+               @EditedBy AS EditedBy,
+               @OldValue AS OldValue,
+               @NewValue AS NewValue,
+               @EditTimestamp AS EditTimestamp;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('LogAttendanceEdit failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--19
+-- Procedure: ApplyHolidayOverrides
+-- Input: @HolidayID int (based on signature), @EmployeeID int, @StartDate date, @EndDate date
+-- Output: Confirmation message
+-- Note: This applies holiday leave to employee shifts in the specified date range
+
+CREATE OR ALTER PROCEDURE dbo.ApplyHolidayOverrides
+(
+    @HolidayID INT,
+    @EmployeeID INT = NULL, -- NULL means apply to all employees
+    @StartDate DATE = NULL,
+    @EndDate DATE = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate holiday leave exists
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM dbo.Leave l
+        INNER JOIN dbo.HolidayLeave hl ON l.LeaveID = hl.leave_id
+        WHERE l.LeaveID = @HolidayID
+    )
+    BEGIN
+        RAISERROR('Holiday leave with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- If employee specified, validate they exist
+    IF @EmployeeID IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Get holiday information
+    DECLARE @HolidayName VARCHAR(100);
+    DECLARE @RegionalScope VARCHAR(100);
+    
+    SELECT 
+        @HolidayName = hl.holiday_name,
+        @RegionalScope = hl.regional_scope
+    FROM dbo.HolidayLeave hl
+    WHERE hl.leave_id = @HolidayID;
+
+    -- If dates not provided, try to infer from holiday name or use reasonable defaults
+    IF @StartDate IS NULL
+        SET @StartDate = CAST(GETDATE() AS DATE);
+    
+    IF @EndDate IS NULL
+        SET @EndDate = @StartDate; -- Single day holiday by default
+
+    -- Validate date range
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('Start date must be on or before end date.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @AffectedShifts INT = 0;
+    DECLARE @AffectedEmployees INT = 0;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Create a temp table to track affected shifts
+        CREATE TABLE #AffectedShifts (ShiftID INT, EmployeeID INT);
+
+        -- Find all shifts that overlap with the holiday period
+        INSERT INTO #AffectedShifts (ShiftID, EmployeeID)
+        SELECT 
+            ss.ShiftID,
+            ss.employee_id
+        FROM dbo.ShiftSchedule ss
+        WHERE 
+            (@EmployeeID IS NULL OR ss.employee_id = @EmployeeID)
+            AND NOT (ss.end_date < @StartDate OR ss.start_date > @EndDate)
+            AND ss.status NOT IN ('Cancelled', 'Expired');
+
+        SET @AffectedShifts = @@ROWCOUNT;
+
+        -- Update shift statuses to indicate holiday override
+        UPDATE ss
+        SET ss.status = 'Holiday Override'
+        FROM dbo.ShiftSchedule ss
+        INNER JOIN #AffectedShifts a ON ss.ShiftID = a.ShiftID;
+
+        -- Count distinct employees affected
+        SELECT @AffectedEmployees = COUNT(DISTINCT EmployeeID)
+        FROM #AffectedShifts;
+
+        -- Create exception records for the holiday
+        DECLARE @ExceptionID INT;
+        SELECT @ExceptionID = ISNULL(MAX(ExceptionID), 0) + 1
+        FROM dbo.Exception WITH (TABLOCKX, HOLDLOCK);
+
+        -- Insert exception if it doesn't exist for this date range
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM dbo.Exception 
+            WHERE name = @HolidayName 
+              AND CAST(date AS DATE) BETWEEN @StartDate AND @EndDate
+        )
+        BEGIN
+            INSERT INTO dbo.Exception
+            (
+                ExceptionID,
+                name,
+                category,
+                date,
+                status
+            )
+            VALUES
+            (
+                @ExceptionID,
+                @HolidayName,
+                'Holiday',
+                @StartDate,
+                'Active'
+            );
+
+            -- Link affected employees to this exception
+            INSERT INTO dbo.EmployeeException (employee_id, exception_id)
+            SELECT DISTINCT EmployeeID, @ExceptionID
+            FROM #AffectedShifts
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM dbo.EmployeeException ee 
+                WHERE ee.employee_id = #AffectedShifts.EmployeeID 
+                  AND ee.exception_id = @ExceptionID
+            );
+        END
+
+        DROP TABLE #AffectedShifts;
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Holiday overrides applied' AS Message,
+               @HolidayID AS HolidayID,
+               @HolidayName AS HolidayName,
+               @StartDate AS StartDate,
+               @EndDate AS EndDate,
+               @AffectedShifts AS AffectedShifts,
+               @AffectedEmployees AS AffectedEmployees;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        IF OBJECT_ID('tempdb..#AffectedShifts') IS NOT NULL
+            DROP TABLE #AffectedShifts;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ApplyHolidayOverrides failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+
+--20
+-- Procedure: ManageUserAccounts
+-- Input: @UserID int, @Role varchar(50), @Action varchar(20)
+-- Output: Confirmation message
+-- Note: This manages user roles for payroll and system access
+
+CREATE OR ALTER PROCEDURE dbo.ManageUserAccounts
+(
+    @UserID INT,
+    @Role   VARCHAR(50),
+    @Action VARCHAR(20)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate user (employee) exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @UserID)
+    BEGIN
+        RAISERROR('User/Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate action
+    IF @Action NOT IN ('ADD', 'REMOVE', 'UPDATE', 'ACTIVATE', 'DEACTIVATE')
+    BEGIN
+        RAISERROR('Invalid action. Valid actions are: ADD, REMOVE, UPDATE, ACTIVATE, DEACTIVATE.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate role
+    IF @Role NOT IN ('System Administrator', 'HR Administrator', 'Payroll Officer', 'Payroll Specialist', 'Line Manager', 'Employee')
+    BEGIN
+        RAISERROR('Invalid role. Valid roles are: System Administrator, HR Administrator, Payroll Officer, Payroll Specialist, Line Manager, Employee.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @RoleID INT;
+    DECLARE @ActionResult VARCHAR(100);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Get or create role
+        SELECT @RoleID = RoleID
+        FROM dbo.Role
+        WHERE role_name = @Role;
+
+        IF @RoleID IS NULL
+        BEGIN
+            -- Create role if it doesn't exist
+            SELECT @RoleID = ISNULL(MAX(RoleID), 0) + 1
+            FROM dbo.Role WITH (TABLOCKX, HOLDLOCK);
+
+            INSERT INTO dbo.Role (RoleID, role_name, purpose)
+            VALUES (@RoleID, @Role, 'Automatically created role for ' + @Role);
+        END
+
+        -- Process action
+        IF @Action = 'ADD'
+        BEGIN
+            -- Check if already assigned
+            IF EXISTS (SELECT 1 FROM dbo.EmployeeRole WHERE employee_id = @UserID AND role_id = @RoleID)
+            BEGIN
+                SET @ActionResult = 'Role already assigned to user';
+            END
+            ELSE
+            BEGIN
+                INSERT INTO dbo.EmployeeRole (employee_id, role_id, assigned_date)
+                VALUES (@UserID, @RoleID, GETDATE());
+
+                -- Create corresponding specialized table entry if applicable
+                IF @Role = 'System Administrator' AND NOT EXISTS (SELECT 1 FROM dbo.SystemAdministrator WHERE employee_id = @UserID)
+                BEGIN
+                    INSERT INTO dbo.SystemAdministrator (employee_id, system_privilege_level, configurable_fields, audit_visibility_scope)
+                    VALUES (@UserID, 'FULL', 'ALL', 'FULL');
+                END
+                ELSE IF @Role = 'HR Administrator' AND NOT EXISTS (SELECT 1 FROM dbo.HRAdministrator WHERE employee_id = @UserID)
+                BEGIN
+                    INSERT INTO dbo.HRAdministrator (employee_id, approval_level, record_access_scope, document_validation_rights)
+                    VALUES (@UserID, 'STANDARD', 'DEPARTMENT', 1);
+                END
+                ELSE IF @Role IN ('Payroll Officer', 'Payroll Specialist') AND NOT EXISTS (SELECT 1 FROM dbo.PayrollSpecialist WHERE employee_id = @UserID)
+                BEGIN
+                    INSERT INTO dbo.PayrollSpecialist (employee_id, assigned_region, processing_frequency, last_processed_period)
+                    VALUES (@UserID, 'Default', 'Monthly', NULL);
+                END
+                ELSE IF @Role = 'Line Manager' AND NOT EXISTS (SELECT 1 FROM dbo.LineManager WHERE employee_id = @UserID)
+                BEGIN
+                    INSERT INTO dbo.LineManager (employee_id, team_size, supervised_departments, approval_limit)
+                    VALUES (@UserID, 0, NULL, 5000.00);
+                END
+
+                SET @ActionResult = 'Role added successfully';
+            END
+        END
+        ELSE IF @Action = 'REMOVE'
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM dbo.EmployeeRole WHERE employee_id = @UserID AND role_id = @RoleID)
+            BEGIN
+                SET @ActionResult = 'Role not assigned to user';
+            END
+            ELSE
+            BEGIN
+                DELETE FROM dbo.EmployeeRole
+                WHERE employee_id = @UserID AND role_id = @RoleID;
+
+                -- Remove from specialized tables
+                IF @Role = 'System Administrator'
+                    DELETE FROM dbo.SystemAdministrator WHERE employee_id = @UserID;
+                ELSE IF @Role = 'HR Administrator'
+                    DELETE FROM dbo.HRAdministrator WHERE employee_id = @UserID;
+                ELSE IF @Role IN ('Payroll Officer', 'Payroll Specialist')
+                    DELETE FROM dbo.PayrollSpecialist WHERE employee_id = @UserID;
+                ELSE IF @Role = 'Line Manager'
+                    DELETE FROM dbo.LineManager WHERE employee_id = @UserID;
+
+                SET @ActionResult = 'Role removed successfully';
+            END
+        END
+        ELSE IF @Action = 'ACTIVATE'
+        BEGIN
+            UPDATE dbo.Employee
+            SET is_active = 1,
+                account_status = 'ACTIVE'
+            WHERE EmployeeID = @UserID;
+
+            SET @ActionResult = 'User account activated';
+        END
+        ELSE IF @Action = 'DEACTIVATE'
+        BEGIN
+            UPDATE dbo.Employee
+            SET is_active = 0,
+                account_status = 'INACTIVE'
+            WHERE EmployeeID = @UserID;
+
+            SET @ActionResult = 'User account deactivated';
+        END
+        ELSE IF @Action = 'UPDATE'
+        BEGIN
+            -- Update existing role assignment date
+            IF EXISTS (SELECT 1 FROM dbo.EmployeeRole WHERE employee_id = @UserID AND role_id = @RoleID)
+            BEGIN
+                UPDATE dbo.EmployeeRole
+                SET assigned_date = GETDATE()
+                WHERE employee_id = @UserID AND role_id = @RoleID;
+
+                SET @ActionResult = 'Role assignment updated';
+            END
+            ELSE
+            BEGIN
+                SET @ActionResult = 'Role not found for update. Use ADD action instead.';
+            END
+        END
+
+        COMMIT TRANSACTION;
+
+        SELECT @ActionResult AS Message,
+               @UserID AS UserID,
+               @Role AS Role,
+               @Action AS Action,
+               @RoleID AS RoleID;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ManageUserAccounts failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO

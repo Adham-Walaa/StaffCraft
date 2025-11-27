@@ -157,12 +157,20 @@ INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, national_id,
 VALUES (5, 'Jaaffar', 'Yakub', 'jaaffar.garry@example.com', '6742069', 'Agartha' , '2007-05-03', 1, 1, 1, '01227425396', 'Land Down Under');
 GO
 
-
 /***** 1) Test ViewEmployeeInfo *****/
+
+PRINT '========================================';
+PRINT 'TEST 1: ViewEmployeeInfo';
+PRINT '========================================';
+
 EXEC dbo.ViewEmployeeInfo @EmployeeID = 1; --input
 EXEC dbo.ViewEmployeeInfo @EmployeeID = 2; --input
 
 /***** 2) Test AddEmployee *****/
+
+PRINT '========================================';
+PRINT 'TEST 2: AddEmployee';
+PRINT '========================================';
 
 -- Successful inserts: updated to new signature. Use OUTPUT variable to capture new ID.
 DECLARE @NewEmpID INT;
@@ -230,6 +238,11 @@ SELECT @NewEmpID AS NewEmployeeID;
 GO
 
 /***** 3) Test UpdateEmployeeInfo *****/
+
+PRINT '========================================';
+PRINT 'TEST 3: UpdateEmployeeInfo';
+PRINT '========================================';
+
 -- Use a local test variable (avoid colliding with later @Id1/@Id2)
 
 EXEC dbo.UpdateEmployeeInfo
@@ -247,6 +260,11 @@ Select *
 From Employee
 
 /***** 4) Test AssignRole *****/
+
+PRINT '========================================';
+PRINT 'TEST 4: AssignRole';
+PRINT '========================================';
+
 -- Assign Payroll Officer to Alice
 EXEC dbo.AssignRole @EmployeeID = 1, @RoleID = 1;  --input
 -- Assign Manager role to Bob
@@ -261,11 +279,21 @@ SELECT * FROM dbo.EmployeeRole er INNER JOIN Role r on er.role_id = r.RoleID WHE
 GO
 
 /***** 5) Test GetDepartmentEmployeeStats *****/
+
+PRINT '========================================';
+PRINT 'TEST 5: GetDepartmentEmployeeStats';
+PRINT '========================================';
+
 -- Run stats
 EXEC dbo.GetDepartmentEmployeeStats;
 GO
 
 /***** 6) Test ReassignManager *****/
+
+PRINT '========================================';
+PRINT 'TEST 6: ReassignManager';
+PRINT '========================================';
+
 USE MILESTONE2;
 GO
 
@@ -331,6 +359,11 @@ ORDER BY EmployeeID;
 GO
 
 /***** 7) Test ReassignHierarchy *****/
+
+PRINT '========================================';
+PRINT 'TEST 7: ReassignHierarchy';
+PRINT '========================================';
+
 USE MILESTONE2;
 GO
 
@@ -406,8 +439,12 @@ WHERE EmployeeID IN (1,2,3,4)
 ORDER BY EmployeeID;
 GO
 
-
 /***** 8) Test NotifyStructureChange  *****/
+
+PRINT '========================================';
+PRINT 'TEST 8: NotifyStructureChange';
+PRINT '========================================';
+
 USE MILESTONE2;
 GO
 
@@ -445,8 +482,12 @@ BEGIN CATCH
 END CATCH;
 GO
 
-
 /***** 9) Test ViewOrgHierarchy *****/
+
+PRINT '========================================';
+PRINT 'TEST 9: ViewOrgHierarchy';
+PRINT '========================================';
+
 USE MILESTONE2;
 GO
 
@@ -478,8 +519,12 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 12)
 EXEC dbo.ViewOrgHierarchy;
 GO
 
-
 /***** 10) Test AssignShiftToEmployee *****/
+
+PRINT '========================================';
+PRINT 'TEST 10: AssignShiftToEmployee';
+PRINT '========================================';
+
 USE MILESTONE2;
 GO
 
@@ -516,8 +561,6 @@ BEGIN CATCH
 END CATCH;
 GO
 
--- TEST SCRIPT FOR PROCEDURES 11-15
-
 USE MILESTONE2;
 GO
 
@@ -545,8 +588,13 @@ GO
 PRINT 'Test data setup complete.';
 GO
 
+
 /***** 11) Test UpdateShiftStatus *****/
 
+
+PRINT '========================================';
+PRINT 'TEST 11: UpdateShiftStatus';
+PRINT '========================================';
 -- Clean up test shifts
 DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 2001 AND 2010;
 GO
@@ -650,7 +698,13 @@ BEGIN CATCH
 END CATCH;
 GO
 
+
 /***** 12) Test AssignShiftToDepartment *****/
+
+
+PRINT '========================================';
+PRINT 'TEST 12: AssignShiftToDepartment';
+PRINT '========================================';
 
 -- Clean up test shifts for department assignment
 DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 3001 AND 3100;
@@ -764,6 +818,11 @@ PRINT '';
 GO
 
 /***** 13) Test AssignCustomShift *****/
+
+PRINT '========================================';
+PRINT 'TEST 13: AssignCustomShift';
+PRINT '========================================';
+
 
 -- Clean up test custom shifts
 DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 4001 AND 4020 OR shift_name LIKE 'CustomTest%';
@@ -910,6 +969,11 @@ GO
 /***** 14) Test ConfigureSplitShift *****/
 GO
 
+
+PRINT '========================================';
+PRINT 'TEST 14: ConfigureSplitShift';
+PRINT '========================================';
+
 -- Clean up test split shift configurations
 DELETE FROM dbo.SplitShiftConfiguration WHERE shift_name LIKE 'TestSplit%';
 GO
@@ -1050,7 +1114,12 @@ PRINT 'Test 14 complete.';
 PRINT '';
 GO
 
+
 /***** 15) Test EnableFirstInLastOut *****/
+
+PRINT '========================================';
+PRINT 'TEST 15: EnableFirstInLastOut';
+PRINT '========================================';
 
 -- Test 1: Enable First In/Last Out
 PRINT 'Test 1: Enable First In/Last Out';
@@ -1125,7 +1194,7 @@ BEGIN CATCH
 END CATCH;
 GO
 
---Additional tests for Procs 12, 13, 14, 15
+--Additional verification for procs 12, 13, 14, 15
 -- Show final state of key tables
 PRINT 'Final state verification:';
 SELECT 'ShiftSchedule' AS TableName, COUNT(*) AS RecordCount FROM dbo.ShiftSchedule WHERE ShiftID >= 2001
@@ -1133,4 +1202,275 @@ UNION ALL
 SELECT 'SplitShiftConfiguration', COUNT(*) FROM dbo.SplitShiftConfiguration WHERE shift_name LIKE 'TestSplit%'
 UNION ALL
 SELECT 'SystemConfiguration', COUNT(*) FROM dbo.SystemConfiguration WHERE ConfigKey = 'ATTENDANCE_FIRST_IN_LAST_OUT';
+GO
+
+
+/***** 16) Test TagAttendanceSource *****/
+USE MILESTONE2;
+GO
+
+PRINT '========================================';
+PRINT 'TEST 16: TagAttendanceSource';
+PRINT '========================================';
+
+-- Setup: Create test device and attendance records
+IF NOT EXISTS (SELECT 1 FROM dbo.Device WHERE DeviceID = 5001)
+    INSERT INTO dbo.Device (DeviceID, device_type, terminal_id, latitude, longitude, employee_id)
+    VALUES (5001, 'Biometric', 'TERM-5001', 40.712800, -74.006000, NULL);
+GO
+
+DELETE FROM dbo.AttendanceSource WHERE attendance_id BETWEEN 6001 AND 6004;
+DELETE FROM dbo.Attendance WHERE AttendanceID BETWEEN 6001 AND 6004;
+GO
+
+INSERT INTO dbo.Attendance (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+VALUES 
+    (6001, 100, '08:00:00', NULL, NULL, 'Device', NULL, NULL),
+    (6002, 101, '09:00:00', NULL, NULL, 'Manual', NULL, NULL);
+GO
+
+-- Test 1: Valid device-based attendance source
+PRINT 'Test 1: Valid device tagging';
+EXEC dbo.TagAttendanceSource 
+    @AttendanceID = 6001, @SourceType = 'Device', @DeviceID = 5001, 
+    @Latitude = 40.712800, @Longitude = -74.006000;
+GO
+
+-- Test 2: Valid GPS source
+PRINT 'Test 2: Valid GPS source';
+EXEC dbo.TagAttendanceSource 
+    @AttendanceID = 6002, @SourceType = 'GPS', @Latitude = 51.507400, @Longitude = -0.127800;
+GO
+
+-- Test 3: Invalid source type (should fail)
+PRINT 'Test 3: Invalid source type (should fail)';
+BEGIN TRY
+    EXEC dbo.TagAttendanceSource @AttendanceID = 6001, @SourceType = 'InvalidType';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 16 complete.';
+GO
+
+
+/***** 17) Test SyncOfflineAttendance *****/
+USE MILESTONE2;
+GO
+
+PRINT '========================================';
+PRINT 'TEST 17: SyncOfflineAttendance';
+PRINT '========================================';
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Device WHERE DeviceID = 5003)
+    INSERT INTO dbo.Device (DeviceID, device_type, terminal_id, latitude, longitude, employee_id)
+    VALUES (5003, 'Clock Terminal', 'TERM-5003', 34.052200, -118.243700, NULL);
+GO
+
+DELETE FROM dbo.OfflineAttendanceQueue WHERE device_id = 5003;
+GO
+
+-- Test 1: Valid clock IN sync
+PRINT 'Test 1: Valid clock IN sync';
+EXEC dbo.SyncOfflineAttendance 
+    @DeviceID = 5003, @EmployeeID = 100, 
+    @ClockTime = '2025-11-27 08:00:00', @Type = 'IN';
+GO
+
+-- Test 2: Valid clock OUT sync
+PRINT 'Test 2: Valid clock OUT sync';
+EXEC dbo.SyncOfflineAttendance 
+    @DeviceID = 5003, @EmployeeID = 100, 
+    @ClockTime = '2025-11-27 17:00:00', @Type = 'OUT';
+GO
+
+-- Test 3: Invalid clock type (should fail)
+PRINT 'Test 3: Invalid clock type (should fail)';
+BEGIN TRY
+    EXEC dbo.SyncOfflineAttendance 
+        @DeviceID = 5003, @EmployeeID = 100, 
+        @ClockTime = '2025-11-27 08:00:00', @Type = 'INVALID';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 17 complete.';
+GO
+
+
+/***** 18) Test LogAttendanceEdit *****/
+USE MILESTONE2;
+GO
+
+
+PRINT '========================================';
+PRINT 'TEST 18: LogAttendanceEdit';
+PRINT '========================================';
+
+-- Setup
+DELETE FROM dbo.AttendanceLog WHERE attendance_id BETWEEN 7001 AND 7002;
+DELETE FROM dbo.Attendance WHERE AttendanceID BETWEEN 7001 AND 7002;
+GO
+
+INSERT INTO dbo.Attendance (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+VALUES 
+    (7001, 100, '08:00:00', '17:00:00', 540, 'Manual', 'Manual', NULL),
+    (7002, 101, '09:00:00', '18:00:00', 540, 'Device', 'Device', NULL);
+GO
+
+-- Test 1: Valid attendance edit log
+PRINT 'Test 1: Valid edit log';
+EXEC dbo.LogAttendanceEdit 
+    @AttendanceID = 7001, @EditedBy = 1, 
+    @OldValue = '2025-11-27 08:00:00', @NewValue = '2025-11-27 08:05:00';
+GO
+
+-- Test 2: Multiple edits to same attendance
+PRINT 'Test 2: Multiple edits (audit trail)';
+EXEC dbo.LogAttendanceEdit 
+    @AttendanceID = 7002, @EditedBy = 1, 
+    @OldValue = '2025-11-27 09:00:00', @NewValue = '2025-11-27 09:05:00';
+EXEC dbo.LogAttendanceEdit 
+    @AttendanceID = 7002, @EditedBy = 2, 
+    @OldValue = '2025-11-27 09:05:00', @NewValue = '2025-11-27 09:10:00';
+GO
+
+-- Test 3: Identical values (should fail)
+PRINT 'Test 3: Identical values (should fail)';
+BEGIN TRY
+    EXEC dbo.LogAttendanceEdit 
+        @AttendanceID = 7001, @EditedBy = 1, 
+        @OldValue = '2025-11-27 08:00:00', @NewValue = '2025-11-27 08:00:00';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 18 complete.';
+GO
+
+/***** 19) Test ApplyHolidayOverrides *****/
+USE MILESTONE2;
+GO
+
+PRINT '========================================';
+PRINT 'TEST 19: ApplyHolidayOverrides';
+PRINT '========================================';
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 8001)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (8001, 'Holiday', 'New Year Day');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.HolidayLeave WHERE leave_id = 8001)
+    INSERT INTO dbo.HolidayLeave (leave_id, holiday_name, official_recognition, regional_scope)
+    VALUES (8001, 'New Year Day 2026', 1, 'National');
+GO
+
+DELETE FROM dbo.ShiftSchedule WHERE ShiftID BETWEEN 8001 AND 8003;
+GO
+
+INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+VALUES 
+    (8001, 100, '2026-01-01', '2026-01-05', 'ASSIGNED'),
+    (8002, 101, '2025-12-30', '2026-01-03', 'ASSIGNED');
+GO
+
+-- Test 1: Apply holiday to all employees
+PRINT 'Test 1: Apply holiday to all employees';
+EXEC dbo.ApplyHolidayOverrides 
+    @HolidayID = 8001, @EmployeeID = NULL, 
+    @StartDate = '2026-01-01', @EndDate = '2026-01-01';
+GO
+
+-- Test 2: Apply holiday to specific employee
+PRINT 'Test 2: Apply to specific employee';
+INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+VALUES (8003, 100, '2026-07-04', '2026-07-08', 'ASSIGNED');
+GO
+
+EXEC dbo.ApplyHolidayOverrides 
+    @HolidayID = 8001, @EmployeeID = 100, 
+    @StartDate = '2026-07-04', @EndDate = '2026-07-04';
+GO
+
+-- Test 3: Invalid date range (should fail)
+PRINT 'Test 3: Invalid date range (should fail)';
+BEGIN TRY
+    EXEC dbo.ApplyHolidayOverrides 
+        @HolidayID = 8001, @StartDate = '2026-01-10', @EndDate = '2026-01-01';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 19 complete.';
+GO
+
+
+/***** 20) Test ManageUserAccounts *****/
+USE MILESTONE2;
+GO
+
+PRINT '========================================';
+PRINT 'TEST 20: ManageUserAccounts';
+PRINT '========================================';
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 200)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, account_status)
+    VALUES (200, 'Test', 'Admin', 'test.admin@example.com', GETDATE(), 1, 1, 1, 'ACTIVE');
+GO
+
+DELETE FROM dbo.EmployeeRole WHERE employee_id = 200;
+DELETE FROM dbo.SystemAdministrator WHERE employee_id = 200;
+DELETE FROM dbo.HRAdministrator WHERE employee_id = 200;
+GO
+
+-- Test 1: ADD System Administrator role
+PRINT 'Test 1: ADD System Administrator role';
+EXEC dbo.ManageUserAccounts 
+    @UserID = 200, @Role = 'System Administrator', @Action = 'ADD';
+GO
+
+-- Test 2: ADD duplicate role (should show already assigned)
+PRINT 'Test 2: ADD duplicate role';
+EXEC dbo.ManageUserAccounts 
+    @UserID = 200, @Role = 'System Administrator', @Action = 'ADD';
+GO
+
+-- Test 3: DEACTIVATE user account
+PRINT 'Test 3: DEACTIVATE user account';
+EXEC dbo.ManageUserAccounts 
+    @UserID = 200, @Role = 'System Administrator', @Action = 'DEACTIVATE';
+SELECT EmployeeID, is_active, account_status FROM dbo.Employee WHERE EmployeeID = 200;
+GO
+
+-- Test 4: ACTIVATE user account
+PRINT 'Test 4: ACTIVATE user account';
+EXEC dbo.ManageUserAccounts 
+    @UserID = 200, @Role = 'System Administrator', @Action = 'ACTIVATE';
+SELECT EmployeeID, is_active, account_status FROM dbo.Employee WHERE EmployeeID = 200;
+GO
+
+-- Test 5: Invalid action (should fail)
+PRINT 'Test 5: Invalid action (should fail)';
+BEGIN TRY
+    EXEC dbo.ManageUserAccounts 
+        @UserID = 200, @Role = 'System Administrator', @Action = 'INVALID';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 20 complete.';
 GO

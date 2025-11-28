@@ -314,6 +314,7 @@ CREATE TABLE AttendanceCorrectionRequest
     reason text,
     status varchar(50),
     recorded_by int
+
 );
 
 CREATE TABLE ShiftSchedule
@@ -586,6 +587,12 @@ CREATE TABLE ManagerNotes
 -- FOREIGN KEY CONSTRAINTS
 -- ========================================
 
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Contract FOREIGN KEY (contract_id) REFERENCES Contract(ContractID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Department FOREIGN KEY (department_id) REFERENCES Deparment(DepartmentID);
+ALTER TABLE Employee
+ADD CONSTRAINT FK_Employee_Role FOREIGN KEY (role_id) REFERENCES Role(RoleID);
 ALTER TABLE HRAdministrator
 ADD CONSTRAINT FK_HRAdministrator_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE SystemAdministrator
@@ -652,10 +659,12 @@ ALTER TABLE AttendanceLog
 ADD CONSTRAINT FK_AttendanceLog_Attendance FOREIGN KEY (attendance_id) REFERENCES Attendance(AttendanceID);
 ALTER TABLE AttendanceCorrectionRequest
 ADD CONSTRAINT FK_AttendanceCorrectionRequest_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+--ALTER TABLE AttendanceCorrectionRequest
+--ADD CONSTRAINT FK_AttendanceCorrectionRequest_RecommendedBy FOREIGN KEY (recommended_by) REFERENCES Employee(EmployeeID); REMOVEDDDDD
 ALTER TABLE AttendanceCorrectionRequest
-ADD CONSTRAINT FK_AttendanceCorrectionRequest_RecommendedBy FOREIGN KEY (recommended_by) REFERENCES Employee(EmployeeID);
-ALTER TABLE ShiftSchedule
-ADD CONSTRAINT FK_ShiftSchedule_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
+ADD CONSTRAINT FK_AttendanceCorrectionRequest_RecordedBy FOREIGN KEY (recorded_by) REFERENCES Employee(EmployeeID);
+--ALTER TABLE ShiftSchedule
+--ADD CONSTRAINT FK_ShiftSchedule_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID); REMOVEDDDDD
 ALTER TABLE ShiftAssignment 
 ADD CONSTRAINT FK_ShiftAssignment_Employee FOREIGN KEY (employee_id) REFERENCES Employee(EmployeeID);
 ALTER TABLE ShiftAssignment

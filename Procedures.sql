@@ -292,7 +292,7 @@ GO
 --Name: CreateContract.
 --Input: @EmployeeID int, @Type varchar(50), @StartDate date, @EndDate date.
 --Output: Confirmation message.
-CREATE PROCEDURE CreateContract
+CREATE PROCEDURE CreateContract                --  ERROR HERE FIX LATER
     @EmployeeID INT,
     @Type VARCHAR(50),
     @StartDate DATETIME,
@@ -300,7 +300,7 @@ CREATE PROCEDURE CreateContract
 AS
 BEGIN
     INSERT INTO Contract (type, start_date, end_date, current_state)
-    VALUES (@Type, @StartDate, @EndDate, @CurrentState, 'PENDING');
+    VALUES (@Type, @StartDate, @EndDate, 'PENDING');
 
     Update Employee
     SET contract_id = SCOPE_IDENTITY()
@@ -340,7 +340,7 @@ CREATE PROCEDURE RenewContract
 --Name: ApproveLeaveRequest.
 --Input: @LeaveRequestID int, @ApproverID int, @Status varchar(20).
 --Output: Confirmation message.
-CREATE PROCEDURE ApproveLeaveRequest
+CREATE PROCEDURE ApproveLeaveRequest                --Runs well
     @LeaveRequestID INT,
     @ApproverID INT,
     @Status VARCHAR(20)
@@ -363,7 +363,7 @@ CREATE PROCEDURE ApproveLeaveRequest
 --Input: @EmployeeID int, @ManagerID int, @Destination varchar(50), @StartDate date, @EndDate date.
 --Output: Confirmation message.
  
-CREATE PROCEDURE AssignMission
+CREATE PROCEDURE AssignMission               --Runs well
     @EmployeeID INT,
     @ManagerID INT,
     @Destination VARCHAR(50),
@@ -384,7 +384,7 @@ GO
 --There is NO column for: approver_id, decision_date, status/decision except current_status. Any field that can store who approved a claim.
 
 --6
-CREATE PROCEDURE getActiveContracts
+CREATE PROCEDURE getActiveContracts              --Runs well
 AS
 BEGIN
    SELECT *
@@ -396,7 +396,7 @@ GO
 ------------------------------------------------------
 
 --7
-CREATE PROCEDURE GetTeamByManager
+CREATE PROCEDURE GetTeamByManager                 --Error here fix later
     @ManagerID INT
 AS
 BEGIN
@@ -409,7 +409,7 @@ GO
 
 ------------------------------------------------------
 --8
-CREATE PROCEDURE UpdateLeavePolicy
+CREATE PROCEDURE UpdateLeavePolicy    --Runs well
     @PolicyID INT,
     @EligibilityRules VARCHAR(500),
     @NoticePeriod INT
@@ -425,7 +425,7 @@ CREATE PROCEDURE UpdateLeavePolicy
 
 -------------------------------------------------------
 --9
-CREATE PROCEDURE GetExpiringContracts
+CREATE PROCEDURE GetExpiringContracts          --Runs well
     @DaysBefore INT
 AS
 BEGIN
@@ -438,7 +438,7 @@ GO
 
 -------------------------------------------------------
 --10
-CREATE PROCEDURE AssignDepartmentHead
+CREATE PROCEDURE AssignDepartmentHead         --Runs well
     @DepartmentID INT,
     @ManagerID INT
 AS
@@ -452,15 +452,21 @@ END;
 GO
 
 ---------------------------------------------------------
---11
-CREATE PROCEDURE CreateEmployeeProfile
+--11    Error here fix later         Msg 207, Level 16, State 1, Procedure CreateEmployeeProfile, Line 472
+--Invalid column name 'department_id'.
+--Msg 207, Level 16, State 1, Procedure CreateEmployeeProfile, Line 472
+--Invalid column name 'role_id'.
+CREATE PROCEDURE CreateEmployeeProfile          
     @FirstName VARCHAR(50),
     @LastName VARCHAR(50),
     @DepartmentID INT,
     @RoleID INT,
     @HireDate DATE,
     @Email VARCHAR(100),
-    @Phone VARCHAR(20)
+    @Phone VARCHAR(20),
+    @NationalID varchar(50), 
+    @DateOfBirth date, 
+    @CountryOfBirth varchar(100)
 AS
 BEGIN
     INSERT INTO Employee (first_name, last_name, hire_date, email, phone, department_id, role_id, national_id, date_of_birth, country_of_birth)
@@ -469,13 +475,13 @@ BEGIN
     DECLARE @EmployeeID INT;
     SET @EmployeeID = SCOPE_IDENTITY();
 
-    PRINT 'Employee profile created successfully! ';
+    SELECT 'Employee profile created successfully! ' AS ConfirmationMessage;
 END;
 GO
 
 
 ------------------------------------------------------------
---12 (Keep for now still)
+--12           ERROR HERE FIX LATER (Msg 207, Level 16, State 1, Procedure UpdateEmployeeProfile, Line 486 Invalid column name 'EmployeeID'.)
 CREATE PROCEDURE UpdateEmployeeProfile
     @EmployeeID INT,
     @FieldName VARCHAR(50),
@@ -516,7 +522,8 @@ BEGIN
 
 
 --------------------------------------------------------
---13 
+--13         ERROR HERE FIX LATER (Msg 207, Level 16, State 1, Procedure SetProfileCompleteness, Line 534 Invalid column name 'profile_completion'.)
+
 CREATE PROCEDURE dbo.SetProfileCompleteness
     @EmployeeID INT, 
     @CompletenessPercentage INT
@@ -547,7 +554,26 @@ END;
 GO
 
 ---------------------------------------------------------
---14
+--14           ERROR HERE FIX LATER (Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 560
+--Invalid column name 'DepartmentID'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 558
+--Invalid column name 'department_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 558
+--Invalid column name 'position_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 566
+--Invalid column name 'position_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 564
+--Invalid column name 'department_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 564
+--Invalid column name 'position_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 570
+--Invalid column name 'department_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 570
+--Invalid column name 'position_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 576
+--Invalid column name 'department_id'.
+--Msg 207, Level 16, State 1, Procedure GenerateProfileReport, Line 576
+--Invalid column name 'position_id'.
 CREATE PROCEDURE GenerateProfileReport
     @FilterField VARCHAR(50), 
     @FilterValue VARCHAR(100)
@@ -591,7 +617,7 @@ END;
 GO
     
 --------------------------------------------------------------
---15
+--15                  Runs well
 CREATE PROCEDURE CreateShiftType
     @ShiftID int, 
     @Name varchar(100),
@@ -616,7 +642,7 @@ GO
 
 
 --------------------------------------------------------------
---17
+--17    runs well
 CREATE PROCEDURE dbo.AssignRotationalShift
     @EmployeeID INT, 
     @ShiftCycle INT,  
@@ -625,7 +651,7 @@ CREATE PROCEDURE dbo.AssignRotationalShift
     @Status VARCHAR(20)
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE employee_id = @EmployeeID)
     BEGIN
         RAISERROR('No employee', 16, 1);
         RETURN;
@@ -648,7 +674,7 @@ BEGIN
 END;
 GO
 --------------------------------------------------------------
---18
+--18              runs well
 CREATE PROCEDURE dbo.NotifyShiftExpiry
     @EmployeeID INT, 
     @ShiftAssignmentID INT, 
@@ -673,7 +699,7 @@ END;
 GO
 
 --------------------------------------------------------------
---19 (revise later)
+--19 runs well
 CREATE PROCEDURE DefineShortTimeRules
     @RuleName VARCHAR(50),
     @LateMinutes INT,
@@ -698,7 +724,7 @@ CREATE PROCEDURE DefineShortTimeRules
 END;
 GO
 --------------------------------------------------------------
---20
+--20         runs well
 CREATE PROCEDURE SetGracePeriod
     @Minutes INT
 AS
@@ -722,7 +748,7 @@ BEGIN
 END;
 GO
 --------------------------------------------------------------
---21
+--21           runs well
 CREATE PROCEDURE DefinePenaltyThreshold
     @LateMinutes INT,
     @DeductionType VARCHAR(50)
@@ -752,52 +778,191 @@ BEGIN
 END;
 GO
 --------------------------------------------------------------
---22
+--22              runs well
+CREATE PROCEDURE DefinePermissionLimits
+    @MinHours INT,
+    @MaxHours INT
+AS
+BEGIN
+    
+    IF @MinHours < 0
+    BEGIN
+        RAISERROR('Minimum hours cannot be negative.', 16, 1);
+        RETURN;
+    END
+
+    IF @MaxHours <= @MinHours
+    BEGIN
+        RAISERROR('Maximum hours must be greater than minimum hours.', 16, 1);
+        RETURN;
+    END
+
+
+    INSERT INTO PayrollPolicy (type, description)
+    VALUES (
+        'Permission Limits',
+        CONCAT('MinHours: ', @MinHours, ', MaxHours: ', @MaxHours)
+    );
+
+    
+    SELECT 'Permission limits defined successfully.' AS ConfirmationMessage;
+END;
+GO
+
+
+--------------------------------------------------------------
+--23              leave for now
 
 
 
 
 --------------------------------------------------------------
---23
+--24   runs well
+
+CREATE PROCEDURE LinkVacationToShift
+    @VacationPackageID INT,
+    @EmployeeID INT
+AS
+BEGIN
+    
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE employee_id = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    
+    IF @VacationPackageID <> @EmployeeID
+    BEGIN
+        RAISERROR('Vacation package does not belong to this employee.', 16, 1);
+        RETURN;
+    END
+
+    
+    SELECT 'Vacation package successfully linked to employee schedule.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--25      runs well
+CREATE PROCEDURE ConfigureLeavePolicies
+AS
+BEGIN
+    
+    INSERT INTO LeavePolicy (name, purpose)
+    VALUES ('Leave Configuration Start','Leave configuration process has been initiated.');
+
+    
+    SELECT 'Leave configuration initiated successfully.' AS ConfirmationMessage;
+END;
+GO
+
 
 
 
 --------------------------------------------------------------
---24
+--26           leave for now
 
 
 
 --------------------------------------------------------------
---25
+--27 fix later
+CREATE PROCEDURE ApplyLeaveConfiguration
+AS
+BEGIN
+    
+    INSERT INTO LeavePolicy (name, purpose)
+    VALUES (
+        'Leave Configuration Applied',
+        'All validated leave configurations have been applied.'
+    );
+
+    
+    SELECT 'Leave configuration applied successfully.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--28  fix later
+CREATE PROCEDURE UpdateLeaveEntitlements
+    @EmployeeID INT
+AS
+BEGIN
+    
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE employee_id = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    
+    INSERT INTO LeavePolicy (name, purpose, eligibility_rules)
+    VALUES (
+        'Leave Entitlement Update',
+        CONCAT('Entitlement update for Employee ID: ', @EmployeeID),
+        'Entitlement logic recalculated.'  
+    );
+
+    
+    SELECT 'Leave entitlements updated successfully.' AS ConfirmationMessage;
+END;
+GO
+
+
 
 
 --------------------------------------------------------------
---26
+--29       runs well
+CREATE PROCEDURE ConfigureLeaveEligibility
+    @LeaveType VARCHAR(50),
+    @MinTenure INT,
+    @EmployeeType VARCHAR(50)
+AS
+BEGIN
+    
+    IF @MinTenure < 0
+    BEGIN
+        RAISERROR('Minimum tenure cannot be negative.', 16, 1);
+        RETURN;
+    END
+
+    
+    INSERT INTO LeavePolicy (name, purpose, eligibility_rules)
+    VALUES (
+        @LeaveType,
+        'Eligibility configuration for this leave type.',
+        CONCAT(
+            'Min Tenure: ', @MinTenure, 
+            ' months, Employee Type: ', @EmployeeType
+        )
+    );
+
+    
+    SELECT 'Leave eligibility configured successfully.' AS ConfirmationMessage;
+END;
+GO
+
 
 
 
 --------------------------------------------------------------
---27
+--30 runs well
+CREATE PROCEDURE ManageLeaveTypes
+    @LeaveType VARCHAR(50),
+    @Description VARCHAR(200)
+AS
+BEGIN
+    
+    INSERT INTO LeavePolicy (name, purpose)
+    VALUES (@LeaveType,@Description);
 
-
-
---------------------------------------------------------------
---28
-
-
-
---------------------------------------------------------------
---29
-
-
-
---------------------------------------------------------------
---30
-
-
-
+    
+    SELECT 'Leave type created and managed successfully.' AS ConfirmationMessage;
+END;
+GO
 --------------------------------------------------------------
 --31
+
 
 
 

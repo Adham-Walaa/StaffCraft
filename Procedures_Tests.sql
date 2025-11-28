@@ -950,33 +950,195 @@ EXEC DefineShortTimeRules
 ---------------------------------------------------------------------------------
 --20
 -- Test Case 1: Normal valid grace period
-EXEC SetGracePeriod @Minutes = 10;
+EXEC SetGracePeriod 
+    @Minutes = 10;
 
 -- Test Case 2: Zero minutes (allowed)
-EXEC SetGracePeriod @Minutes = 0;
+EXEC SetGracePeriod 
+    @Minutes = 0;
 
 -- Test Case 3: Negative grace period should fail
-EXEC SetGracePeriod @Minutes = -5;
+EXEC SetGracePeriod 
+    @Minutes = -5;
 
 -- Test Case 4: LatenessPolicy table empty ? should fail
 -- (Run only if LatenessPolicy has no rows)
-EXEC SetGracePeriod @Minutes = 5;
+EXEC SetGracePeriod 
+    @Minutes = 5;
 --------------------------------------------------------------------------------
 --21
 -- Test Case 1: Normal threshold rule
-EXEC DefinePenaltyThreshold @LateMinutes = 15, @DeductionType = 'Half-day deduction';
+EXEC DefinePenaltyThreshold 
+    @LateMinutes = 15, 
+    @DeductionType = 'Half-day deduction';
 
 -- Test Case 2: Small threshold
-EXEC DefinePenaltyThreshold @LateMinutes = 5, @DeductionType = 'Minor deduction';
+EXEC DefinePenaltyThreshold 
+    @LateMinutes = 5, 
+    @DeductionType = 'Minor deduction';
 
 -- Test Case 3: Negative minutes (invalid)
-EXEC DefinePenaltyThreshold @LateMinutes = -10, @DeductionType = 'Half-day deduction';
+EXEC DefinePenaltyThreshold 
+    @LateMinutes = -10, 
+    @DeductionType = 'Half-day deduction';
 
 -- Test Case 4: No LatenessPolicy rows exist
 -- (Only works if the table is empty)
-EXEC DefinePenaltyThreshold @LateMinutes = 20, @DeductionType = 'Full deduction';
+EXEC DefinePenaltyThreshold 
+    @LateMinutes = 20, 
+    @DeductionType = 'Full deduction';
 -----------------------------------------------------------------------------------
 --22
+
+-- Test Case 1: Normal permission limits
+EXEC DefinePermissionLimits 
+    @MinHours = 1, 
+    @MaxHours = 5;
+
+-- Test Case 2: Larger range
+EXEC DefinePermissionLimits 
+    @MinHours = 2, 
+    @MaxHours = 10;
+
+-- Test Case 3: Negative min hours
+EXEC DefinePermissionLimits 
+    @MinHours = -1, 
+    @MaxHours = 5;
+
+-- Test Case 4: Max <= Min
+EXEC DefinePermissionLimits 
+    @MinHours = 5, 
+    @MaxHours = 5;
+
+-- Test Case 5: Max < Min
+EXEC DefinePermissionLimits 
+    @MinHours = 6, 
+    @MaxHours = 3;
+
+-----------------------------------------------------------------------------------
+--23  leave for now
+
+
+
+
+
+-----------------------------------------------------------------------------------
+--24
+
+-- Test Case 1: Valid package-to-employee link
+-- (package ID matches the employee ID)
+EXEC LinkVacationToShift 
+    @VacationPackageID = 7, 
+    @EmployeeID = 7;
+
+-- Test Case 2: Employee does not exist
+EXEC LinkVacationToShift 
+    @VacationPackageID = 5, 
+    @EmployeeID = 9999;
+
+-- Test Case 3: Package does not match employee
+EXEC LinkVacationToShift 
+    @VacationPackageID = 4, 
+    @EmployeeID = 9;
+
+------------------------------------------------------------------------------------
+--25
+-- Test Case 1: Start the leave configuration process
+EXEC ConfigureLeavePolicies;
+
+
+-- Test Case 2: Run again to log multiple starts 
+EXEC ConfigureLeavePolicies;
+
+
+-- Test Case 3: Verify the policy was created
+SELECT * FROM LeavePolicy WHERE name = 'Leave Configuration Start';
+
+------------------------------------------------------------------------------------
+--26 
+
+
+
+-----------------------------------------------------------------------------------
+--27
+-- Test Case 1: Apply configuration
+EXEC ApplyLeaveConfiguration;
+
+
+-- Test Case 2: Apply again (allowed)
+EXEC ApplyLeaveConfiguration;
+
+
+-- Test Case 3: Verify applied logs
+SELECT * FROM LeavePolicy WHERE name = 'Leave Configuration Applied';
+
+------------------------------------------------------------------------------------
+--28 
+-- Test Case 1: Valid employee entitlement update
+EXEC UpdateLeaveEntitlements 
+    @EmployeeID = 5;
+
+
+-- Test Case 2: Another valid employee
+EXEC UpdateLeaveEntitlements 
+    @EmployeeID = 12;
+
+
+-- Test Case 3: Invalid employee (should fail)
+EXEC UpdateLeaveEntitlements 
+    @EmployeeID = 9999;
+
+
+-- Test Case 4: Verify logs inside LeavePolicy
+SELECT * FROM LeavePolicy WHERE name = 'Leave Entitlement Update';
+
+--------------------------------------------------------------------------------------
+--29
+-- Test Case 1: Normal eligibility rule for Annual Leave
+EXEC ConfigureLeaveEligibility
+    @LeaveType = 'Annual Leave',
+    @MinTenure = 12,
+    @EmployeeType = 'Full-Time';
+
+-- Test Case 2: Sick leave accessible to all
+EXEC ConfigureLeaveEligibility
+    @LeaveType = 'Sick Leave',
+    @MinTenure = 0,
+    @EmployeeType = 'All Employees';
+
+-- Test Case 3: Negative tenure (invalid)
+EXEC ConfigureLeaveEligibility
+    @LeaveType = 'Emergency Leave',
+    @MinTenure = -3,
+    @EmployeeType = 'Any';
+
+-- Test Case 4: Verify the inserted eligibility rules
+SELECT * FROM LeavePolicy WHERE name = 'Annual Leave';
+---------------------------------------------------------------------------------------
+--30
+-- Test Case 1: Normal insertion
+EXEC ManageLeaveTypes
+    @LeaveType = 'Annual Leave',
+    @Description = 'Paid annual leave for employees.';
+
+-- Test Case 2: Works even with spaces (since validation removed)
+EXEC ManageLeaveTypes
+    @LeaveType = '   ',
+    @Description = 'Testing no validation.';
+
+-- Test Case 3: View all leave types
+SELECT * FROM LeavePolicy;
+
+
+
+
+
+
+
+
+
+
+
 
 
 

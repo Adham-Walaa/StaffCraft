@@ -4403,3 +4403,1190 @@ BEGIN CATCH
     PRINT '? Test 45.4 PASSED: Correctly rejected non-HR approver - ' + ERROR_MESSAGE();
 END CATCH
 PRINT '';
+
+--Payroll Officer Procedure Tests
+
+-- Insert Currency
+INSERT INTO Currency (CurrencyCode, currency_name, exchange_rate, created_date, last_updated)
+VALUES ('USD', 'US Dollar', 1.0000, GETDATE(), GETDATE());
+GO
+
+-- Insert Departments
+INSERT INTO Department (DepartmentID, department_name, purpose, department_head_id)
+VALUES (1, 'Engineering', 'Software Development', NULL),
+       (2, 'Sales', 'Revenue Generation', NULL);
+GO
+
+-- Insert Positions
+INSERT INTO Position (PositionID, position_title, responsibilities, status)
+VALUES (1, 'Software Engineer', 'Develop software', 'Active'),
+       (2, 'Sales Manager', 'Manage sales team', 'Active');
+GO
+
+-- Insert PayGrades
+INSERT INTO PayGrade (PayGradeID, grade_name, min_salary, max_salary)
+VALUES (1, 'Junior', 40000, 60000),
+       (2, 'Senior', 80000, 120000);
+GO
+
+-- Insert TaxForms
+INSERT INTO TaxForm (TaxFormID, jurisdiction, validity_period, form_content)
+VALUES (1, 'US', '2025-12-31', 'W-4 Form'),
+       (2, 'US', '2025-12-31', 'W-2 Form');
+GO
+
+-- Insert Contracts
+INSERT INTO Contract (ContractID, type, start_date, end_date, current_state)
+VALUES (1, 'Full-Time', '2024-01-01', NULL, 'Active'),
+       (2, 'Part-Time', '2024-06-01', '2025-06-01', 'Active'),
+       (3, 'Full-Time', '2023-01-01', NULL, 'Active');
+GO
+
+-- Insert FullTimeContract
+INSERT INTO FullTimeContract (contract_id, leave_entitlement, insurance_eligibility, weekly_working_hours)
+VALUES (1, 20, 1, 40),
+       (3, 25, 1, 40);
+GO
+
+-- Insert PartTimeContract
+INSERT INTO PartTimeContract (contract_id, working_hours, hourly_rate)
+VALUES (2, 20, 25.00);
+GO
+
+-- Insert SalaryTypes
+INSERT INTO SalaryType (SalaryTypeID, type, payment_frequency, currency)
+VALUES (1, 'Monthly', 'Monthly', 'USD'),
+       (2, 'Hourly', 'Weekly', 'USD'),
+       (3, 'Contract', 'Milestone', 'USD');
+GO
+
+-- Insert MonthlySalaryType
+INSERT INTO MonthlySalaryType (salary_type_id, tax_rule, contribution_scheme)
+VALUES (1, 'Standard Tax', '401k');
+GO
+
+-- Insert HourlySalaryType
+INSERT INTO HourlySalaryType (salary_type_id, hourly_rate, max_monthly_hours)
+VALUES (2, 25.00, 160);
+GO
+
+-- Insert ContractSalaryType
+INSERT INTO ContractSalaryType (salary_type_id, contract_value, installement_details)
+VALUES (3, 100000.00, 'Quarterly payments');
+GO
+
+-- Insert Employees
+INSERT INTO Employee (EmployeeID, first_name, last_name, national_id, date_of_birth, country_of_birth, 
+                     phone, email, address, emergency_contact_name, emergency_contact_phone, relationship,
+                     biography, profile_image, employment_progress, account_status, employment_status, 
+                     hire_date, is_active, department_id, position_id, paygrade_id, taxform_id, 
+                     manager_id, salary_type_id, contract_id, profile_completion_percentage)
+VALUES 
+(1, 'John', 'Doe', 'N001', '1990-05-15', 'USA', '555-0001', 'john.doe@company.com', 
+ '123 Main St', 'Jane Doe', '555-0002', 'Spouse', 'Experienced developer', NULL, 
+ 'Active', 'Active', 'Full-Time', '2024-01-15', 1, 1, 1, 1, 1, NULL, 1, 1, 100),
+(2, 'Sarah', 'Smith', 'N002', '1992-08-22', 'USA', '555-0003', 'sarah.smith@company.com',
+ '456 Oak Ave', 'Bob Smith', '555-0004', 'Father', 'Sales professional', NULL,
+ 'Active', 'Active', 'Part-Time', '2024-06-01', 1, 2, 2, 2, 2, NULL, 2, 2, 100),
+(3, 'Mike', 'Johnson', 'N003', '1988-03-10', 'USA', '555-0005', 'mike.johnson@company.com',
+ '789 Elm St', 'Lisa Johnson', '555-0006', 'Spouse', 'Senior engineer', NULL,
+ 'Active', 'Active', 'Full-Time', '2023-01-15', 1, 1, 1, 2, 1, NULL, 1, 3, 100);
+ GO
+
+-- Insert PayrollPolicies
+INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+VALUES (1, '2024-01-01', 'Bonus', 'Annual Performance Bonus'),
+       (2, '2024-01-01', 'Overtime', 'Overtime Compensation'),
+       (3, '2024-01-01', 'Deduction', 'Lateness Penalty');
+GO
+
+-- Insert specific policy types
+INSERT INTO BonusPolicy (policy_id, bonus_type, eligibility_criteria)
+VALUES (1, 'Performance', 'Full-time employees with good performance');
+GO
+
+INSERT INTO OvertimePolicy (policy_id, weekday_rate_multiplier, weekend_rate_multiplier, max_hours_per_month)
+VALUES (2, 1.5, 2.0, 40);
+GO
+
+INSERT INTO DeductionPolicy (policy_id, deduction_reason, calculation_mode)
+VALUES (3, 'Lateness', 'Per Incident');
+GO
+
+-- Insert sample payroll records for testing
+INSERT INTO Payroll (PayrollID, employee_id, taxes, period_start, period_end, base_amount, 
+                     adjustments, contributions, actual_pay, net_salary, payment_date)
+VALUES 
+(1, 1, 500.00, '2024-11-01', '2024-11-30', 5000.00, 0.00, 200.00, 4300.00, 4300.00, '2024-12-01'),
+(2, 2, 300.00, '2024-11-01', '2024-11-30', 4000.00, 0.00, 150.00, 3550.00, 3550.00, '2024-12-01'),
+(3, 3, 800.00, '2024-11-01', '2024-11-30', 8000.00, 0.00, 400.00, 6800.00, 6800.00, '2024-12-01');
+GO
+
+-- Insert PayrollPeriod for testing
+INSERT INTO PayrollPeriod (PayrollPeriodID, payroll_id, start_date, end_date, status)
+VALUES 
+(1, 1, '2024-11-01', '2024-11-30', 'Closed'),
+(2, 2, '2024-11-01', '2024-11-30', 'Closed'),
+(3, NULL, '2024-12-01', '2024-12-31', 'Open');
+GO
+
+-- Insert Leave types for testing
+INSERT INTO Leave (LeaveID, leave_type, leave_description)
+VALUES (1, 'Vacation', 'Annual vacation leave'),
+       (2, 'Sick', 'Medical leave');
+GO
+
+-- Insert LeaveRequest for testing
+INSERT INTO LeaveRequest (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES 
+(1, 1, 1, 'Family vacation', 5, '2024-11-15', 'Approved'),
+(2, 2, 2, 'Medical treatment', 3, '2024-11-20', 'Approved');
+GO
+
+-- Insert Attendance for testing
+INSERT INTO Attendance (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+VALUES 
+(1, 1, '09:00:00', '17:00:00', 480, 'Biometric', 'Biometric', NULL),
+(2, 2, '09:15:00', '17:00:00', 465, 'Manual', 'Manual', NULL),
+(3, 3, '09:00:00', '18:00:00', 540, 'Biometric', 'Biometric', NULL);
+GO
+
+-- Insert AttendanceCorrectionRequest for testing
+INSERT INTO AttendanceCorrectionRequest (RequestID, employee_id, date, correction_type, reason, status, recommended_by)
+VALUES 
+(1, 1, '2024-11-25', 'Missed Punch', 'Forgot to punch out', 'Pending', 3),
+(2, 2, '2024-11-26', 'Time Adjustment', 'System error', 'Pending', 3);
+
+GO
+-- Insert ApprovalWorkflow for testing
+INSERT INTO ApprovalWorkflow (WorkflowID, workflow_type, threshold_amount, approved_role, created_by, status)
+VALUES (1, 'Payroll Config', 10000.00, 'Admin', 1, 'Pending');
+GO
+
+PRINT 'Test data setup completed';
+PRINT '';
+
+-- ========================================
+-- TEST 1: GeneratePayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 1: GeneratePayroll';
+PRINT '========================================';
+
+-- Test 1.1: Valid date range
+PRINT 'Test 1.1: Generate payroll for December 2024';
+EXEC GeneratePayroll @StartDate = '2024-12-01', @EndDate = '2024-12-31';
+PRINT '';
+
+-- Test 1.2: Invalid date range (start > end)
+PRINT 'Test 1.2: Invalid date range (should fail)';
+BEGIN TRY
+    EXEC GeneratePayroll @StartDate = '2024-12-31', @EndDate = '2024-12-01';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 1.3: Future date range
+PRINT 'Test 1.3: Generate payroll for future period';
+EXEC GeneratePayroll @StartDate = '2025-01-01', @EndDate = '2025-01-31';
+PRINT '';
+
+-- ========================================
+-- TEST 2: AdjustPayrollItem
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 2: AdjustPayrollItem';
+PRINT '========================================';
+
+-- Test 2.1: Add allowance
+PRINT 'Test 2.1: Add allowance to payroll';
+EXEC AdjustPayrollItem @PayrollID = 1, @Type = 'Allowance', @Amount = 500.00, @Duration = 60, @Timezone = 'UTC';
+SELECT 'Payroll after allowance:' AS Info, adjustments, net_salary FROM Payroll WHERE PayrollID = 1;
+PRINT '';
+
+-- Test 2.2: Add deduction
+PRINT 'Test 2.2: Add deduction to payroll';
+EXEC AdjustPayrollItem @PayrollID = 2, @Type = 'Deduction', @Amount = 200.00, @Duration = 30, @Timezone = 'EST';
+SELECT 'Payroll after deduction:' AS Info, adjustments, net_salary FROM Payroll WHERE PayrollID = 2;
+PRINT '';
+
+-- Test 2.3: Invalid payroll ID (corner case)
+PRINT 'Test 2.3: Invalid payroll ID (should fail)';
+BEGIN TRY
+    EXEC AdjustPayrollItem @PayrollID = 999, @Type = 'Allowance', @Amount = 100.00, @Duration = 30, @Timezone = 'UTC';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 2.4: Invalid type (corner case)
+PRINT 'Test 2.4: Invalid type (should fail)';
+BEGIN TRY
+    EXEC AdjustPayrollItem @PayrollID = 1, @Type = 'Invalid', @Amount = 100.00, @Duration = 30, @Timezone = 'UTC';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 3: CalculateNetSalary
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 3: CalculateNetSalary';
+PRINT '========================================';
+
+-- Test 3.1: Calculate net salary for valid payroll
+PRINT 'Test 3.1: Calculate net salary for payroll ID 1';
+DECLARE @NetSal1 decimal(18,2);
+EXEC CalculateNetSalary @PayrollID = 1, @NetSalary = @NetSal1 OUTPUT;
+PRINT 'Calculated Net Salary: ' + CAST(@NetSal1 AS varchar(20));
+PRINT '';
+
+-- Test 3.2: Calculate net salary for another payroll
+PRINT 'Test 3.2: Calculate net salary for payroll ID 3';
+DECLARE @NetSal2 decimal(18,2);
+EXEC CalculateNetSalary @PayrollID = 3, @NetSalary = @NetSal2 OUTPUT;
+PRINT 'Calculated Net Salary: ' + CAST(@NetSal2 AS varchar(20));
+PRINT '';
+
+-- Test 3.3: Invalid payroll ID (corner case)
+PRINT 'Test 3.3: Invalid payroll ID (should fail)';
+BEGIN TRY
+    DECLARE @NetSal3 decimal(18,2);
+    EXEC CalculateNetSalary @PayrollID = 999, @NetSalary = @NetSal3 OUTPUT;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 4: ApplyPayrollPolicy
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 4: ApplyPayrollPolicy';
+PRINT '========================================';
+
+-- Test 4.1: Apply bonus policy
+PRINT 'Test 4.1: Apply bonus policy to payroll';
+EXEC ApplyPayrollPolicy @PolicyID = 1, @PayrollID = 1, @Type = 'Bonus', @Description = 'Performance bonus';
+SELECT 'Payroll after bonus:' AS Info, adjustments, net_salary FROM Payroll WHERE PayrollID = 1;
+PRINT '';
+
+-- Test 4.2: Apply overtime policy
+PRINT 'Test 4.2: Apply overtime policy to payroll';
+EXEC ApplyPayrollPolicy @PolicyID = 2, @PayrollID = 2, @Type = 'Overtime', @Description = 'Overtime pay';
+SELECT 'Payroll after overtime:' AS Info, adjustments, net_salary FROM Payroll WHERE PayrollID = 2;
+PRINT '';
+
+-- Test 4.3: Invalid policy ID (corner case)
+PRINT 'Test 4.3: Invalid policy ID (should fail)';
+BEGIN TRY
+    EXEC ApplyPayrollPolicy @PolicyID = 999, @PayrollID = 1, @Type = 'Bonus', @Description = 'Test';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 5: GetMonthlyPayrollSummary
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 5: GetMonthlyPayrollSummary';
+PRINT '========================================';
+
+-- Test 5.1: Valid month and year
+PRINT 'Test 5.1: Get payroll summary for November 2024';
+EXEC GetMonthlyPayrollSummary @Month = 11, @Year = 2024;
+PRINT '';
+
+-- Test 5.2: Month with no payroll data
+PRINT 'Test 5.2: Get payroll summary for January 2025 (no data)';
+EXEC GetMonthlyPayrollSummary @Month = 1, @Year = 2025;
+PRINT '';
+
+-- Test 5.3: Invalid month (corner case)
+PRINT 'Test 5.3: Invalid month (should fail)';
+BEGIN TRY
+    EXEC GetMonthlyPayrollSummary @Month = 13, @Year = 2024;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 6: GetEmployeePayrollHistory
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 6: GetEmployeePayrollHistory';
+PRINT '========================================';
+
+-- Test 6.1: Valid employee with history
+PRINT 'Test 6.1: Get payroll history for employee 1';
+EXEC GetEmployeePayrollHistory @EmployeeID = 1;
+PRINT '';
+
+-- Test 6.2: Valid employee with history
+PRINT 'Test 6.2: Get payroll history for employee 3';
+EXEC GetEmployeePayrollHistory @EmployeeID = 3;
+PRINT '';
+
+-- Test 6.3: Invalid employee ID (corner case)
+PRINT 'Test 6.3: Invalid employee ID (should fail)';
+BEGIN TRY
+    EXEC GetEmployeePayrollHistory @EmployeeID = 999;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 8 GetBonusEligibleEmployees
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 7: GetBonusEligibleEmployees';
+PRINT '========================================';
+
+-- Test 8.1: Full-time employees
+PRINT 'Test 7.1: Get full-time employees eligible for bonus';
+EXEC GetBonusEligibleEmployees @EligibilityCriteria = 'FullTime';
+PRINT '';
+
+-- Test 8.2: Employees with tenure > 1 year
+PRINT 'Test 7.2: Get employees with tenure > 1 year';
+EXEC GetBonusEligibleEmployees @EligibilityCriteria = 'TenureGreaterThan1Year';
+PRINT '';
+
+-- Test 8.3: Default criteria (all active)
+PRINT 'Test 7.3: Get all active employees (default)';
+EXEC GetBonusEligibleEmployees @EligibilityCriteria = 'AllActive';
+PRINT '';
+
+-- ========================================
+-- TEST 9 UpdateSalaryType
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 8: UpdateSalaryType';
+PRINT '========================================';
+
+-- Test 9.1: Valid salary type update
+PRINT 'Test 8.1: Update employee 2 salary type to Monthly';
+SELECT 'Before update:' AS Info, salary_type_id FROM Employee WHERE EmployeeID = 2;
+EXEC UpdateSalaryType @EmployeeID = 2, @SalaryTypeID = 1;
+SELECT 'After update:' AS Info, salary_type_id FROM Employee WHERE EmployeeID = 2;
+PRINT '';
+
+-- Test 9.2: Invalid employee ID (corner case)
+PRINT 'Test 8.2: Invalid employee ID (should fail)';
+BEGIN TRY
+    EXEC UpdateSalaryType @EmployeeID = 999, @SalaryTypeID = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 9.3: Invalid salary type ID (corner case)
+PRINT 'Test 8.3: Invalid salary type ID (should fail)';
+BEGIN TRY
+    EXEC UpdateSalaryType @EmployeeID = 1, @SalaryTypeID = 999;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 10: GetPayrollByDepartment
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 10: GetPayrollByDepartment';
+PRINT '========================================';
+
+-- Test 10.1: Valid department with payroll data
+PRINT 'Test 10.1: Get payroll summary for Engineering department';
+EXEC GetPayrollByDepartment @DepartmentID = 1, @Month = 11, @Year = 2024;
+PRINT '';
+
+-- Test 10.2: Department with no payroll data
+PRINT 'Test 10.2: Get payroll summary for department with no data';
+EXEC GetPayrollByDepartment @DepartmentID = 2, @Month = 11, @Year = 2024;
+PRINT '';
+
+-- Test 10.3: Invalid department ID (corner case)
+PRINT 'Test 10.3: Invalid department ID (should fail)';
+BEGIN TRY
+    EXEC GetPayrollByDepartment @DepartmentID = 999, @Month = 11, @Year = 2024;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 10.4: Invalid month (corner case)
+PRINT 'Test 10.4: Invalid month (should fail)';
+BEGIN TRY
+    EXEC GetPayrollByDepartment @DepartmentID = 1, @Month = 15, @Year = 2024;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 11: ValidateAttendanceBeforePayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 11: ValidateAttendanceBeforePayroll';
+PRINT '========================================';
+
+-- Test 11.1: Valid payroll period with unresolved punches
+PRINT 'Test 11.1: Check for unresolved attendance issues';
+EXEC ValidateAttendanceBeforePayroll @PayrollPeriodID = 3;
+PRINT '';
+
+-- Test 11.2: Payroll period with no issues
+PRINT 'Test 11.2: Check completed payroll period';
+EXEC ValidateAttendanceBeforePayroll @PayrollPeriodID = 1;
+PRINT '';
+
+-- Test 11.3: Invalid payroll period ID (corner case)
+PRINT 'Test 11.3: Invalid payroll period ID (should fail)';
+BEGIN TRY
+    EXEC ValidateAttendanceBeforePayroll @PayrollPeriodID = 999;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 12: SyncAttendanceToPayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 12: SyncAttendanceToPayroll';
+PRINT '========================================';
+
+-- Test 12.1: Sync valid date
+PRINT 'Test 12.1: Sync attendance for today';
+EXEC SyncAttendanceToPayroll @SyncDate = '2024-11-29';
+PRINT '';
+
+-- Test 12.2: Sync past date
+PRINT 'Test 12.2: Sync attendance for past date';
+EXEC SyncAttendanceToPayroll @SyncDate = '2024-11-01';
+PRINT '';
+
+-- Test 12.3: Future date (corner case - should fail)
+PRINT 'Test 12.3: Future date sync (should fail)';
+BEGIN TRY
+    EXEC SyncAttendanceToPayroll @SyncDate = '2025-12-31';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 13: SyncApprovedPermissionsToPayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 13: SyncApprovedPermissionsToPayroll';
+PRINT '========================================';
+
+-- Test 13.1: Sync approved permissions for valid period
+PRINT 'Test 13.1: Sync approved leave requests';
+EXEC SyncApprovedPermissionsToPayroll @PayrollPeriodID = 1;
+PRINT '';
+
+-- Test 13.2: Sync for period with no approved leaves
+PRINT 'Test 13.2: Sync for open period';
+EXEC SyncApprovedPermissionsToPayroll @PayrollPeriodID = 3;
+PRINT '';
+
+-- Test 13.3: Invalid payroll period (corner case)
+PRINT 'Test 13.3: Invalid payroll period (should fail)';
+BEGIN TRY
+    EXEC SyncApprovedPermissionsToPayroll @PayrollPeriodID = 999;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 14: ConfigurePayGrades
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 14: ConfigurePayGrades';
+PRINT '========================================';
+
+-- Test 14.1: Create new pay grade
+PRINT 'Test 14.1: Create new pay grade "Manager"';
+EXEC ConfigurePayGrades @GradeName = 'Manager', @MinSalary = 70000.00, @MaxSalary = 100000.00;
+PRINT '';
+
+-- Test 14.2: Update existing pay grade
+PRINT 'Test 14.2: Update existing pay grade "Junior"';
+EXEC ConfigurePayGrades @GradeName = 'Junior', @MinSalary = 45000.00, @MaxSalary = 65000.00;
+SELECT 'Updated grade:' AS Info, * FROM PayGrade WHERE grade_name = 'Junior';
+PRINT '';
+
+-- Test 14.3: Invalid salary range (corner case)
+PRINT 'Test 14.3: Invalid salary range (should fail)';
+BEGIN TRY
+    EXEC ConfigurePayGrades @GradeName = 'Invalid', @MinSalary = 100000.00, @MaxSalary = 50000.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 14.4: Negative salary (corner case)
+PRINT 'Test 14.4: Negative salary (should fail)';
+BEGIN TRY
+    EXEC ConfigurePayGrades @GradeName = 'Test', @MinSalary = -1000.00, @MaxSalary = 50000.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 15: ConfigureShiftAllowances
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 15: ConfigureShiftAllowances';
+PRINT '========================================';
+
+-- Test 15.1: Create night shift allowance
+PRINT 'Test 15.1: Configure night shift allowance';
+EXEC ConfigureShiftAllowances @ShiftType = 'Night', @AllowanceName = 'Night Differential', @Amount = 150.00;
+PRINT '';
+
+-- Test 15.2: Create weekend allowance
+PRINT 'Test 15.2: Configure weekend shift allowance';
+EXEC ConfigureShiftAllowances @ShiftType = 'Weekend', @AllowanceName = 'Weekend Premium', @Amount = 200.00;
+PRINT '';
+
+-- Test 15.3: Negative amount (corner case)
+PRINT 'Test 15.3: Negative allowance amount (should fail)';
+BEGIN TRY
+    EXEC ConfigureShiftAllowances @ShiftType = 'Test', @AllowanceName = 'Test', @Amount = -50.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 16: EnableMultiCurrencyPayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 16: EnableMultiCurrencyPayroll';
+PRINT '========================================';
+
+-- Test 16.1: Add new currency
+PRINT 'Test 16.1: Enable EUR currency';
+EXEC EnableMultiCurrencyPayroll @CurrencyCode = 'EUR', @ExchangeRate = 0.92;
+PRINT '';
+
+-- Test 16.2: Update existing currency
+PRINT 'Test 16.2: Update USD exchange rate';
+EXEC EnableMultiCurrencyPayroll @CurrencyCode = 'USD', @ExchangeRate = 1.00;
+SELECT 'Updated currency:' AS Info, * FROM Currency WHERE CurrencyCode = 'USD';
+PRINT '';
+
+-- Test 16.3: Invalid exchange rate (corner case)
+PRINT 'Test 16.3: Invalid exchange rate (should fail)';
+BEGIN TRY
+    EXEC EnableMultiCurrencyPayroll @CurrencyCode = 'GBP', @ExchangeRate = -0.5;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 17: ManageTaxRules
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 17: ManageTaxRules';
+PRINT '========================================';
+
+-- Test 17.1: Create new tax rule
+PRINT 'Test 17.1: Create tax rule for Canada';
+EXEC ManageTaxRules @TaxRuleName = 'Canadian Federal Tax', @CountryCode = 'CA', @Rate = 15.00, @Exemption = 12000.00;
+PRINT '';
+
+-- Test 17.2: Update existing tax rule
+PRINT 'Test 17.2: Update US tax rule';
+EXEC ManageTaxRules @TaxRuleName = 'US Federal Tax Updated', @CountryCode = 'US', @Rate = 22.00, @Exemption = 13850.00;
+SELECT 'Updated tax form:' AS Info, TaxFormID, jurisdiction, form_content FROM TaxForm WHERE jurisdiction = 'US';
+PRINT '';
+
+-- Test 17.3: Invalid tax rate (corner case)
+PRINT 'Test 17.3: Invalid tax rate (should fail)';
+BEGIN TRY
+    EXEC ManageTaxRules @TaxRuleName = 'Invalid', @CountryCode = 'XX', @Rate = 150.00, @Exemption = 1000.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 18: ApprovePayrollConfigChanges
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 18: ApprovePayrollConfigChanges';
+PRINT '========================================';
+
+-- Test 18.1: Approve configuration
+PRINT 'Test 18.1: Approve payroll configuration';
+EXEC ApprovePayrollConfigChanges @ConfigID = 1, @ApproverID = 1, @Status = 'Approved';
+SELECT 'Approval status:' AS Info, WorkflowID, status FROM ApprovalWorkflow WHERE WorkflowID = 1;
+PRINT '';
+
+-- Test 18.2: Reject configuration
+PRINT 'Test 18.2: Reject payroll configuration';
+EXEC ApprovePayrollConfigChanges @ConfigID = 1, @ApproverID = 3, @Status = 'Rejected';
+SELECT 'Rejection status:' AS Info, WorkflowID, status FROM ApprovalWorkflow WHERE WorkflowID = 1;
+PRINT '';
+
+-- Test 18.3: Invalid approver (corner case)
+PRINT 'Test 18.3: Invalid approver ID (should fail)';
+BEGIN TRY
+    EXEC ApprovePayrollConfigChanges @ConfigID = 1, @ApproverID = 999, @Status = 'Approved';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 18.4: Invalid status (corner case)
+PRINT 'Test 18.4: Invalid status (should fail)';
+BEGIN TRY
+    EXEC ApprovePayrollConfigChanges @ConfigID = 1, @ApproverID = 1, @Status = 'InvalidStatus';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 19: ConfigureSigningBonus
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 19: ConfigureSigningBonus';
+PRINT '========================================';
+
+-- Test 19.1: Configure signing bonus for new hire
+PRINT 'Test 19.1: Configure signing bonus for employee 1';
+EXEC ConfigureSigningBonus @EmployeeID = 1, @BonusAmount = 5000.00, @EffectiveDate = '2025-01-01';
+PRINT '';
+
+-- Test 19.2: Configure higher signing bonus
+PRINT 'Test 19.2: Configure signing bonus for employee 3';
+EXEC ConfigureSigningBonus @EmployeeID = 3, @BonusAmount = 10000.00, @EffectiveDate = '2025-02-01';
+PRINT '';
+
+-- Test 19.3: Invalid employee ID (corner case)
+PRINT 'Test 19.3: Invalid employee ID (should fail)';
+BEGIN TRY
+    EXEC ConfigureSigningBonus @EmployeeID = 999, @BonusAmount = 5000.00, @EffectiveDate = '2025-01-01';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 19.4: Past effective date (corner case)
+PRINT 'Test 19.4: Past effective date (should fail)';
+BEGIN TRY
+    EXEC ConfigureSigningBonus @EmployeeID = 1, @BonusAmount = 5000.00, @EffectiveDate = '2020-01-01';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 20: ConfigureTerminationBenefits
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 20: ConfigureTerminationBenefits';
+PRINT '========================================';
+
+-- Test 20.1: Configure termination with compensation
+PRINT 'Test 20.1: Configure termination benefits for employee';
+EXEC ConfigureTerminationBenefits @EmployeeID = 2, @CompensationAmount = 10000.00, @EffectiveDate = '2025-01-15', @Reason = 'Voluntary Resignation';
+SELECT 'Termination record:' AS Info, * FROM Termination WHERE contract_id = 2;
+SELECT 'Employee status:' AS Info, EmployeeID, is_active, employment_status FROM Employee WHERE EmployeeID = 2;
+PRINT '';
+
+-- Test 20.2: Configure termination with different reason
+PRINT 'Test 20.2: Configure termination for another employee';
+EXEC ConfigureTerminationBenefits @EmployeeID = 3, @CompensationAmount = 15000.00, @EffectiveDate = '2025-02-01', @Reason = 'Retirement';
+PRINT '';
+
+-- Test 20.3: Invalid employee ID (corner case)
+PRINT 'Test 20.3: Invalid employee ID (should fail)';
+BEGIN TRY
+    EXEC ConfigureTerminationBenefits @EmployeeID = 999, @CompensationAmount = 5000.00, @EffectiveDate = '2025-01-01', @Reason = 'Test';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 20.4: Past effective date (corner case)
+PRINT 'Test 20.4: Past effective date (should fail)';
+BEGIN TRY
+    EXEC ConfigureTerminationBenefits @EmployeeID = 1, @CompensationAmount = 5000.00, @EffectiveDate = '2020-01-01', @Reason = 'Test';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 21: ConfigureInsuranceBrackets
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 21: ConfigureInsuranceBrackets';
+PRINT '========================================';
+
+-- Test 21.1: Configure basic insurance bracket
+PRINT 'Test 21.1: Configure health insurance bracket';
+EXEC ConfigureInsuranceBrackets @InsuranceType = 'Health', @MinSalary = 30000.00, @MaxSalary = 60000.00, @EmployeeContribution = 5.00, @EmployerContribution = 10.00;
+PRINT '';
+
+-- Test 21.2: Configure premium insurance bracket
+PRINT 'Test 21.2: Configure premium insurance bracket';
+EXEC ConfigureInsuranceBrackets @InsuranceType = 'Premium Health', @MinSalary = 60000.00, @MaxSalary = 120000.00, @EmployeeContribution = 3.00, @EmployerContribution = 12.00;
+SELECT 'Insurance records:' AS Info, InsuranceID, type, contribution_rate FROM Insurance;
+PRINT '';
+
+-- Test 21.3: Invalid salary range (corner case)
+PRINT 'Test 21.3: Invalid salary range (should fail)';
+BEGIN TRY
+    EXEC ConfigureInsuranceBrackets @InsuranceType = 'Test', @MinSalary = 60000.00, @MaxSalary = 30000.00, @EmployeeContribution = 5.00, @EmployerContribution = 10.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 21.4: Invalid contribution percentage (corner case)
+PRINT 'Test 21.4: Invalid contribution percentage (should fail)';
+BEGIN TRY
+    EXEC ConfigureInsuranceBrackets @InsuranceType = 'Test', @MinSalary = 30000.00, @MaxSalary = 60000.00, @EmployeeContribution = 150.00, @EmployerContribution = 10.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 22: UpdateInsuranceBrackets
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 22: UpdateInsuranceBrackets';
+PRINT '========================================';
+
+-- Test 22.1: Update existing insurance bracket
+PRINT 'Test 22.1: Update insurance bracket 1';
+DECLARE @BracketID1 int = (SELECT TOP 1 InsuranceID FROM Insurance ORDER BY InsuranceID);
+SELECT 'Before update:' AS Info, InsuranceID, contribution_rate FROM Insurance WHERE InsuranceID = @BracketID1;
+EXEC UpdateInsuranceBrackets @BracketID = @BracketID1, @MinSalary = 30000.00, @MaxSalary = 65000.00, @EmployeeContribution = 6.00, @EmployerContribution = 11.00;
+SELECT 'After update:' AS Info, InsuranceID, contribution_rate FROM Insurance WHERE InsuranceID = @BracketID1;
+PRINT '';
+
+-- Test 22.2: Update another bracket
+PRINT 'Test 22.2: Update second insurance bracket';
+DECLARE @BracketID2 int = (SELECT TOP 1 InsuranceID FROM Insurance ORDER BY InsuranceID DESC);
+EXEC UpdateInsuranceBrackets @BracketID = @BracketID2, @MinSalary = 65000.00, @MaxSalary = 130000.00, @EmployeeContribution = 4.00, @EmployerContribution = 13.00;
+PRINT '';
+
+-- Test 22.3: Invalid bracket ID (corner case)
+PRINT 'Test 22.3: Invalid bracket ID (should fail)';
+BEGIN TRY
+    EXEC UpdateInsuranceBrackets @BracketID = 999, @MinSalary = 30000.00, @MaxSalary = 60000.00, @EmployeeContribution = 5.00, @EmployerContribution = 10.00;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 23: ConfigurePayrollPolicies
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 23: ConfigurePayrollPolicies';
+PRINT '========================================';
+
+-- Test 23.1: Configure bonus policy
+PRINT 'Test 23.1: Configure annual bonus policy';
+EXEC ConfigurePayrollPolicies @PolicyType = 'Bonus', @PolicyDetails = 'Annual performance bonus based on KPIs', @EffectiveDate = '2025-01-01';
+PRINT '';
+
+-- Test 23.2: Configure deduction policy
+PRINT 'Test 23.2: Configure absence deduction policy';
+EXEC ConfigurePayrollPolicies @PolicyType = 'Deduction', @PolicyDetails = 'Absence without approval deduction policy', @EffectiveDate = '2025-01-01';
+PRINT '';
+
+-- Test 23.3: Configure overtime policy
+PRINT 'Test 23.3: Configure enhanced overtime policy';
+EXEC ConfigurePayrollPolicies @PolicyType = 'Overtime', @PolicyDetails = 'Enhanced overtime compensation for critical projects', @EffectiveDate = '2025-01-15';
+SELECT 'Policies created:' AS Info, PolicyID, type, description FROM PayrollPolicy WHERE effective_date >= '2025-01-01';
+PRINT '';
+
+-- Test 23.4: Invalid policy type (corner case)
+PRINT 'Test 23.4: Invalid policy type (should fail)';
+BEGIN TRY
+    EXEC ConfigurePayrollPolicies @PolicyType = 'InvalidType', @PolicyDetails = 'Test', @EffectiveDate = '2025-01-01';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 24: DefinePayGrades
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 24: DefinePayGrades';
+PRINT '========================================';
+
+-- Test 24.1: Define new pay grade
+PRINT 'Test 24.1: Define Executive pay grade';
+EXEC DefinePayGrades @GradeName = 'Executive', @MinSalary = 150000.00, @MaxSalary = 300000.00, @CreatedBy = 1;
+PRINT '';
+
+-- Test 24.2: Define another pay grade
+PRINT 'Test 24.2: Define Lead pay grade';
+EXEC DefinePayGrades @GradeName = 'Lead', @MinSalary = 90000.00, @MaxSalary = 150000.00, @CreatedBy = 1;
+SELECT 'Pay grades:' AS Info, PayGradeID, grade_name, min_salary, max_salary FROM PayGrade WHERE grade_name IN ('Executive', 'Lead');
+PRINT '';
+
+-- Test 24.3: Duplicate grade name (corner case)
+PRINT 'Test 24.3: Duplicate grade name (should fail)';
+BEGIN TRY
+    EXEC DefinePayGrades @GradeName = 'Executive', @MinSalary = 150000.00, @MaxSalary = 300000.00, @CreatedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 24.4: Invalid creator (corner case)
+PRINT 'Test 24.4: Invalid creator employee (should fail)';
+BEGIN TRY
+    EXEC DefinePayGrades @GradeName = 'Test', @MinSalary = 50000.00, @MaxSalary = 80000.00, @CreatedBy = 999;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 25: ConfigureEscalationWorkflow
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 25: ConfigureEscalationWorkflow';
+PRINT '========================================';
+
+-- Test 25.1: Configure manager approval threshold
+PRINT 'Test 25.1: Configure manager approval workflow';
+EXEC ConfigureEscalationWorkflow @ThresholdAmount = 1000.00, @ApproverRole = 'Manager', @CreatedBy = 1;
+PRINT '';
+
+-- Test 25.2: Configure director approval threshold
+PRINT 'Test 25.2: Configure director approval workflow';
+EXEC ConfigureEscalationWorkflow @ThresholdAmount = 10000.00, @ApproverRole = 'Director', @CreatedBy = 1;
+PRINT '';
+
+-- Test 25.3: Configure CFO approval threshold
+PRINT 'Test 25.3: Configure CFO approval workflow';
+EXEC ConfigureEscalationWorkflow @ThresholdAmount = 50000.00, @ApproverRole = 'CFO', @CreatedBy = 1;
+SELECT 'Workflows:' AS Info, WorkflowID, workflow_type, threshold_amount, approved_role FROM ApprovalWorkflow WHERE workflow_type = 'Payroll Escalation';
+PRINT '';
+
+-- Test 25.4: Invalid approver role (corner case)
+PRINT 'Test 25.4: Invalid approver role (should fail)';
+BEGIN TRY
+    EXEC ConfigureEscalationWorkflow @ThresholdAmount = 5000.00, @ApproverRole = 'InvalidRole', @CreatedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 26: DefinePayType
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 26: DefinePayType';
+PRINT '========================================';
+
+-- Test 26.1: Define monthly pay type
+PRINT 'Test 26.1: Define monthly pay type for employee 1';
+SELECT 'Before:' AS Info, EmployeeID, salary_type_id FROM Employee WHERE EmployeeID = 1;
+EXEC DefinePayType @EmployeeID = 1, @PayType = 'Monthly', @EffectiveDate = '2025-01-01';
+SELECT 'After:' AS Info, e.EmployeeID, e.salary_type_id, st.type FROM Employee e LEFT JOIN SalaryType st ON e.salary_type_id = st.SalaryTypeID WHERE e.EmployeeID = 1;
+PRINT '';
+
+-- Test 26.2: Define hourly pay type
+PRINT 'Test 26.2: Define hourly pay type for new employee';
+-- First restore employee 2 for testing
+UPDATE Employee SET is_active = 1, employment_status = 'Active' WHERE EmployeeID = 2;
+EXEC DefinePayType @EmployeeID = 2, @PayType = 'Hourly', @EffectiveDate = '2025-01-01';
+PRINT '';
+
+-- Test 26.3: Define weekly pay type
+PRINT 'Test 26.3: Define weekly pay type';
+-- Restore employee 3 for testing
+UPDATE Employee SET is_active = 1, employment_status = 'Active' WHERE EmployeeID = 3;
+EXEC DefinePayType @EmployeeID = 3, @PayType = 'Weekly', @EffectiveDate = '2025-01-01';
+PRINT '';
+
+-- Test 26.4: Invalid pay type (corner case)
+PRINT 'Test 26.4: Invalid pay type (should fail)';
+BEGIN TRY
+    EXEC DefinePayType @EmployeeID = 1, @PayType = 'InvalidType', @EffectiveDate = '2025-01-01';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 27: ConfigureOvertimeRules
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 27: ConfigureOvertimeRules';
+PRINT '========================================';
+
+-- Test 27.1: Configure weekday overtime
+PRINT 'Test 27.1: Configure weekday overtime rules';
+EXEC ConfigureOvertimeRules @DayType = 'Weekday', @Multiplier = 1.5, @HoursPerMonth = 40;
+PRINT '';
+
+-- Test 27.2: Configure weekend overtime
+PRINT 'Test 27.2: Configure weekend overtime rules';
+EXEC ConfigureOvertimeRules @DayType = 'Weekend', @Multiplier = 2.0, @HoursPerMonth = 30;
+PRINT '';
+
+-- Test 27.3: Configure holiday overtime
+PRINT 'Test 27.3: Configure holiday overtime rules';
+EXEC ConfigureOvertimeRules @DayType = 'Holiday', @Multiplier = 3.0, @HoursPerMonth = 20;
+SELECT 'Overtime policies:' AS Info, op.policy_id, pp.description, op.weekday_rate_multiplier, op.weekend_rate_multiplier, op.max_hours_per_month 
+FROM OvertimePolicy op 
+INNER JOIN PayrollPolicy pp ON op.policy_id = pp.PolicyID 
+WHERE pp.type = 'Overtime' AND pp.effective_date >= GETDATE();
+PRINT '';
+
+-- Test 27.4: Invalid multiplier (corner case)
+PRINT 'Test 27.4: Invalid multiplier (should fail)';
+BEGIN TRY
+    EXEC ConfigureOvertimeRules @DayType = 'Weekday', @Multiplier = 10.0, @HoursPerMonth = 40;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 28: ConfigureShiftAllowance
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 28: ConfigureShiftAllowance';
+PRINT '========================================';
+
+-- Test 28.1: Configure night shift allowance
+PRINT 'Test 28.1: Configure night shift allowance';
+EXEC ConfigureShiftAllowance @ShiftType = 'Night', @AllowanceAmount = 250.00, @CreatedBy = 1;
+PRINT '';
+
+-- Test 28.2: Configure hazard pay
+PRINT 'Test 28.2: Configure hazard pay allowance';
+EXEC ConfigureShiftAllowance @ShiftType = 'Hazard', @AllowanceAmount = 500.00, @CreatedBy = 1;
+PRINT '';
+
+-- Test 28.3: Configure remote work allowance
+PRINT 'Test 28.3: Configure remote work allowance';
+EXEC ConfigureShiftAllowance @ShiftType = 'Remote', @AllowanceAmount = 100.00, @CreatedBy = 1;
+SELECT 'Shift allowances:' AS Info, PolicyID, type, description FROM PayrollPolicy WHERE type = 'Allowance' AND description LIKE '%Shift Allowance%';
+PRINT '';
+
+-- Test 28.4: Invalid shift type (corner case)
+PRINT 'Test 28.4: Invalid shift type (should fail)';
+BEGIN TRY
+    EXEC ConfigureShiftAllowance @ShiftType = 'InvalidShift', @AllowanceAmount = 100.00, @CreatedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 30: ConfigureSigningBonusPolicy
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 30: ConfigureSigningBonusPolicy';
+PRINT '========================================';
+
+-- Test 30.1: Configure signing bonus policy
+PRINT 'Test 30.1: Configure signing bonus policy for new hires';
+EXEC ConfigureSigningBonusPolicy @BonusType = 'Signing', @Amount = 5000.00, @EligibilityCriteria = 'All full-time new hires with engineering positions';
+PRINT '';
+
+-- Test 30.2: Configure retention bonus policy
+PRINT 'Test 30.2: Configure retention bonus policy';
+EXEC ConfigureSigningBonusPolicy @BonusType = 'Retention', @Amount = 10000.00, @EligibilityCriteria = 'Employees completing 5 years of service';
+PRINT '';
+
+-- Test 30.3: Configure relocation bonus policy
+PRINT 'Test 30.3: Configure relocation bonus policy';
+EXEC ConfigureSigningBonusPolicy @BonusType = 'Relocation', @Amount = 7500.00, @EligibilityCriteria = 'Employees relocating more than 500 miles';
+SELECT 'Bonus policies:' AS Info, PolicyID, type, description FROM PayrollPolicy WHERE type = 'Bonus' AND effective_date >= CAST(GETDATE() AS date);
+PRINT '';
+
+-- Test 30.4: Invalid bonus type (corner case)
+PRINT 'Test 30.4: Invalid bonus type (should fail)';
+BEGIN TRY
+    EXEC ConfigureSigningBonusPolicy @BonusType = 'InvalidBonus', @Amount = 5000.00, @EligibilityCriteria = 'Test';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 32: GenerateTaxStatement
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 32: GenerateTaxStatement';
+PRINT '========================================';
+
+-- Test 32.1: Generate tax statement for employee 1
+PRINT 'Test 32.1: Generate tax statement for employee 1 for 2024';
+EXEC GenerateTaxStatement @EmployeeID = 1, @TaxYear = 2024;
+PRINT '';
+
+-- Test 32.2: Generate tax statement for employee 3
+PRINT 'Test 32.2: Generate tax statement for employee 3 for 2024';
+EXEC GenerateTaxStatement @EmployeeID = 3, @TaxYear = 2024;
+PRINT '';
+
+-- Test 32.3: Generate tax statement for future year
+PRINT 'Test 32.3: Generate tax statement for 2025';
+EXEC GenerateTaxStatement @EmployeeID = 1, @TaxYear = 2025;
+PRINT '';
+
+-- Test 32.4: Invalid employee ID (corner case)
+PRINT 'Test 32.4: Invalid employee ID (should fail)';
+BEGIN TRY
+    EXEC GenerateTaxStatement @EmployeeID = 999, @TaxYear = 2024;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 33: ApprovePayrollConfiguration
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 33: ApprovePayrollConfiguration';
+PRINT '========================================';
+
+-- Insert a pending configuration for testing
+INSERT INTO ApprovalWorkflow (WorkflowID, workflow_type, threshold_amount, approved_role, created_by, status)
+VALUES (100, 'Test Config', 5000.00, 'Manager', 1, 'Pending');
+GO
+
+-- Test 33.1: Approve pending configuration
+PRINT 'Test 33.1: Approve pending payroll configuration';
+SELECT 'Before approval:' AS Info, WorkflowID, status FROM ApprovalWorkflow WHERE WorkflowID = 100;
+EXEC ApprovePayrollConfiguration @ConfigID = 100, @ApprovedBy = 1;
+SELECT 'After approval:' AS Info, WorkflowID, status FROM ApprovalWorkflow WHERE WorkflowID = 100;
+PRINT '';
+
+-- Insert another pending configuration
+INSERT INTO ApprovalWorkflow (WorkflowID, workflow_type, threshold_amount, approved_role, created_by, status)
+VALUES (101, 'Test Config 2', 3000.00, 'Director', 1, 'Pending');
+GO
+
+-- Test 33.2: Approve another configuration
+PRINT 'Test 33.2: Approve second configuration';
+EXEC ApprovePayrollConfiguration @ConfigID = 101, @ApprovedBy = 3;
+PRINT '';
+
+-- Test 33.3: Approve already approved configuration (corner case)
+PRINT 'Test 33.3: Approve already approved configuration (should fail)';
+BEGIN TRY
+    EXEC ApprovePayrollConfiguration @ConfigID = 100, @ApprovedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- Test 33.4: Invalid configuration ID (corner case)
+PRINT 'Test 33.4: Invalid configuration ID (should fail)';
+BEGIN TRY
+    EXEC ApprovePayrollConfiguration @ConfigID = 999, @ApprovedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+
+-- ========================================
+-- TEST 34: ModifyPastPayroll
+-- ========================================
+PRINT '========================================';
+PRINT 'TEST 34: ModifyPastPayroll';
+PRINT '========================================';
+
+-- Test 34.1: Modify base amount
+PRINT 'Test 34.1: Modify base amount for payroll 1';
+SELECT 'Before modification:' AS Info, PayrollID, employee_id, base_amount, net_salary FROM Payroll WHERE PayrollID = 1;
+EXEC ModifyPastPayroll @PayrollRunID = 1, @EmployeeID = 1, @FieldName = 'base_amount', @NewValue = 5500.00, @ModifiedBy = 1;
+SELECT 'After modification:' AS Info, PayrollID, employee_id, base_amount, net_salary FROM Payroll WHERE PayrollID = 1;
+PRINT '';
+
+-- Test 34.2: Modify adjustments
+PRINT 'Test 34.2: Modify adjustments for payroll 2';
+SELECT 'Before modification:' AS Info, PayrollID, employee_id, adjustments, net_salary FROM Payroll WHERE PayrollID = 2;
+EXEC ModifyPastPayroll @PayrollRunID = 2, @EmployeeID = 2, @FieldName = 'adjustments', @NewValue = 100.00, @ModifiedBy = 1;
+SELECT 'After modification:' AS Info, PayrollID, employee_id, adjustments, net_salary FROM Payroll WHERE PayrollID = 2;
+PRINT '';
+
+-- Test 34.3: Modify taxes
+PRINT 'Test 34.3: Modify taxes for payroll 3';
+SELECT 'Before modification:' AS Info, PayrollID, employee_id, taxes, net_salary FROM Payroll WHERE PayrollID = 3;
+EXEC ModifyPastPayroll @PayrollRunID = 3, @EmployeeID = 3, @FieldName = 'taxes', @NewValue = 900.00, @ModifiedBy = 1;
+SELECT 'After modification:' AS Info, PayrollID, employee_id, taxes, net_salary FROM Payroll WHERE PayrollID = 3;
+SELECT 'Payroll logs:' AS Info, payroll_log_id, payroll_id, modification_type FROM PayrollLog WHERE payroll_id IN (1,2,3);
+PRINT '';
+
+-- Test 34.4: Invalid field name (corner case)
+PRINT 'Test 34.4: Invalid field name (should fail)';
+BEGIN TRY
+    EXEC ModifyPastPayroll @PayrollRunID = 1, @EmployeeID = 1, @FieldName = 'invalid_field', @NewValue = 1000.00, @ModifiedBy = 1;
+END TRY
+BEGIN CATCH
+    PRINT 'Expected error: ' + ERROR_MESSAGE();
+END CATCH
+PRINT '';
+

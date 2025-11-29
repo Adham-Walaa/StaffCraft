@@ -6059,3 +6059,1705 @@ BEGIN
     SELECT 'Policy update approved and notifications sent to relevant staff.' AS NotificationMessage;
 END;
 GO
+
+--Payroll Officer Procedures
+
+USE MILESTONE2;
+GO
+
+-- ========================================
+-- 1) Generate payroll for a specific pay period
+-- ========================================
+IF OBJECT_ID('GeneratePayroll', 'P') IS NOT NULL
+    DROP PROCEDURE GeneratePayroll;
+GO
+
+CREATE PROCEDURE GeneratePayroll
+    @StartDate date,
+    @EndDate date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate date range
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('Start date cannot be after end date', 16, 1);
+        RETURN;
+    END
+    
+    -- Generate payroll records for active employees
+    SELECT 
+        e.EmployeeID,
+        e.full_name,
+        e.department_id,
+        st.type AS salary_type,
+        st.payment_frequency,
+        CASE 
+            WHEN st.type = 'Monthly' THEN mst.tax_rule
+            ELSE NULL
+        END AS tax_rule,
+        @StartDate AS period_start,
+        @EndDate AS period_end,
+        CASE 
+            WHEN hst.hourly_rate IS NOT NULL THEN hst.hourly_rate * hst.max_monthly_hours
+            WHEN cst.contract_value IS NOT NULL THEN cst.contract_value
+            ELSE 0
+        END AS base_amount,
+        0.00 AS adjustments,
+        0.00 AS contributions,
+        0.00 AS taxes,
+        CASE 
+            WHEN hst.hourly_rate IS NOT NULL THEN hst.hourly_rate * hst.max_monthly_hours
+            WHEN cst.contract_value IS NOT NULL THEN cst.contract_value
+            ELSE 0
+        END AS net_salary
+    FROM Employee e
+    INNER JOIN SalaryType st ON e.salary_type_id = st.SalaryTypeID
+    LEFT JOIN HourlySalaryType hst ON st.SalaryTypeID = hst.salary_type_id
+    LEFT JOIN MonthlySalaryType mst ON st.SalaryTypeID = mst.salary_type_id
+    LEFT JOIN ContractSalaryType cst ON st.SalaryTypeID = cst.salary_type_id
+    WHERE e.is_active = 1
+        AND e.hire_date <= @EndDate
+    ORDER BY e.EmployeeID;
+END
+GO
+
+-- ========================================
+-- 2) Add or modify allowances and deductions
+-- ========================================
+IF OBJECT_ID('AdjustPayrollItem', 'P') IS NOT NULL
+    DROP PROCEDURE AdjustPayrollItem;
+GO
+
+CREATE PROCEDURE AdjustPayrollItem
+    @PayrollID int,
+    @Type varchar(50),
+    @Amount decimal(18,2),
+    @Duration int,
+    @Timezone varchar(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate payroll exists
+    IF NOT EXISTS (SELECT 1 FROM Payroll WHERE PayrollID = @PayrollID)
+    BEGIN
+        RAISERROR('Payroll record not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate type
+    IF @Type NOT IN ('Allowance', 'Deduction')
+    BEGIN
+        RAISERROR('Type must be either Allowance or Deduction', 16, 1);
+        RETURN;
+    END
+    
+    DECLARE @EmployeeID int;
+    DECLARE @Currency varchar(10);
+    
+    -- Get employee and currency from payroll
+    SELECT @EmployeeID = employee_id FROM Payroll WHERE PayrollID = @PayrollID;
+    SELECT TOP 1 @Currency = currency FROM SalaryType st
+    INNER JOIN Employee e ON e.salary_type_id = st.SalaryTypeID
+    WHERE e.EmployeeID = @EmployeeID;
+    
+    -- Insert allowance/deduction record
+    DECLARE @NewID int = (SELECT ISNULL(MAX(AllowanceDeductionID), 0) + 1 FROM AllowanceDeduction);
+    
+    INSERT INTO AllowanceDeduction (AllowanceDeductionID, payroll_id, employee_id, type, amount, currency, duration, timezone)
+    VALUES (@NewID, @PayrollID, @EmployeeID, @Type, @Amount, @Currency, @Duration, @Timezone);
+    
+    -- Update payroll adjustments
+    UPDATE Payroll
+    SET adjustments = adjustments + (CASE WHEN @Type = 'Allowance' THEN @Amount ELSE -@Amount END),
+        net_salary = base_amount + adjustments + (CASE WHEN @Type = 'Allowance' THEN @Amount ELSE -@Amount END) - taxes - contributions
+    WHERE PayrollID = @PayrollID;
+    
+    PRINT 'Payroll item adjusted successfully';
+END
+GO
+
+-- ========================================
+-- 3) Compute net salary for a specific payroll record
+-- ========================================
+IF OBJECT_ID('CalculateNetSalary', 'P') IS NOT NULL
+    DROP PROCEDURE CalculateNetSalary;
+GO
+
+CREATE PROCEDURE CalculateNetSalary
+    @PayrollID int,
+    @NetSalary decimal(18,2) OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate payroll exists
+    IF NOT EXISTS (SELECT 1 FROM Payroll WHERE PayrollID = @PayrollID)
+    BEGIN
+        RAISERROR('Payroll record not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Calculate net salary: base + adjustments - taxes - contributions
+    SELECT @NetSalary = base_amount + adjustments - taxes - contributions
+    FROM Payroll
+    WHERE PayrollID = @PayrollID;
+    
+    -- Update the payroll record
+    UPDATE Payroll
+    SET net_salary = @NetSalary,
+        actual_pay = @NetSalary
+    WHERE PayrollID = @PayrollID;
+    
+    RETURN;
+END
+GO
+
+-- ========================================
+-- 4) Apply payroll policies (bonus, overtime, deductions)
+-- ========================================
+IF OBJECT_ID('ApplyPayrollPolicy', 'P') IS NOT NULL
+    DROP PROCEDURE ApplyPayrollPolicy;
+GO
+
+CREATE PROCEDURE ApplyPayrollPolicy
+    @PolicyID int,
+    @PayrollID int,
+    @Type varchar(100),
+    @Description text
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate policy exists
+    IF NOT EXISTS (SELECT 1 FROM PayrollPolicy WHERE PolicyID = @PolicyID)
+    BEGIN
+        RAISERROR('Payroll policy not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate payroll exists
+    IF NOT EXISTS (SELECT 1 FROM Payroll WHERE PayrollID = @PayrollID)
+    BEGIN
+        RAISERROR('Payroll record not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Check if policy already applied
+    IF EXISTS (SELECT 1 FROM PayrollPolicyID WHERE payroll_id = @PayrollID AND policy_id = @PolicyID)
+    BEGIN
+        RAISERROR('Policy already applied to this payroll', 16, 1);
+        RETURN;
+    END
+    
+    -- Link policy to payroll
+    INSERT INTO PayrollPolicyID (payroll_id, policy_id)
+    VALUES (@PayrollID, @PolicyID);
+    
+    -- Apply policy based on type
+    DECLARE @AdjustmentAmount decimal(18,2) = 0;
+    DECLARE @EmployeeID int;
+    
+    SELECT @EmployeeID = employee_id FROM Payroll WHERE PayrollID = @PayrollID;
+    
+    -- Apply bonus policy
+    IF EXISTS (SELECT 1 FROM BonusPolicy WHERE policy_id = @PolicyID)
+    BEGIN
+        SET @AdjustmentAmount = 500.00; -- Example bonus amount
+        UPDATE Payroll
+        SET adjustments = adjustments + @AdjustmentAmount,
+            net_salary = net_salary + @AdjustmentAmount
+        WHERE PayrollID = @PayrollID;
+    END
+    
+    -- Apply deduction policy
+    IF EXISTS (SELECT 1 FROM DeductionPolicy WHERE policy_id = @PolicyID)
+    BEGIN
+        SET @AdjustmentAmount = -200.00; -- Example deduction amount
+        UPDATE Payroll
+        SET adjustments = adjustments + @AdjustmentAmount,
+            net_salary = net_salary + @AdjustmentAmount
+        WHERE PayrollID = @PayrollID;
+    END
+    
+    -- Apply overtime policy
+    IF EXISTS (SELECT 1 FROM OvertimePolicy WHERE policy_id = @PolicyID)
+    BEGIN
+        DECLARE @OvertimeRate decimal(5,2);
+        SELECT @OvertimeRate = weekday_rate_multiplier FROM OvertimePolicy WHERE policy_id = @PolicyID;
+        SET @AdjustmentAmount = 300.00 * @OvertimeRate; -- Example overtime calculation
+        UPDATE Payroll
+        SET adjustments = adjustments + @AdjustmentAmount,
+            net_salary = net_salary + @AdjustmentAmount
+        WHERE PayrollID = @PayrollID;
+    END
+    
+    PRINT 'Payroll policy applied successfully';
+END
+GO
+
+-- ========================================
+-- 5) Retrieve payroll summary for a given month
+-- ========================================
+IF OBJECT_ID('GetMonthlyPayrollSummary', 'P') IS NOT NULL
+    DROP PROCEDURE GetMonthlyPayrollSummary;
+GO
+
+CREATE PROCEDURE GetMonthlyPayrollSummary
+    @Month int,
+    @Year int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate month
+    IF @Month < 1 OR @Month > 12
+    BEGIN
+        RAISERROR('Month must be between 1 and 12', 16, 1);
+        RETURN;
+    END
+    
+    -- Return payroll summary
+    SELECT 
+        COUNT(DISTINCT employee_id) AS total_employees,
+        SUM(base_amount) AS total_base_salary,
+        SUM(adjustments) AS total_adjustments,
+        SUM(taxes) AS total_taxes,
+        SUM(contributions) AS total_contributions,
+        SUM(net_salary) AS total_salary_expenditure,
+        AVG(net_salary) AS average_net_salary,
+        MAX(net_salary) AS max_net_salary,
+        MIN(net_salary) AS min_net_salary
+    FROM Payroll
+    WHERE MONTH(period_start) = @Month 
+        AND YEAR(period_start) = @Year;
+END
+GO
+
+-- ========================================
+-- 6) Retrieve payroll history for a specific employee
+-- ========================================
+IF OBJECT_ID('GetEmployeePayrollHistory', 'P') IS NOT NULL
+    DROP PROCEDURE GetEmployeePayrollHistory;
+GO
+
+CREATE PROCEDURE GetEmployeePayrollHistory
+    @EmployeeID int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Return payroll history
+    SELECT 
+        p.PayrollID,
+        p.period_start,
+        p.period_end,
+        p.base_amount,
+        p.adjustments,
+        p.taxes,
+        p.contributions,
+        p.net_salary,
+        p.payment_date,
+        COUNT(ad.AllowanceDeductionID) AS allowance_deduction_count
+    FROM Payroll p
+    LEFT JOIN AllowanceDeduction ad ON p.PayrollID = ad.payroll_id
+    WHERE p.employee_id = @EmployeeID
+    GROUP BY p.PayrollID, p.period_start, p.period_end, p.base_amount, 
+             p.adjustments, p.taxes, p.contributions, p.net_salary, p.payment_date
+    ORDER BY p.period_start DESC;
+END
+GO
+
+--7) Does not exist
+
+-- ========================================
+-- 8) Get list of employees eligible for bonuses
+-- ========================================
+IF OBJECT_ID('GetBonusEligibleEmployees', 'P') IS NOT NULL
+    DROP PROCEDURE GetBonusEligibleEmployees;
+GO
+
+CREATE PROCEDURE GetBonusEligibleEmployees
+    @EligibilityCriteria varchar(200)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Return employees based on criteria
+    -- Criteria examples: 'FullTime', 'HighPerformer', 'TenureGreaterThan1Year'
+    
+    IF @EligibilityCriteria = 'FullTime'
+    BEGIN
+        SELECT DISTINCT
+            e.EmployeeID,
+            e.full_name,
+            e.department_id,
+            e.position_id,
+            e.hire_date,
+            st.type AS salary_type
+        FROM Employee e
+        INNER JOIN Contract c ON e.contract_id = c.ContractID
+        INNER JOIN FullTimeContract ftc ON c.ContractID = ftc.contract_id
+        INNER JOIN SalaryType st ON e.salary_type_id = st.SalaryTypeID
+        WHERE e.is_active = 1;
+    END
+    ELSE IF @EligibilityCriteria = 'TenureGreaterThan1Year'
+    BEGIN
+        SELECT 
+            e.EmployeeID,
+            e.full_name,
+            e.department_id,
+            e.position_id,
+            e.hire_date,
+            DATEDIFF(YEAR, e.hire_date, GETDATE()) AS years_of_service
+        FROM Employee e
+        WHERE e.is_active = 1
+            AND DATEDIFF(YEAR, e.hire_date, GETDATE()) > 1;
+    END
+    ELSE
+    BEGIN
+        -- Default: return all active employees
+        SELECT 
+            e.EmployeeID,
+            e.full_name,
+            e.department_id,
+            e.position_id,
+            e.hire_date
+        FROM Employee e
+        WHERE e.is_active = 1;
+    END
+END
+GO
+
+-- ========================================
+-- 9) Update the salary type of an employee
+-- ========================================
+IF OBJECT_ID('UpdateSalaryType', 'P') IS NOT NULL
+    DROP PROCEDURE UpdateSalaryType;
+GO
+
+CREATE PROCEDURE UpdateSalaryType
+    @EmployeeID int,
+    @SalaryTypeID int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate salary type exists
+    IF NOT EXISTS (SELECT 1 FROM SalaryType WHERE SalaryTypeID = @SalaryTypeID)
+    BEGIN
+        RAISERROR('Salary type not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Update employee salary type
+    UPDATE Employee
+    SET salary_type_id = @SalaryTypeID
+    WHERE EmployeeID = @EmployeeID;
+    
+    PRINT 'Salary type updated successfully for employee ' + CAST(@EmployeeID AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 10) Retrieve payroll summary for a specific department
+-- ========================================
+IF OBJECT_ID('GetPayrollByDepartment', 'P') IS NOT NULL
+    DROP PROCEDURE GetPayrollByDepartment;
+GO
+
+CREATE PROCEDURE GetPayrollByDepartment
+    @DepartmentID int,
+    @Month int,
+    @Year int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate department exists
+    IF NOT EXISTS (SELECT 1 FROM Department WHERE DepartmentID = @DepartmentID)
+    BEGIN
+        RAISERROR('Department not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate month
+    IF @Month < 1 OR @Month > 12
+    BEGIN
+        RAISERROR('Month must be between 1 and 12', 16, 1);
+        RETURN;
+    END
+    
+    -- Return department payroll summary
+    SELECT 
+        d.DepartmentID,
+        d.department_name,
+        COUNT(DISTINCT p.employee_id) AS total_employees,
+        SUM(p.base_amount) AS total_base_salary,
+        SUM(p.adjustments) AS total_adjustments,
+        SUM(p.taxes) AS total_taxes,
+        SUM(p.contributions) AS total_contributions,
+        SUM(p.net_salary) AS total_department_payroll,
+        AVG(p.net_salary) AS average_net_salary
+    FROM Department d
+    INNER JOIN Employee e ON e.department_id = d.DepartmentID
+    INNER JOIN Payroll p ON p.employee_id = e.EmployeeID
+    WHERE d.DepartmentID = @DepartmentID
+        AND MONTH(p.period_start) = @Month
+        AND YEAR(p.period_start) = @Year
+    GROUP BY d.DepartmentID, d.department_name;
+END
+GO
+
+-- ========================================
+-- 11) Block payroll processing if missed punches remain unresolved
+-- ========================================
+IF OBJECT_ID('ValidateAttendanceBeforePayroll', 'P') IS NOT NULL
+    DROP PROCEDURE ValidateAttendanceBeforePayroll;
+GO
+
+CREATE PROCEDURE ValidateAttendanceBeforePayroll
+    @PayrollPeriodID int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate payroll period exists
+    IF NOT EXISTS (SELECT 1 FROM PayrollPeriod WHERE PayrollPeriodID = @PayrollPeriodID)
+    BEGIN
+        RAISERROR('Payroll period not found', 16, 1);
+        RETURN;
+    END
+    
+    DECLARE @StartDate datetime;
+    DECLARE @EndDate datetime;
+    
+    -- Get period dates
+    SELECT @StartDate = start_date, @EndDate = end_date
+    FROM PayrollPeriod
+    WHERE PayrollPeriodID = @PayrollPeriodID;
+    
+    -- Find employees with unresolved attendance issues
+    SELECT DISTINCT
+        e.EmployeeID,
+        e.full_name,
+        e.department_id,
+        COUNT(DISTINCT acr.RequestID) AS pending_correction_requests,
+        STRING_AGG(CAST(acr.date AS varchar), ', ') AS dates_with_issues
+    FROM Employee e
+    LEFT JOIN AttendanceCorrectionRequest acr 
+        ON acr.employee_id = e.EmployeeID
+        AND acr.status = 'Pending'
+        AND acr.date BETWEEN @StartDate AND @EndDate
+    WHERE e.is_active = 1
+        AND acr.RequestID IS NOT NULL
+    GROUP BY e.EmployeeID, e.full_name, e.department_id
+    ORDER BY e.EmployeeID;
+END
+GO
+
+-- ========================================
+-- 12) Sync attendance records daily to payroll
+-- ========================================
+IF OBJECT_ID('SyncAttendanceToPayroll', 'P') IS NOT NULL
+    DROP PROCEDURE SyncAttendanceToPayroll;
+GO
+
+CREATE PROCEDURE SyncAttendanceToPayroll
+    @SyncDate date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @SyncCount int = 0;
+    
+    -- Validate date
+    IF @SyncDate > GETDATE()
+    BEGIN
+        RAISERROR('Cannot sync future dates', 16, 1);
+        RETURN;
+    END
+    
+    -- Create temporary table for sync results
+    CREATE TABLE #AttendanceSync (
+        EmployeeID int,
+        AttendanceRecords int,
+        TotalHours decimal(10,2),
+        SyncStatus varchar(50)
+    );
+    
+    -- Process attendance for each employee
+    INSERT INTO #AttendanceSync (EmployeeID, AttendanceRecords, TotalHours, SyncStatus)
+    SELECT 
+        a.employee_id,
+        COUNT(*) AS attendance_records,
+        SUM(ISNULL(a.duration, 0)) / 60.0 AS total_hours,
+        'Synced' AS sync_status
+    FROM Attendance a
+    WHERE CAST(DATEADD(DAY, DATEDIFF(DAY, 0, GETDATE()), CAST(a.entry_time AS datetime)) AS date) = @SyncDate
+        OR EXISTS (
+            SELECT 1 FROM AttendanceLog al 
+            WHERE al.attendance_id = a.AttendanceID 
+            AND CAST(al.timestamp AS date) = @SyncDate
+        )
+    GROUP BY a.employee_id;
+    
+    SELECT @SyncCount = COUNT(*) FROM #AttendanceSync;
+    
+    -- Return sync summary
+    SELECT * FROM #AttendanceSync;
+    
+    DROP TABLE #AttendanceSync;
+    
+    PRINT 'Attendance synced successfully for ' + CAST(@SyncCount AS varchar(10)) + ' employees on ' + CAST(@SyncDate AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 13) Ensure only accepted permissions affect payroll
+-- ========================================
+IF OBJECT_ID('SyncApprovedPermissionsToPayroll', 'P') IS NOT NULL
+    DROP PROCEDURE SyncApprovedPermissionsToPayroll;
+GO
+
+CREATE PROCEDURE SyncApprovedPermissionsToPayroll
+    @PayrollPeriodID int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate payroll period exists
+    IF NOT EXISTS (SELECT 1 FROM PayrollPeriod WHERE PayrollPeriodID = @PayrollPeriodID)
+    BEGIN
+        RAISERROR('Payroll period not found', 16, 1);
+        RETURN;
+    END
+    
+    DECLARE @StartDate datetime;
+    DECLARE @EndDate datetime;
+    DECLARE @SyncCount int = 0;
+    
+    -- Get period dates
+    SELECT @StartDate = start_date, @EndDate = end_date
+    FROM PayrollPeriod
+    WHERE PayrollPeriodID = @PayrollPeriodID;
+    
+    -- Sync approved leave requests that affect payroll
+    SELECT 
+        lr.employee_id,
+        e.full_name,
+        lr.leave_id,
+        l.leave_type,
+        lr.duration,
+        lr.status,
+        'Leave approved and synced to payroll' AS sync_message
+    FROM LeaveRequest lr
+    INNER JOIN Employee e ON lr.employee_id = e.EmployeeID
+    INNER JOIN Leave l ON lr.leave_id = l.LeaveID
+    WHERE lr.status = 'Approved'
+        AND lr.approval_timing BETWEEN @StartDate AND @EndDate;
+    
+    SELECT @SyncCount = @@ROWCOUNT;
+    
+    PRINT 'Synced ' + CAST(@SyncCount AS varchar(10)) + ' approved permissions to payroll period ' + CAST(@PayrollPeriodID AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 14) Configure pay grades and salary bands
+-- ========================================
+IF OBJECT_ID('ConfigurePayGrades', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigurePayGrades;
+GO
+
+CREATE PROCEDURE ConfigurePayGrades
+    @GradeName varchar(50),
+    @MinSalary decimal(18,2),
+    @MaxSalary decimal(18,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate salary range
+    IF @MinSalary >= @MaxSalary
+    BEGIN
+        RAISERROR('Minimum salary must be less than maximum salary', 16, 1);
+        RETURN;
+    END
+    
+    IF @MinSalary < 0 OR @MaxSalary < 0
+    BEGIN
+        RAISERROR('Salary values must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Check if grade name already exists
+    IF EXISTS (SELECT 1 FROM PayGrade WHERE grade_name = @GradeName)
+    BEGIN
+        -- Update existing grade
+        UPDATE PayGrade
+        SET min_salary = @MinSalary,
+            max_salary = @MaxSalary
+        WHERE grade_name = @GradeName;
+        
+        PRINT 'Pay grade "' + @GradeName + '" updated successfully';
+    END
+    ELSE
+    BEGIN
+        -- Insert new grade
+        DECLARE @NewID int = (SELECT ISNULL(MAX(PayGradeID), 0) + 1 FROM PayGrade);
+        
+        INSERT INTO PayGrade (PayGradeID, grade_name, min_salary, max_salary)
+        VALUES (@NewID, @GradeName, @MinSalary, @MaxSalary);
+        
+        PRINT 'Pay grade "' + @GradeName + '" created successfully';
+    END
+END
+GO
+
+-- ========================================
+-- 15) Configure shift differentials and special allowances
+-- ========================================
+IF OBJECT_ID('ConfigureShiftAllowances', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureShiftAllowances;
+GO
+
+CREATE PROCEDURE ConfigureShiftAllowances
+    @ShiftType varchar(50),
+    @AllowanceName varchar(50),
+    @Amount decimal(18,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate amount
+    IF @Amount < 0
+    BEGIN
+        RAISERROR('Allowance amount must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Create a policy for the shift allowance
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, GETDATE(), 'Allowance', 
+            'Shift: ' + @ShiftType + ' - ' + @AllowanceName + ' - Amount: $' + CAST(@Amount AS varchar(20)));
+    
+    PRINT 'Shift allowance configured successfully: ' + @ShiftType + ' - ' + @AllowanceName;
+END
+GO
+
+-- ========================================
+-- 16) Enable multi-currency payroll for international employees
+-- ========================================
+IF OBJECT_ID('EnableMultiCurrencyPayroll', 'P') IS NOT NULL
+    DROP PROCEDURE EnableMultiCurrencyPayroll;
+GO
+
+CREATE PROCEDURE EnableMultiCurrencyPayroll
+    @CurrencyCode varchar(10),
+    @ExchangeRate decimal(18,4)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate exchange rate
+    IF @ExchangeRate <= 0
+    BEGIN
+        RAISERROR('Exchange rate must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Check if currency already exists
+    IF EXISTS (SELECT 1 FROM Currency WHERE CurrencyCode = @CurrencyCode)
+    BEGIN
+        -- Update existing currency
+        UPDATE Currency
+        SET exchange_rate = @ExchangeRate,
+            last_updated = GETDATE()
+        WHERE CurrencyCode = @CurrencyCode;
+        
+        PRINT 'Currency ' + @CurrencyCode + ' updated with new exchange rate: ' + CAST(@ExchangeRate AS varchar(20));
+    END
+    ELSE
+    BEGIN
+        -- Insert new currency
+        INSERT INTO Currency (CurrencyCode, currency_name, exchange_rate, created_date, last_updated)
+        VALUES (@CurrencyCode, @CurrencyCode + ' Currency', @ExchangeRate, GETDATE(), GETDATE());
+        
+        PRINT 'Currency ' + @CurrencyCode + ' enabled with exchange rate: ' + CAST(@ExchangeRate AS varchar(20));
+    END
+END
+GO
+
+-- ========================================
+-- 17) Define and update tax rules for payroll compliance
+-- ========================================
+IF OBJECT_ID('ManageTaxRules', 'P') IS NOT NULL
+    DROP PROCEDURE ManageTaxRules;
+GO
+
+CREATE PROCEDURE ManageTaxRules
+    @TaxRuleName varchar(50),
+    @CountryCode varchar(10),
+    @Rate decimal(5,2),
+    @Exemption decimal(18,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate rate
+    IF @Rate < 0 OR @Rate > 100
+    BEGIN
+        RAISERROR('Tax rate must be between 0 and 100', 16, 1);
+        RETURN;
+    END
+    
+    IF @Exemption < 0
+    BEGIN
+        RAISERROR('Exemption must be non-negative', 16, 1);
+        RETURN;
+    END
+    
+    -- Create or update tax form
+    DECLARE @FormContent varchar(max) = 'Tax Rule: ' + @TaxRuleName + 
+                                        ' | Country: ' + @CountryCode + 
+                                        ' | Rate: ' + CAST(@Rate AS varchar(10)) + '%' +
+                                        ' | Exemption: $' + CAST(@Exemption AS varchar(20));
+    
+    IF EXISTS (SELECT 1 FROM TaxForm WHERE jurisdiction = @CountryCode)
+    BEGIN
+        -- Update existing tax form
+        UPDATE TaxForm
+        SET form_content = @FormContent,
+            validity_period = DATEADD(YEAR, 1, GETDATE())
+        WHERE jurisdiction = @CountryCode;
+        
+        PRINT 'Tax rule "' + @TaxRuleName + '" updated for ' + @CountryCode;
+    END
+    ELSE
+    BEGIN
+        -- Create new tax form
+        DECLARE @NewTaxFormID int = (SELECT ISNULL(MAX(TaxFormID), 0) + 1 FROM TaxForm);
+        
+        INSERT INTO TaxForm (TaxFormID, jurisdiction, validity_period, form_content)
+        VALUES (@NewTaxFormID, @CountryCode, DATEADD(YEAR, 1, GETDATE()), @FormContent);
+        
+        PRINT 'Tax rule "' + @TaxRuleName + '" created for ' + @CountryCode;
+    END
+END
+GO
+
+-- ========================================
+-- 18) Approve payroll configuration changes
+-- ========================================
+IF OBJECT_ID('ApprovePayrollConfigChanges', 'P') IS NOT NULL
+    DROP PROCEDURE ApprovePayrollConfigChanges;
+GO
+
+CREATE PROCEDURE ApprovePayrollConfigChanges
+    @ConfigID int,
+    @ApproverID int,
+    @Status varchar(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate approver exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @ApproverID)
+    BEGIN
+        RAISERROR('Approver not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate status
+    IF @Status NOT IN ('Approved', 'Rejected', 'Pending')
+    BEGIN
+        RAISERROR('Status must be Approved, Rejected, or Pending', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate config (using ApprovalWorkflow as config table)
+    IF NOT EXISTS (SELECT 1 FROM ApprovalWorkflow WHERE WorkflowID = @ConfigID)
+    BEGIN
+        RAISERROR('Configuration not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Update approval workflow status
+    UPDATE ApprovalWorkflow
+    SET status = @Status
+    WHERE WorkflowID = @ConfigID;
+    
+    -- Log the approval
+    DECLARE @NewLogID int = (SELECT ISNULL(MAX(payroll_log_id), 0) + 1 FROM PayrollLog);
+    
+    INSERT INTO PayrollLog (payroll_log_id, payroll_id, actor, change_date, modification_type)
+    VALUES (@NewLogID, NULL, 
+            'Approver ID: ' + CAST(@ApproverID AS varchar(10)), 
+            GETDATE(), 
+            'Config ' + CAST(@ConfigID AS varchar(10)) + ' - Status: ' + @Status);
+    
+    PRINT 'Configuration change ' + @Status + ' by approver ' + CAST(@ApproverID AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 19) Configure signing bonuses for new hires
+-- ========================================
+IF OBJECT_ID('ConfigureSigningBonus', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureSigningBonus;
+GO
+
+CREATE PROCEDURE ConfigureSigningBonus
+    @EmployeeID int,
+    @BonusAmount decimal(18,2),
+    @EffectiveDate date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate bonus amount
+    IF @BonusAmount <= 0
+    BEGIN
+        RAISERROR('Bonus amount must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate effective date
+    IF @EffectiveDate < CAST(GETDATE() AS date)
+    BEGIN
+        RAISERROR('Effective date cannot be in the past', 16, 1);
+        RETURN;
+    END
+    
+    -- Get employee currency
+    DECLARE @Currency varchar(10);
+    SELECT @Currency = st.currency 
+    FROM Employee e
+    INNER JOIN SalaryType st ON e.salary_type_id = st.SalaryTypeID
+    WHERE e.EmployeeID = @EmployeeID;
+    
+    -- Create a signing bonus policy
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, @EffectiveDate, 'Bonus', 
+            'Signing Bonus for Employee ' + CAST(@EmployeeID AS varchar(10)) + ' - Amount: $' + CAST(@BonusAmount AS varchar(20)));
+    
+    -- Link to bonus policy
+    INSERT INTO BonusPolicy (policy_id, bonus_type, eligibility_criteria)
+    VALUES (@NewPolicyID, 'Signing Bonus', 'New hire employee ID: ' + CAST(@EmployeeID AS varchar(10)));
+    
+    PRINT 'Signing bonus of $' + CAST(@BonusAmount AS varchar(20)) + ' configured for employee ' + CAST(@EmployeeID AS varchar(10)) + ' effective ' + CAST(@EffectiveDate AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 20) Configure termination and resignation compensations
+-- ========================================
+IF OBJECT_ID('ConfigureTerminationBenefits', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureTerminationBenefits;
+GO
+
+CREATE PROCEDURE ConfigureTerminationBenefits
+    @EmployeeID int,
+    @CompensationAmount decimal(18,2),
+    @EffectiveDate date,
+    @Reason varchar(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate compensation amount
+    IF @CompensationAmount < 0
+    BEGIN
+        RAISERROR('Compensation amount must be non-negative', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate effective date
+    IF @EffectiveDate < CAST(GETDATE() AS date)
+    BEGIN
+        RAISERROR('Effective date cannot be in the past', 16, 1);
+        RETURN;
+    END
+    
+    -- Get employee contract
+    DECLARE @ContractID int;
+    SELECT @ContractID = contract_id FROM Employee WHERE EmployeeID = @EmployeeID;
+    
+    IF @ContractID IS NULL
+    BEGIN
+        RAISERROR('Employee has no active contract', 16, 1);
+        RETURN;
+    END
+    
+    -- Create termination record
+    DECLARE @NewTerminationID int = (SELECT ISNULL(MAX(TerminationID), 0) + 1 FROM Termination);
+    
+    INSERT INTO Termination (TerminationID, date, reason, contract_id)
+    VALUES (@NewTerminationID, @EffectiveDate, @Reason + ' | Compensation: $' + CAST(@CompensationAmount AS varchar(20)), @ContractID);
+    
+    -- Update employee status
+    UPDATE Employee
+    SET is_active = 0,
+        employment_status = 'Terminated'
+    WHERE EmployeeID = @EmployeeID;
+    
+    PRINT 'Termination benefits configured for employee ' + CAST(@EmployeeID AS varchar(10)) + 
+          ' with compensation $' + CAST(@CompensationAmount AS varchar(20)) + ' effective ' + CAST(@EffectiveDate AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 21) Configure insurance brackets with contribution percentages
+-- ========================================
+IF OBJECT_ID('ConfigureInsuranceBrackets', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureInsuranceBrackets;
+GO
+
+CREATE PROCEDURE ConfigureInsuranceBrackets
+    @InsuranceType varchar(50),
+    @MinSalary decimal(18,2),
+    @MaxSalary decimal(18,2),
+    @EmployeeContribution decimal(5,2),
+    @EmployerContribution decimal(5,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate salary range
+    IF @MinSalary >= @MaxSalary
+    BEGIN
+        RAISERROR('Minimum salary must be less than maximum salary', 16, 1);
+        RETURN;
+    END
+    
+    IF @MinSalary < 0 OR @MaxSalary < 0
+    BEGIN
+        RAISERROR('Salary values must be non-negative', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate contribution percentages
+    IF @EmployeeContribution < 0 OR @EmployeeContribution > 100
+    BEGIN
+        RAISERROR('Employee contribution must be between 0 and 100', 16, 1);
+        RETURN;
+    END
+    
+    IF @EmployerContribution < 0 OR @EmployerContribution > 100
+    BEGIN
+        RAISERROR('Employer contribution must be between 0 and 100', 16, 1);
+        RETURN;
+    END
+    
+    -- Calculate total contribution rate
+    DECLARE @TotalRate decimal(5,2) = @EmployeeContribution + @EmployerContribution;
+    
+    -- Create insurance record
+    DECLARE @NewInsuranceID int = (SELECT ISNULL(MAX(InsuranceID), 0) + 1 FROM Insurance);
+    
+    DECLARE @Coverage varchar(max) = 'Salary Bracket: $' + CAST(@MinSalary AS varchar(20)) + ' - $' + CAST(@MaxSalary AS varchar(20)) +
+                                     ' | Employee: ' + CAST(@EmployeeContribution AS varchar(10)) + '% | Employer: ' + CAST(@EmployerContribution AS varchar(10)) + '%';
+    
+    INSERT INTO Insurance (InsuranceID, type, contribution_rate, coverage)
+    VALUES (@NewInsuranceID, @InsuranceType, @TotalRate, @Coverage);
+    
+    PRINT 'Insurance bracket configured: ' + @InsuranceType + ' for salary range $' + CAST(@MinSalary AS varchar(20)) + '-$' + CAST(@MaxSalary AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 22) Update existing insurance brackets
+-- ========================================
+IF OBJECT_ID('UpdateInsuranceBrackets', 'P') IS NOT NULL
+    DROP PROCEDURE UpdateInsuranceBrackets;
+GO
+
+CREATE PROCEDURE UpdateInsuranceBrackets
+    @BracketID int,
+    @MinSalary decimal(18,2),
+    @MaxSalary decimal(18,2),
+    @EmployeeContribution decimal(5,2),
+    @EmployerContribution decimal(5,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate bracket exists
+    IF NOT EXISTS (SELECT 1 FROM Insurance WHERE InsuranceID = @BracketID)
+    BEGIN
+        RAISERROR('Insurance bracket not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate salary range
+    IF @MinSalary >= @MaxSalary
+    BEGIN
+        RAISERROR('Minimum salary must be less than maximum salary', 16, 1);
+        RETURN;
+    END
+    
+    IF @MinSalary < 0 OR @MaxSalary < 0
+    BEGIN
+        RAISERROR('Salary values must be non-negative', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate contribution percentages
+    IF @EmployeeContribution < 0 OR @EmployeeContribution > 100 OR @EmployerContribution < 0 OR @EmployerContribution > 100
+    BEGIN
+        RAISERROR('Contribution percentages must be between 0 and 100', 16, 1);
+        RETURN;
+    END
+    
+    -- Calculate total contribution rate
+    DECLARE @TotalRate decimal(5,2) = @EmployeeContribution + @EmployerContribution;
+    
+    DECLARE @Coverage varchar(max) = 'Salary Bracket: $' + CAST(@MinSalary AS varchar(20)) + ' - $' + CAST(@MaxSalary AS varchar(20)) +
+                                     ' | Employee: ' + CAST(@EmployeeContribution AS varchar(10)) + '% | Employer: ' + CAST(@EmployerContribution AS varchar(10)) + '%';
+    
+    -- Update insurance bracket
+    UPDATE Insurance
+    SET contribution_rate = @TotalRate,
+        coverage = @Coverage
+    WHERE InsuranceID = @BracketID;
+    
+    PRINT 'Insurance bracket ' + CAST(@BracketID AS varchar(10)) + ' updated successfully';
+END
+GO
+
+-- ========================================
+-- 23) Configure payroll rules and structure
+-- ========================================
+IF OBJECT_ID('ConfigurePayrollPolicies', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigurePayrollPolicies;
+GO
+
+CREATE PROCEDURE ConfigurePayrollPolicies
+    @PolicyType varchar(50),
+    @PolicyDetails nvarchar(max),
+    @EffectiveDate date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate policy type
+    IF @PolicyType NOT IN ('Salary', 'Deduction', 'Bonus', 'Overtime', 'Allowance', 'Tax')
+    BEGIN
+        RAISERROR('Invalid policy type. Must be: Salary, Deduction, Bonus, Overtime, Allowance, or Tax', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate effective date
+    IF @EffectiveDate < CAST(GETDATE() AS date)
+    BEGIN
+        RAISERROR('Effective date cannot be in the past', 16, 1);
+        RETURN;
+    END
+    
+    -- Create payroll policy
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, @EffectiveDate, @PolicyType, @PolicyDetails);
+    
+    -- Create specific policy record based on type
+    IF @PolicyType = 'Bonus'
+    BEGIN
+        INSERT INTO BonusPolicy (policy_id, bonus_type, eligibility_criteria)
+        VALUES (@NewPolicyID, 'Policy-Based', @PolicyDetails);
+    END
+    ELSE IF @PolicyType = 'Deduction'
+    BEGIN
+        INSERT INTO DeductionPolicy (policy_id, deduction_reason, calculation_mode)
+        VALUES (@NewPolicyID, 'Policy-Based', 'Automated');
+    END
+    ELSE IF @PolicyType = 'Overtime'
+    BEGIN
+        INSERT INTO OvertimePolicy (policy_id, weekday_rate_multiplier, weekend_rate_multiplier, max_hours_per_month)
+        VALUES (@NewPolicyID, 1.5, 2.0, 50);
+    END
+    
+    PRINT 'Payroll policy configured: ' + @PolicyType + ' effective ' + CAST(@EffectiveDate AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 24) Define and manage pay grades
+-- ========================================
+IF OBJECT_ID('DefinePayGrades', 'P') IS NOT NULL
+    DROP PROCEDURE DefinePayGrades;
+GO
+
+CREATE PROCEDURE DefinePayGrades
+    @GradeName varchar(50),
+    @MinSalary decimal(18,2),
+    @MaxSalary decimal(18,2),
+    @CreatedBy int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate creator exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @CreatedBy)
+    BEGIN
+        RAISERROR('Creator employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate salary range
+    IF @MinSalary >= @MaxSalary
+    BEGIN
+        RAISERROR('Minimum salary must be less than maximum salary', 16, 1);
+        RETURN;
+    END
+    
+    IF @MinSalary < 0 OR @MaxSalary < 0
+    BEGIN
+        RAISERROR('Salary values must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Check if grade already exists
+    IF EXISTS (SELECT 1 FROM PayGrade WHERE grade_name = @GradeName)
+    BEGIN
+        RAISERROR('Pay grade already exists', 16, 1);
+        RETURN;
+    END
+    
+    -- Create pay grade
+    DECLARE @NewGradeID int = (SELECT ISNULL(MAX(PayGradeID), 0) + 1 FROM PayGrade);
+    
+    INSERT INTO PayGrade (PayGradeID, grade_name, min_salary, max_salary)
+    VALUES (@NewGradeID, @GradeName, @MinSalary, @MaxSalary);
+    
+    -- Log the creation
+    DECLARE @NewLogID int = (SELECT ISNULL(MAX(payroll_log_id), 0) + 1 FROM PayrollLog);
+    
+    INSERT INTO PayrollLog (payroll_log_id, payroll_id, actor, change_date, modification_type)
+    VALUES (@NewLogID, NULL, 
+            'Created by Employee ID: ' + CAST(@CreatedBy AS varchar(10)), 
+            GETDATE(), 
+            'Pay Grade Created: ' + @GradeName);
+    
+    PRINT 'Pay grade "' + @GradeName + '" defined successfully by employee ' + CAST(@CreatedBy AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 25) Configure escalation workflows for deductions/overpayments
+-- ========================================
+IF OBJECT_ID('ConfigureEscalationWorkflow', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureEscalationWorkflow;
+GO
+
+CREATE PROCEDURE ConfigureEscalationWorkflow
+    @ThresholdAmount decimal(18,2),
+    @ApproverRole varchar(50),
+    @CreatedBy int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate threshold amount
+    IF @ThresholdAmount <= 0
+    BEGIN
+        RAISERROR('Threshold amount must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate creator exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @CreatedBy)
+    BEGIN
+        RAISERROR('Creator employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate approver role
+    IF @ApproverRole NOT IN ('Manager', 'Director', 'VP', 'CFO', 'CEO')
+    BEGIN
+        RAISERROR('Invalid approver role. Must be: Manager, Director, VP, CFO, or CEO', 16, 1);
+        RETURN;
+    END
+    
+    -- Create escalation workflow
+    DECLARE @NewWorkflowID int = (SELECT ISNULL(MAX(WorkflowID), 0) + 1 FROM ApprovalWorkflow);
+    
+    INSERT INTO ApprovalWorkflow (WorkflowID, workflow_type, threshold_amount, approved_role, created_by, status)
+    VALUES (@NewWorkflowID, 'Payroll Escalation', @ThresholdAmount, @ApproverRole, @CreatedBy, 'Active');
+    
+    PRINT 'Escalation workflow configured: Amounts > $' + CAST(@ThresholdAmount AS varchar(20)) + 
+          ' require ' + @ApproverRole + ' approval';
+END
+GO
+
+-- ========================================
+-- 26) Define employee pay types
+-- ========================================
+IF OBJECT_ID('DefinePayType', 'P') IS NOT NULL
+    DROP PROCEDURE DefinePayType;
+GO
+
+CREATE PROCEDURE DefinePayType
+    @EmployeeID int,
+    @PayType varchar(50),
+    @EffectiveDate date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate pay type
+    IF @PayType NOT IN ('Hourly', 'Daily', 'Weekly', 'Monthly', 'Contract')
+    BEGIN
+        RAISERROR('Invalid pay type. Must be: Hourly, Daily, Weekly, Monthly, or Contract', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate effective date
+    IF @EffectiveDate < CAST(GETDATE() AS date)
+    BEGIN
+        RAISERROR('Effective date cannot be in the past', 16, 1);
+        RETURN;
+    END
+    
+    -- Get or create salary type
+    DECLARE @SalaryTypeID int;
+    DECLARE @Currency varchar(10);
+    
+    -- Get employee's current currency or default to USD
+    SELECT @Currency = ISNULL(st.currency, 'USD')
+    FROM Employee e
+    LEFT JOIN SalaryType st ON e.salary_type_id = st.SalaryTypeID
+    WHERE e.EmployeeID = @EmployeeID;
+    
+    -- Find or create salary type
+    SELECT @SalaryTypeID = SalaryTypeID 
+    FROM SalaryType 
+    WHERE type = @PayType AND currency = @Currency;
+    
+    IF @SalaryTypeID IS NULL
+    BEGIN
+        SET @SalaryTypeID = (SELECT ISNULL(MAX(SalaryTypeID), 0) + 1 FROM SalaryType);
+        
+        INSERT INTO SalaryType (SalaryTypeID, type, payment_frequency, currency)
+        VALUES (@SalaryTypeID, @PayType, 
+                CASE @PayType 
+                    WHEN 'Hourly' THEN 'Weekly'
+                    WHEN 'Daily' THEN 'Weekly'
+                    WHEN 'Weekly' THEN 'Weekly'
+                    WHEN 'Monthly' THEN 'Monthly'
+                    WHEN 'Contract' THEN 'Milestone'
+                END, @Currency);
+    END
+    
+    -- Update employee salary type
+    UPDATE Employee
+    SET salary_type_id = @SalaryTypeID
+    WHERE EmployeeID = @EmployeeID;
+    
+    PRINT 'Pay type "' + @PayType + '" defined for employee ' + CAST(@EmployeeID AS varchar(10)) + 
+          ' effective ' + CAST(@EffectiveDate AS varchar(20));
+END
+GO
+
+-- ========================================
+-- 27) Configure overtime rules
+-- ========================================
+IF OBJECT_ID('ConfigureOvertimeRules', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureOvertimeRules;
+GO
+
+CREATE PROCEDURE ConfigureOvertimeRules
+    @DayType varchar(20),
+    @Multiplier decimal(3,2),
+    @HoursPerMonth int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate day type
+    IF @DayType NOT IN ('Weekday', 'Weekend', 'Holiday')
+    BEGIN
+        RAISERROR('Invalid day type. Must be: Weekday, Weekend, or Holiday', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate multiplier
+    IF @Multiplier < 1.0 OR @Multiplier > 5.0
+    BEGIN
+        RAISERROR('Multiplier must be between 1.0 and 5.0', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate hours per month
+    IF @HoursPerMonth < 0 OR @HoursPerMonth > 200
+    BEGIN
+        RAISERROR('Hours per month must be between 0 and 200', 16, 1);
+        RETURN;
+    END
+    
+    -- Create payroll policy for overtime
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, GETDATE(), 'Overtime', 
+            @DayType + ' Overtime: ' + CAST(@Multiplier AS varchar(10)) + 'x rate, max ' + CAST(@HoursPerMonth AS varchar(10)) + ' hours/month');
+    
+    -- Create overtime policy
+    INSERT INTO OvertimePolicy (policy_id, weekday_rate_multiplier, weekend_rate_multiplier, max_hours_per_month)
+    VALUES (@NewPolicyID, 
+            CASE WHEN @DayType = 'Weekday' THEN @Multiplier ELSE 1.5 END,
+            CASE WHEN @DayType IN ('Weekend', 'Holiday') THEN @Multiplier ELSE 2.0 END,
+            @HoursPerMonth);
+    
+    PRINT 'Overtime rule configured for ' + @DayType + ': ' + CAST(@Multiplier AS varchar(10)) + 
+          'x multiplier, max ' + CAST(@HoursPerMonth AS varchar(10)) + ' hours/month';
+END
+GO
+
+-- ========================================
+-- 28) Set shift differentials and special condition allowances
+-- ========================================
+IF OBJECT_ID('ConfigureShiftAllowance', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureShiftAllowance;
+GO
+
+CREATE PROCEDURE ConfigureShiftAllowance
+    @ShiftType varchar(20),
+    @AllowanceAmount decimal(18,2),
+    @CreatedBy int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate creator exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @CreatedBy)
+    BEGIN
+        RAISERROR('Creator employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate shift type
+    IF @ShiftType NOT IN ('Night', 'Weekend', 'Holiday', 'Hazard', 'Remote')
+    BEGIN
+        RAISERROR('Invalid shift type. Must be: Night, Weekend, Holiday, Hazard, or Remote', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate allowance amount
+    IF @AllowanceAmount <= 0
+    BEGIN
+        RAISERROR('Allowance amount must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Create payroll policy for shift allowance
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, GETDATE(), 'Allowance', 
+            @ShiftType + ' Shift Allowance: $' + CAST(@AllowanceAmount AS varchar(20)) + ' per period');
+    
+    -- Log the configuration
+    DECLARE @NewLogID int = (SELECT ISNULL(MAX(payroll_log_id), 0) + 1 FROM PayrollLog);
+    
+    INSERT INTO PayrollLog (payroll_log_id, payroll_id, actor, change_date, modification_type)
+    VALUES (@NewLogID, NULL, 
+            'Created by Employee ID: ' + CAST(@CreatedBy AS varchar(10)), 
+            GETDATE(), 
+            'Shift Allowance Created: ' + @ShiftType + ' - $' + CAST(@AllowanceAmount AS varchar(20)));
+    
+    PRINT @ShiftType + ' shift allowance of $' + CAST(@AllowanceAmount AS varchar(20)) + ' configured successfully by employee ' + CAST(@CreatedBy AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 30) Configure policies for signing bonuses and payroll initiation
+-- ========================================
+IF OBJECT_ID('ConfigureSigningBonusPolicy', 'P') IS NOT NULL
+    DROP PROCEDURE ConfigureSigningBonusPolicy;
+GO
+
+CREATE PROCEDURE ConfigureSigningBonusPolicy
+    @BonusType varchar(50),
+    @Amount decimal(18,2),
+    @EligibilityCriteria nvarchar(max)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate bonus type
+    IF @BonusType NOT IN ('Signing', 'Retention', 'Relocation', 'Performance')
+    BEGIN
+        RAISERROR('Invalid bonus type. Must be: Signing, Retention, Relocation, or Performance', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate amount
+    IF @Amount <= 0
+    BEGIN
+        RAISERROR('Bonus amount must be positive', 16, 1);
+        RETURN;
+    END
+    
+    -- Create payroll policy for signing bonus
+    DECLARE @NewPolicyID int = (SELECT ISNULL(MAX(PolicyID), 0) + 1 FROM PayrollPolicy);
+    
+    DECLARE @Description nvarchar(max) = @BonusType + ' Bonus Policy: $' + CAST(@Amount AS varchar(20)) + 
+                                         ' | Eligibility: ' + @EligibilityCriteria;
+    
+    INSERT INTO PayrollPolicy (PolicyID, effective_date, type, description)
+    VALUES (@NewPolicyID, GETDATE(), 'Bonus', @Description);
+    
+    -- Create bonus policy record
+    INSERT INTO BonusPolicy (policy_id, bonus_type, eligibility_criteria)
+    VALUES (@NewPolicyID, @BonusType + ' Bonus', @EligibilityCriteria);
+    
+    PRINT @BonusType + ' bonus policy configured: $' + CAST(@Amount AS varchar(20)) + ' for eligible new hires';
+END
+GO
+
+-- ========================================
+-- 32) Generate tax statements for employees annually
+-- ========================================
+IF OBJECT_ID('GenerateTaxStatement', 'P') IS NOT NULL
+    DROP PROCEDURE GenerateTaxStatement;
+GO
+
+CREATE PROCEDURE GenerateTaxStatement
+    @EmployeeID int,
+    @TaxYear int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate tax year
+    IF @TaxYear < 2000 OR @TaxYear > YEAR(GETDATE()) + 1
+    BEGIN
+        RAISERROR('Invalid tax year', 16, 1);
+        RETURN;
+    END
+    
+    -- Generate tax statement summary
+    SELECT 
+        e.EmployeeID,
+        e.full_name,
+        e.national_id,
+        @TaxYear AS tax_year,
+        tf.jurisdiction,
+        CAST(tf.form_content AS varchar(max)) AS tax_form_type,
+        COUNT(DISTINCT p.PayrollID) AS pay_periods,
+        SUM(p.base_amount) AS total_gross_income,
+        SUM(p.adjustments) AS total_adjustments,
+        SUM(p.taxes) AS total_taxes_withheld,
+        SUM(p.contributions) AS total_contributions,
+        SUM(p.net_salary) AS total_net_pay,
+        MIN(p.period_start) AS first_pay_period,
+        MAX(p.period_end) AS last_pay_period,
+        GETDATE() AS statement_generated_date
+    FROM Employee e
+    LEFT JOIN TaxForm tf ON e.taxform_id = tf.TaxFormID
+    LEFT JOIN Payroll p ON e.EmployeeID = p.employee_id 
+        AND YEAR(p.period_start) = @TaxYear
+    WHERE e.EmployeeID = @EmployeeID
+    GROUP BY e.EmployeeID, e.full_name, e.national_id, tf.jurisdiction, CAST(tf.form_content AS varchar(max));
+    
+    PRINT 'Tax statement generated for employee ' + CAST(@EmployeeID AS varchar(10)) + ' for tax year ' + CAST(@TaxYear AS varchar(4));
+END
+GO
+
+-- ========================================
+-- 33) Approve configuration changes made by Payroll Specialists
+-- ========================================
+IF OBJECT_ID('ApprovePayrollConfiguration', 'P') IS NOT NULL
+    DROP PROCEDURE ApprovePayrollConfiguration;
+GO
+
+CREATE PROCEDURE ApprovePayrollConfiguration
+    @ConfigID int,
+    @ApprovedBy int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate approver exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @ApprovedBy)
+    BEGIN
+        RAISERROR('Approver employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate configuration exists
+    IF NOT EXISTS (SELECT 1 FROM ApprovalWorkflow WHERE WorkflowID = @ConfigID)
+    BEGIN
+        RAISERROR('Configuration not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Check if configuration is in Pending status
+    DECLARE @CurrentStatus varchar(50);
+    SELECT @CurrentStatus = status FROM ApprovalWorkflow WHERE WorkflowID = @ConfigID;
+    
+    IF @CurrentStatus <> 'Pending'
+    BEGIN
+        RAISERROR('Configuration is not in Pending status', 16, 1);
+        RETURN;
+    END
+    
+    -- Update workflow status to Approved
+    UPDATE ApprovalWorkflow
+    SET status = 'Approved'
+    WHERE WorkflowID = @ConfigID;
+    
+    -- Log the approval
+    DECLARE @NewLogID int = (SELECT ISNULL(MAX(payroll_log_id), 0) + 1 FROM PayrollLog);
+    
+    INSERT INTO PayrollLog (payroll_log_id, payroll_id, actor, change_date, modification_type)
+    VALUES (@NewLogID, NULL, 
+            'Approved by Employee ID: ' + CAST(@ApprovedBy AS varchar(10)), 
+            GETDATE(), 
+            'Configuration Approved: Config ID ' + CAST(@ConfigID AS varchar(10)));
+    
+    PRINT 'Configuration ' + CAST(@ConfigID AS varchar(10)) + ' approved successfully by employee ' + CAST(@ApprovedBy AS varchar(10));
+END
+GO
+
+-- ========================================
+-- 34) Modify or correct payroll entries when authorized
+-- ========================================
+IF OBJECT_ID('ModifyPastPayroll', 'P') IS NOT NULL
+    DROP PROCEDURE ModifyPastPayroll;
+GO
+
+CREATE PROCEDURE ModifyPastPayroll
+    @PayrollRunID int,
+    @EmployeeID int,
+    @FieldName varchar(50),
+    @NewValue decimal(18,2),
+    @ModifiedBy int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate modifier exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @ModifiedBy)
+    BEGIN
+        RAISERROR('Modifier employee not found', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate payroll exists
+    IF NOT EXISTS (SELECT 1 FROM Payroll WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID)
+    BEGIN
+        RAISERROR('Payroll record not found for specified employee', 16, 1);
+        RETURN;
+    END
+    
+    -- Validate field name
+    IF @FieldName NOT IN ('base_amount', 'adjustments', 'taxes', 'contributions', 'net_salary')
+    BEGIN
+        RAISERROR('Invalid field name. Must be: base_amount, adjustments, taxes, contributions, or net_salary', 16, 1);
+        RETURN;
+    END
+    
+    -- Store old value for logging
+    DECLARE @OldValue decimal(18,2);
+    DECLARE @SQL nvarchar(max);
+    
+    SET @SQL = N'SELECT @OldValue = ' + QUOTENAME(@FieldName) + ' FROM Payroll WHERE PayrollID = @PayrollRunID';
+    EXEC sp_executesql @SQL, N'@OldValue decimal(18,2) OUTPUT, @PayrollRunID int', @OldValue OUTPUT, @PayrollRunID;
+    
+    -- Update the specified field
+    IF @FieldName = 'base_amount'
+    BEGIN
+        UPDATE Payroll SET base_amount = @NewValue WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    ELSE IF @FieldName = 'adjustments'
+    BEGIN
+        UPDATE Payroll SET adjustments = @NewValue WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    ELSE IF @FieldName = 'taxes'
+    BEGIN
+        UPDATE Payroll SET taxes = @NewValue WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    ELSE IF @FieldName = 'contributions'
+    BEGIN
+        UPDATE Payroll SET contributions = @NewValue WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    ELSE IF @FieldName = 'net_salary'
+    BEGIN
+        UPDATE Payroll 
+        SET net_salary = @NewValue, 
+            actual_pay = @NewValue 
+        WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    
+    -- Recalculate net salary if not directly modified
+    IF @FieldName <> 'net_salary'
+    BEGIN
+        UPDATE Payroll
+        SET net_salary = base_amount + adjustments - taxes - contributions,
+            actual_pay = base_amount + adjustments - taxes - contributions
+        WHERE PayrollID = @PayrollRunID AND employee_id = @EmployeeID;
+    END
+    
+    -- Log the modification
+    DECLARE @NewLogID int = (SELECT ISNULL(MAX(payroll_log_id), 0) + 1 FROM PayrollLog);
+    
+    INSERT INTO PayrollLog (payroll_log_id, payroll_id, actor, change_date, modification_type)
+    VALUES (@NewLogID, @PayrollRunID, 
+            'Modified by Employee ID: ' + CAST(@ModifiedBy AS varchar(10)), 
+            GETDATE(), 
+            'Field: ' + @FieldName + ' | Old: $' + CAST(@OldValue AS varchar(20)) + ' | New: $' + CAST(@NewValue AS varchar(20)));
+    
+    PRINT 'Payroll ' + CAST(@PayrollRunID AS varchar(10)) + ' modified successfully: ' + @FieldName + ' changed from $' + CAST(@OldValue AS varchar(20)) + ' to $' + CAST(@NewValue AS varchar(20));
+END
+GO

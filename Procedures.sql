@@ -7761,3 +7761,4093 @@ BEGIN
     PRINT 'Payroll ' + CAST(@PayrollRunID AS varchar(10)) + ' modified successfully: ' + @FieldName + ' changed from $' + CAST(@OldValue AS varchar(20)) + ' to $' + CAST(@NewValue AS varchar(20));
 END
 GO
+
+--Line Manager Procedures
+
+--1
+-- Procedure: ReviewLeaveRequest
+-- Input: @LeaveRequestID int, @ManagerID int, @Decision varchar(20)
+-- Output: Confirmation with @LeaveRequestID, @ManagerID, @Decision
+
+CREATE OR ALTER PROCEDURE dbo.ReviewLeaveRequest
+(
+    @LeaveRequestID INT,
+    @ManagerID      INT,
+    @Decision       VARCHAR(20)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate LeaveRequest exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.LeaveRequest WHERE RequestID = @LeaveRequestID)
+    BEGIN
+        RAISERROR('Leave request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate Manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate Decision value
+    IF @Decision NOT IN ('APPROVED', 'REJECTED', 'PENDING')
+    BEGIN
+        RAISERROR('Decision must be APPROVED, REJECTED, or PENDING.', 16, 1);
+        RETURN;
+    END
+
+    -- Optional: Verify manager has authority over the employee
+    DECLARE @EmployeeID INT;
+    SELECT @EmployeeID = employee_id FROM dbo.LeaveRequest WHERE RequestID = @LeaveRequestID;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM dbo.Employee 
+        WHERE EmployeeID = @EmployeeID 
+        AND manager_id = @ManagerID
+    )
+    BEGIN
+        RAISERROR('Manager is not authorized to review this employee''s leave request.', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Update the leave request
+        UPDATE dbo.LeaveRequest
+        SET 
+            status = @Decision,
+            approval_timing = CASE WHEN @Decision IN ('APPROVED', 'REJECTED') THEN GETDATE() ELSE approval_timing END
+        WHERE RequestID = @LeaveRequestID;
+
+        COMMIT TRANSACTION;
+
+        -- Return confirmation with all three values as specified
+        SELECT 
+            'Leave request reviewed' AS Message,
+            @LeaveRequestID AS LeaveRequestID,
+            @ManagerID AS ManagerID,
+            @Decision AS Decision;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReviewLeaveRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+--2
+-- Procedure: AssignShift
+-- Input: @EmployeeID int, @ShiftID int
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.AssignShift
+(
+    @EmployeeID INT,
+    @ShiftID    INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate Employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate ShiftSchedule exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftID)
+    BEGIN
+        RAISERROR('Shift with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if employee already has this shift assigned with overlapping dates
+    DECLARE @ExistingShiftStart DATETIME, @ExistingShiftEnd DATETIME;
+    DECLARE @NewShiftStart DATETIME, @NewShiftEnd DATETIME;
+
+    SELECT @NewShiftStart = start_date, @NewShiftEnd = end_date
+    FROM dbo.ShiftSchedule
+    WHERE ShiftID = @ShiftID;
+
+    IF EXISTS (
+        SELECT 1 
+        FROM dbo.ShiftSchedule 
+        WHERE employee_id = @EmployeeID 
+        AND ShiftID = @ShiftID
+        AND status = 'ACTIVE'
+    )
+    BEGIN
+        SELECT 'Employee already assigned to this shift' AS Message
+        RETURN;
+    END
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Update the ShiftSchedule to assign this employee
+        UPDATE dbo.ShiftSchedule
+        SET employee_id = @EmployeeID,
+            status = 'ACTIVE'
+        WHERE ShiftID = @ShiftID;
+
+        COMMIT TRANSACTION;
+
+        SELECT 
+            'Shift assigned successfully' AS Message
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('AssignShift failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END
+GO
+--3
+-- Procedure: ViewTeamAttendance
+-- Input: @ManagerID int, @DateRangeStart date, @DateRangeEnd date
+-- Output: table of attendance records
+
+CREATE OR ALTER PROCEDURE dbo.ViewTeamAttendance
+(
+    @ManagerID      INT,
+    @DateRangeStart DATE,
+    @DateRangeEnd   DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @DateRangeStart IS NULL OR @DateRangeEnd IS NULL
+    BEGIN
+        RAISERROR('DateRangeStart and DateRangeEnd are required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @DateRangeStart > @DateRangeEnd
+    BEGIN
+        RAISERROR('DateRangeStart must be less than or equal to DateRangeEnd.', 16, 1);
+        RETURN;
+    END;
+
+    -- ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH TeamMembers AS
+    (
+        -- direct reports of the manager
+        SELECT e.EmployeeID,
+               e.first_name,
+               e.last_name
+        FROM dbo.Employee e
+        WHERE e.manager_id = @ManagerID
+    )
+    SELECT
+        a.AttendanceID,
+        tm.EmployeeID,
+        tm.first_name,
+        tm.last_name,
+        CAST(al.FirstLogTime AS DATE) AS attendance_date,
+        a.entry_time,
+        a.exit_time,
+        a.duration,
+        a.login_method,
+        a.logout_method,
+        a.exception_id
+    FROM TeamMembers tm
+    INNER JOIN dbo.Attendance a
+        ON a.employee_id = tm.EmployeeID
+    OUTER APPLY
+    (
+        SELECT MIN(l.[timestamp]) AS FirstLogTime
+        FROM dbo.AttendanceLog l
+        WHERE l.attendance_id = a.AttendanceID
+    ) al
+    WHERE al.FirstLogTime >= @DateRangeStart
+      AND al.FirstLogTime < DATEADD(DAY, 1, @DateRangeEnd)
+    ORDER BY tm.EmployeeID,
+             attendance_date,
+             a.entry_time;
+END
+GO
+--4
+-- Procedure: SendTeamNotification
+-- Input: @ManagerID int, @MessageContent varchar(255), @UrgencyLevel varchar(50)
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.SendTeamNotification
+(
+    @ManagerID       INT,
+    @MessageContent  VARCHAR(255),
+    @UrgencyLevel    VARCHAR(50)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @MessageContent IS NULL OR LTRIM(RTRIM(@MessageContent)) = ''
+    BEGIN
+        RAISERROR('MessageContent is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @UrgencyLevel IS NULL OR LTRIM(RTRIM(@UrgencyLevel)) = ''
+    BEGIN
+        RAISERROR('UrgencyLevel is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager actually has team members
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.Employee AS e
+        WHERE e.manager_id = @ManagerID
+          AND (e.is_active = 1 OR e.is_active IS NULL)
+    )
+    BEGIN
+        RAISERROR('Manager has no team members to notify.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @NotificationID INT;
+        DECLARE @RecipientCount INT;
+
+        -- Generate next NotificationID
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification;
+
+        -- Insert the notification
+        INSERT INTO dbo.Notification
+            (NotificationID, mesage_content, timestamp, urgency, read_status, notification_type)
+        VALUES
+            (@NotificationID, @MessageContent, GETDATE(), @UrgencyLevel, 0, 'TEAM');
+
+        -- Insert links to each team member (CTE directly followed by INSERT)
+        ;WITH TeamMembers AS
+        (
+            SELECT e.EmployeeID
+            FROM dbo.Employee AS e
+            WHERE e.manager_id = @ManagerID
+              AND (e.is_active = 1 OR e.is_active IS NULL)
+        )
+        INSERT INTO dbo.EmployeeNotification
+            (employee_id, notification_id, delivery_status, delivered_at)
+        SELECT 
+            tm.EmployeeID,
+            @NotificationID,
+            'SENT',
+            GETDATE()
+        FROM TeamMembers AS tm;
+
+        -- Count recipients
+        SELECT @RecipientCount = COUNT(*)
+        FROM dbo.EmployeeNotification
+        WHERE notification_id = @NotificationID;
+
+        COMMIT TRANSACTION;
+
+        -- Single confirmation message as required
+        SELECT 'Notification sent to ' 
+               + CAST(@RecipientCount AS VARCHAR(10)) 
+               + ' team member(s).' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('SendTeamNotification failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--5
+--Approve completion of a mission assigned to an employee.
+--Signature:
+--Name: ApproveMissionCompletion.
+--Input: @MissionID int, @ManagerID int, @Remarks varchar(200).
+--Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.ApproveMissionCompletion
+(
+    @MissionID  INT,
+    @ManagerID  INT,
+    @Remarks    VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @MissionID IS NULL
+    BEGIN
+        RAISERROR('MissionID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @MissionEmployeeID INT,
+        @MissionManagerID  INT,
+        @OldStatus         VARCHAR(50);
+
+    -- Load mission data
+    SELECT
+        @MissionEmployeeID = employee_id,
+        @MissionManagerID  = manager_id,
+        @OldStatus         = status
+    FROM dbo.Mission
+    WHERE MissionID = @MissionID;
+
+    IF @MissionEmployeeID IS NULL
+    BEGIN
+        RAISERROR('Mission with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Check manager authorization
+    IF @MissionManagerID <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to approve this mission.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Mark mission as completed/approved
+        UPDATE dbo.Mission
+        SET status = 'COMPLETED'
+        WHERE MissionID = @MissionID;
+
+        -- Optionally record manager remarks as a note
+        IF @Remarks IS NOT NULL AND LTRIM(RTRIM(@Remarks)) <> ''
+        BEGIN
+            DECLARE @NoteID INT;
+
+            SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+            FROM dbo.ManagerNotes;
+
+            INSERT INTO dbo.ManagerNotes
+                (NoteID, employee_id, manager_id, note_content, created_at)
+            VALUES
+                (@NoteID, @MissionEmployeeID, @ManagerID, @Remarks, GETDATE());
+        END;
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message (single output)
+        SELECT 'Mission completion approved successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ApproveMissionCompletion failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+--6
+-- Request a replacement for an unavailable employee.
+-- Signature:
+-- Name: RequestReplacement.
+-- Input: @EmployeeID int, @Reason varchar(150).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.RequestReplacement
+(
+    @EmployeeID INT,
+    @Reason     VARCHAR(150)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+    BEGIN
+        RAISERROR('Reason is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @ManagerID INT;
+
+    -- Ensure employee exists and get their manager
+    SELECT @ManagerID = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmployeeID;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('Employee does not exist or has no assigned manager.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        DECLARE @NoteID INT;
+
+        -- Generate next NoteID for ManagerNotes
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        -- Log the replacement request as a manager note
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (@NoteID, @EmployeeID, @ManagerID,
+             'Replacement requested: ' + @Reason,
+             GETDATE());
+
+        -- Single confirmation message
+        SELECT 'Replacement request recorded successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('RequestReplacement failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+--7
+-- Retrieve department summary including active projects.
+-- Signature:
+-- Name: ViewDepartmentSummary.
+-- Input: @DepartmentID int.
+-- Output: Summary table showing employee count and projects.
+
+CREATE OR ALTER PROCEDURE dbo.ViewDepartmentSummary
+(
+    @DepartmentID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @DepartmentID IS NULL
+    BEGIN
+        RAISERROR('DepartmentID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure department exists
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.Department
+        WHERE DepartmentID = @DepartmentID
+    )
+    BEGIN
+        RAISERROR('Department with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    /*
+        Summary:
+        - EmployeeCount: number of active employees in the department
+        - ActiveProjectCount: number of IN_PROGRESS missions for employees in this department
+    */
+    SELECT
+        d.DepartmentID,
+        d.department_name,
+        COUNT(DISTINCT e.EmployeeID) AS EmployeeCount,
+        COUNT(DISTINCT m.MissionID)  AS ActiveProjectCount
+    FROM dbo.Department AS d
+    LEFT JOIN dbo.Employee AS e
+        ON e.department_id = d.DepartmentID
+       AND (e.is_active = 1 OR e.is_active IS NULL)
+    LEFT JOIN dbo.Mission AS m
+        ON m.employee_id = e.EmployeeID
+       AND m.status = 'IN_PROGRESS'  -- treating in-progress missions as active projects
+    WHERE d.DepartmentID = @DepartmentID
+    GROUP BY
+        d.DepartmentID,
+        d.department_name;
+END;
+GO
+--8
+-- Reassign a shift for an employee.
+-- Signature:
+-- Name: ReassignShift.
+-- Input: @EmployeeID int, @OldShiftID int, @NewShiftID int.
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.ReassignShift
+(
+    @EmployeeID INT,
+    @OldShiftID INT,
+    @NewShiftID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @OldShiftID IS NULL
+    BEGIN
+        RAISERROR('OldShiftID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @NewShiftID IS NULL
+    BEGIN
+        RAISERROR('NewShiftID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @OldShiftID = @NewShiftID
+    BEGIN
+        RAISERROR('OldShiftID and NewShiftID must be different.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate both shifts exist
+    IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @OldShiftID)
+    BEGIN
+        RAISERROR('Old shift with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @NewShiftID)
+    BEGIN
+        RAISERROR('New shift with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE 
+        @OldShiftEmployeeID INT,
+        @NewShiftEmployeeID INT,
+        @NewShiftStatus     VARCHAR(50);
+
+    -- Check that the old shift is currently assigned to this employee
+    SELECT @OldShiftEmployeeID = employee_id
+    FROM dbo.ShiftSchedule
+    WHERE ShiftID = @OldShiftID;
+
+    IF @OldShiftEmployeeID IS NULL OR @OldShiftEmployeeID <> @EmployeeID
+    BEGIN
+        RAISERROR('Old shift is not currently assigned to this employee.', 16, 1);
+        RETURN;
+    END;
+
+    -- Check if the new shift is already assigned to someone else
+    SELECT 
+        @NewShiftEmployeeID = employee_id,
+        @NewShiftStatus     = status
+    FROM dbo.ShiftSchedule
+    WHERE ShiftID = @NewShiftID;
+
+    IF @NewShiftEmployeeID IS NOT NULL AND @NewShiftEmployeeID <> @EmployeeID
+    BEGIN
+        RAISERROR('New shift is already assigned to another employee.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Unassign old shift (set back to PENDING)
+        UPDATE dbo.ShiftSchedule
+        SET employee_id = NULL,
+            status      = 'PENDING'
+        WHERE ShiftID = @OldShiftID;
+
+        -- Assign new shift to this employee
+        UPDATE dbo.ShiftSchedule
+        SET employee_id = @EmployeeID,
+            status      = 'ACTIVE'
+        WHERE ShiftID = @NewShiftID;
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Shift reassigned successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ReassignShift failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--9
+-- Retrieve list of pending leave requests.
+-- Signature:
+-- Name: GetPendingLeaveRequests.
+-- Input: @ManagerID int.
+-- Output: Table of pending requests.
+
+CREATE OR ALTER PROCEDURE dbo.GetPendingLeaveRequests
+(
+    @ManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Pending = status 'PENDING' (case-insensitive) for employees reporting to this manager
+    SELECT
+        lr.RequestID,
+        lr.employee_id,
+        e.first_name,
+        e.last_name,
+        lr.leave_id,
+        l.leave_type,
+        lr.justification,
+        lr.duration,
+        lr.approval_timing,
+        lr.status
+    FROM dbo.LeaveRequest AS lr
+    INNER JOIN dbo.Employee AS e
+        ON lr.employee_id = e.EmployeeID
+    LEFT JOIN dbo.Leave AS l
+        ON lr.leave_id = l.LeaveID
+    WHERE e.manager_id = @ManagerID
+      AND UPPER(lr.status) = 'PENDING'
+    ORDER BY lr.RequestID;
+END;
+GO
+
+--10
+-- View team-level statistics and reporting metrics.
+-- Signature:
+-- Name: GetTeamStatistics.
+-- Input: @ManagerID int.
+-- Output: Table showing team size, average salary, and span of control.
+
+CREATE OR ALTER PROCEDURE dbo.GetTeamStatistics
+(
+    @ManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH DirectReports AS
+    (
+        SELECT
+            e.EmployeeID,
+            e.paygrade_id
+        FROM dbo.Employee AS e
+        WHERE e.manager_id = @ManagerID
+    ),
+    AllReports AS
+    (
+        -- full span of control (can use EmployeeHierarchy to include indirect reports)
+        SELECT eh.employee_id
+        FROM dbo.EmployeeHierarchy AS eh
+        WHERE eh.manager_id = @ManagerID
+    )
+    SELECT
+        -- direct reports count
+        (SELECT COUNT(*) FROM DirectReports) AS TeamSize,
+        -- average estimated salary based on pay grade midpoint
+        (SELECT AVG(CAST((pg.min_salary + pg.max_salary) / 2.0 AS DECIMAL(18,2)))
+         FROM DirectReports dr
+         JOIN dbo.PayGrade pg
+           ON dr.paygrade_id = pg.PayGradeID) AS AverageSalary,
+        -- span of control = all employees under this manager in hierarchy
+        (SELECT COUNT(DISTINCT ar.employee_id) FROM AllReports ar) AS SpanOfControl;
+END;
+GO
+
+--11
+-- View team members profiles (excluding sensitive data).
+-- Signature:
+-- Name: ViewTeamProfiles.
+-- Input: @ManagerID int.
+-- Output: Table showing team members basic info.
+
+CREATE OR ALTER PROCEDURE dbo.ViewTeamProfiles
+(
+    @ManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    /*
+        Excluding sensitive data:
+        - NO national_id, date_of_birth, phone, email, address,
+          emergency contacts, biography, profile_image, tax/contract/salary details.
+        Only basic, non-sensitive profile info.
+    */
+    SELECT
+        e.EmployeeID,
+        e.first_name,
+        e.last_name,
+        e.full_name,
+        e.employment_status,
+        e.account_status,
+        e.hire_date,
+        e.is_active,
+        e.department_id,
+        d.department_name,
+        e.position_id,
+        p.position_title
+    FROM dbo.Employee AS e
+    LEFT JOIN dbo.Department AS d
+        ON e.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position AS p
+        ON e.position_id = p.PositionID
+    WHERE e.manager_id = @ManagerID
+      AND (e.is_active = 1 OR e.is_active IS NULL)
+    ORDER BY e.EmployeeID;
+END;
+GO
+--12
+-- View summary of team (roles, tenure, departments).
+-- Signature:
+-- Name: GetTeamSummary.
+-- Input: @ManagerID int.
+-- Output: Table summarizing role distribution and tenure.
+
+CREATE OR ALTER PROCEDURE dbo.GetTeamSummary
+(
+    @ManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH DirectReports AS
+    (
+        SELECT
+            e.EmployeeID,
+            e.hire_date,
+            e.department_id,
+            e.position_id,
+            e.is_active
+        FROM dbo.Employee AS e
+        WHERE e.manager_id = @ManagerID
+          AND (e.is_active = 1 OR e.is_active IS NULL)
+    )
+    SELECT
+        ISNULL(p.position_title, '(No Position)')     AS RoleTitle,
+        ISNULL(d.department_name, '(No Department)')  AS DepartmentName,
+        COUNT(*)                                      AS EmployeeCount,
+        AVG(
+            CASE 
+                WHEN dr.hire_date IS NULL 
+                    THEN NULL
+                ELSE CAST(DATEDIFF(DAY, dr.hire_date, GETDATE()) / 365.0 AS DECIMAL(10,2))
+            END
+        )                                            AS AverageTenureYears
+    FROM DirectReports AS dr
+    LEFT JOIN dbo.Department AS d
+        ON dr.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position AS p
+        ON dr.position_id = p.PositionID
+    GROUP BY
+        ISNULL(p.position_title, '(No Position)'),
+        ISNULL(d.department_name, '(No Department)')
+    ORDER BY
+        RoleTitle,
+        DepartmentName;
+END;
+GO
+
+--13
+-- Filter team members by skill or role.
+-- Signature:
+-- Name: FilterTeamProfiles.
+-- Input: @ManagerID int, @Skill varchar(50), @RoleID int.
+-- Output: Table showing matching employees.
+
+CREATE OR ALTER PROCEDURE dbo.FilterTeamProfiles
+(
+    @ManagerID INT,
+    @Skill     VARCHAR(50),
+    @RoleID    INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH Team AS
+    (
+        SELECT
+            e.EmployeeID,
+            e.first_name,
+            e.last_name,
+            e.full_name,
+            e.department_id,
+            e.position_id,
+            e.is_active
+        FROM dbo.Employee AS e
+        WHERE e.manager_id = @ManagerID
+          AND (e.is_active = 1 OR e.is_active IS NULL)
+    )
+    SELECT DISTINCT
+        t.EmployeeID,
+        t.first_name,
+        t.last_name,
+        t.full_name,
+        t.department_id,
+        d.department_name,
+        t.position_id,
+        p.position_title,
+        er.role_id,
+        r.role_name
+    FROM Team AS t
+    LEFT JOIN dbo.Department AS d
+        ON t.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position AS p
+        ON t.position_id = p.PositionID
+    LEFT JOIN dbo.EmployeeRole AS er
+        ON er.employee_id = t.EmployeeID
+    LEFT JOIN dbo.Role AS r
+        ON er.role_id = r.RoleID
+    WHERE
+        -- Skill filter (optional): if NULL/empty => ignore
+        (
+            @Skill IS NULL
+            OR LTRIM(RTRIM(@Skill)) = ''
+            OR EXISTS (
+                SELECT 1
+                FROM dbo.EmployeeSkill es
+                JOIN dbo.Skill s
+                    ON s.SkillID = es.skill_id
+                WHERE es.employee_id = t.EmployeeID
+                  AND s.skill_name = @Skill
+            )
+        )
+        -- Role filter (optional): if NULL or 0 => ignore
+        AND (
+            @RoleID IS NULL
+            OR @RoleID = 0
+            OR er.role_id = @RoleID
+        )
+    ORDER BY
+        t.EmployeeID;
+END;
+GO
+
+--14
+-- View certifications and skills of team members.
+-- Signature:
+-- Name: ViewTeamCertifications.
+-- Input: @ManagerID int.
+-- Output: Table showing skill and certification info
+
+CREATE OR ALTER PROCEDURE dbo.ViewTeamCertifications
+(
+    @ManagerID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH Team AS
+    (
+        SELECT
+            e.EmployeeID,
+            e.first_name,
+            e.last_name,
+            e.full_name
+        FROM dbo.Employee AS e
+        WHERE e.manager_id = @ManagerID
+          AND (e.is_active = 1 OR e.is_active IS NULL)
+    )
+    SELECT DISTINCT
+        t.EmployeeID,
+        t.first_name,
+        t.last_name,
+        t.full_name,
+        s.SkillID,
+        s.skill_name,
+        es.proficiency_level,
+        v.VerificationID,
+        v.verification_type,
+        v.issuer,
+        v.issue_date,
+        v.expiry_period
+    FROM Team AS t
+    LEFT JOIN dbo.EmployeeSkill AS es
+        ON es.employee_id = t.EmployeeID
+    LEFT JOIN dbo.Skill AS s
+        ON s.SkillID = es.skill_id
+    LEFT JOIN dbo.EmployeeVerification AS ev
+        ON ev.employee_id = t.EmployeeID
+    LEFT JOIN dbo.Verification AS v
+        ON v.VerificationID = ev.verification_id
+    ORDER BY
+        t.EmployeeID,
+        s.skill_name,
+        v.verification_type;
+END;
+GO
+
+--15
+-- Add manager-specific notes (visible only to HR).
+-- Signature:
+-- Name: AddManagerNotes.
+-- Input: @EmployeeID int, @ManagerID int, @Note varchar(500).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.AddManagerNotes
+(
+    @EmployeeID INT,
+    @ManagerID  INT,
+    @Note       VARCHAR(500)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Note IS NULL OR LTRIM(RTRIM(@Note)) = ''
+    BEGIN
+        RAISERROR('Note is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @EmpManagerID INT;
+
+    -- Ensure employee exists and get their manager
+    SELECT @EmpManagerID = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmployeeID;
+
+    IF @EmpManagerID IS NULL
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist or has no manager.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually assigned to this employee
+    IF @EmpManagerID <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not assigned to this employee.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        DECLARE @NoteID INT;
+
+        -- Generate next NoteID
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        -- Insert manager-specific note (HR will be the only viewer at UI level)
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (@NoteID, @EmployeeID, @ManagerID, @Note, GETDATE());
+
+        -- Confirmation message
+        SELECT 'Manager note added successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('AddManagerNotes failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--16
+-- Record attendance manually (with an audit trail) so that missing punches can be corrected.
+-- Signature:
+-- Name: RecordManualAttendance.
+-- Input: @EmployeeID int, @Date date, @ClockIn time, @ClockOut time, @Reason varchar(200),
+--        @RecordedBy int.
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.RecordManualAttendance
+(
+    @EmployeeID INT,
+    @Date       DATE,
+    @ClockIn    TIME,
+    @ClockOut   TIME,
+    @Reason     VARCHAR(200),
+    @RecordedBy INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @RecordedBy IS NULL
+    BEGIN
+        RAISERROR('RecordedBy is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Date IS NULL
+    BEGIN
+        RAISERROR('Date is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ClockIn IS NULL OR @ClockOut IS NULL
+    BEGIN
+        RAISERROR('ClockIn and ClockOut are required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ClockOut <= @ClockIn
+    BEGIN
+        RAISERROR('ClockOut must be later than ClockIn.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+    BEGIN
+        RAISERROR('Reason is required for manual attendance.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure RecordedBy exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @RecordedBy)
+    BEGIN
+        RAISERROR('RecordedBy employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE 
+        @AttendanceID       INT,
+        @DurationMinutes    INT,
+        @ClockInDateTime    DATETIME,
+        @ClockOutDateTime   DATETIME,
+        @NextLogID          INT;
+
+    -- Duration in minutes (same day)
+    SET @DurationMinutes = DATEDIFF(MINUTE, CAST(@ClockIn AS DATETIME), CAST(@ClockOut AS DATETIME));
+
+    -- Build full datetime values for audit trail
+    SET @ClockInDateTime  = DATEADD(DAY, DATEDIFF(DAY, 0, @Date), CAST(@ClockIn AS DATETIME));
+    SET @ClockOutDateTime = DATEADD(DAY, DATEDIFF(DAY, 0, @Date), CAST(@ClockOut AS DATETIME));
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Check if there is already an attendance record for this employee on this date
+        SELECT TOP 1 @AttendanceID = a.AttendanceID
+        FROM dbo.Attendance AS a
+        JOIN dbo.AttendanceLog AS l
+            ON l.attendance_id = a.AttendanceID
+        WHERE a.employee_id = @EmployeeID
+          AND CAST(l.[timestamp] AS DATE) = @Date
+        ORDER BY l.[timestamp];
+
+        -- If no existing attendance for that date, create a new one
+        IF @AttendanceID IS NULL
+        BEGIN
+            SELECT @AttendanceID = ISNULL(MAX(AttendanceID), 0) + 1
+            FROM dbo.Attendance;
+
+            INSERT INTO dbo.Attendance
+                (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+            VALUES
+                (@AttendanceID, @EmployeeID, @ClockIn, @ClockOut, @DurationMinutes, 'MANUAL', 'MANUAL', NULL);
+        END
+        ELSE
+        BEGIN
+            -- Update existing attendance record (manual correction)
+            UPDATE dbo.Attendance
+            SET entry_time   = @ClockIn,
+                exit_time    = @ClockOut,
+                duration     = @DurationMinutes,
+                login_method = 'MANUAL',
+                logout_method= 'MANUAL'
+            WHERE AttendanceID = @AttendanceID;
+        END;
+
+        -- Create audit-trail AttendanceLog entries
+        SELECT @NextLogID = ISNULL(MAX(AttendanceLogID), 0) + 1
+        FROM dbo.AttendanceLog;
+
+        INSERT INTO dbo.AttendanceLog
+            (AttendanceLogID, attendance_id, actor, [timestamp], reason)
+        VALUES
+            (
+                @NextLogID,
+                @AttendanceID,
+                'MANUAL_IN_BY_' + CAST(@RecordedBy AS VARCHAR(20)),
+                @ClockInDateTime,
+                'Manual clock-in recorded. Reason: ' + @Reason
+            ),
+            (
+                @NextLogID + 1,
+                @AttendanceID,
+                'MANUAL_OUT_BY_' + CAST(@RecordedBy AS VARCHAR(20)),
+                @ClockOutDateTime,
+                'Manual clock-out recorded. Reason: ' + @Reason
+            );
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Manual attendance recorded successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('RecordManualAttendance failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+--17
+-- Review automatically flagged missed punches (Clock in / Clock out) so that I can take action.
+-- Signature:
+-- Name: ReviewMissedPunches.
+-- Input: @ManagerID int, @Date date.
+-- Output: Table of flagged attendance exceptions.
+
+CREATE OR ALTER PROCEDURE dbo.ReviewMissedPunches
+(
+    @ManagerID INT,
+    @Date      DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Date IS NULL
+    BEGIN
+        RAISERROR('Date is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    /*
+        "Flagged attendance exceptions" here:
+        - Exception.category = 'ATTENDANCE'
+        - Status is not resolved (e.g., FLAGGED/OPEN/PENDING)
+        - Linked to Attendance.exception_id
+        - Employee is a direct report of @ManagerID
+        - Exception date matches @Date
+    */
+    SELECT
+        e.EmployeeID,
+        e.first_name,
+        e.last_name,
+        a.AttendanceID,
+        ex.ExceptionID,
+        ex.name       AS ExceptionName,
+        ex.category   AS ExceptionCategory,
+        CAST(ex.date AS date) AS ExceptionDate,
+        ex.status     AS ExceptionStatus,
+        a.entry_time,
+        a.exit_time,
+        a.login_method,
+        a.logout_method
+    FROM dbo.Employee  AS e
+    JOIN dbo.Attendance AS a
+        ON a.employee_id = e.EmployeeID
+    JOIN dbo.Exception AS ex
+        ON ex.ExceptionID = a.exception_id
+    WHERE e.manager_id = @ManagerID
+      AND CAST(ex.date AS date) = @Date
+      AND UPPER(ex.category) = 'ATTENDANCE'
+      AND UPPER(ex.status) IN ('FLAGGED', 'OPEN', 'PENDING')
+    ORDER BY
+        e.EmployeeID,
+        ex.date,
+        a.AttendanceID;
+END;
+GO
+--18
+-- Approve or reject time management requests so that exceptions are controlled.
+-- Signature:
+-- Name: ApproveTimeRequest.
+-- Input: @RequestID int, @ManagerID int, @Decision varchar(20), @Comments varchar(200).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.ApproveTimeRequest
+(
+    @RequestID INT,
+    @ManagerID INT,
+    @Decision  VARCHAR(20),
+    @Comments  VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @RequestID IS NULL
+    BEGIN
+        RAISERROR('RequestID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Decision IS NULL OR LTRIM(RTRIM(@Decision)) = ''
+    BEGIN
+        RAISERROR('Decision is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @DecisionNorm     VARCHAR(20),
+        @ReqEmployeeID    INT,
+        @ReqStatus        VARCHAR(50),
+        @EmpManagerID     INT;
+
+    -- Normalize decision
+    SET @DecisionNorm = UPPER(LTRIM(RTRIM(@Decision)));
+
+    IF @DecisionNorm NOT IN ('APPROVED', 'REJECTED')
+    BEGIN
+        RAISERROR('Decision must be either APPROVED or REJECTED.', 16, 1);
+        RETURN;
+    END;
+
+    -- Load request info
+    SELECT
+        @ReqEmployeeID = employee_id,
+        @ReqStatus     = status
+    FROM dbo.AttendanceCorrectionRequest
+    WHERE RequestID = @RequestID;
+
+    IF @ReqEmployeeID IS NULL
+    BEGIN
+        RAISERROR('Time management request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure request is still pending (not already processed)
+    IF UPPER(ISNULL(@ReqStatus, '')) IN ('APPROVED', 'REJECTED')
+    BEGIN
+        RAISERROR('This time management request has already been processed.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists and is actually the manager of the employee
+    SELECT @EmpManagerID = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @ReqEmployeeID;
+
+    IF @EmpManagerID IS NULL
+    BEGIN
+        RAISERROR('Employee has no assigned manager.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @EmpManagerID <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to decide on this request.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Update request status
+        UPDATE dbo.AttendanceCorrectionRequest
+        SET status = @DecisionNorm
+        WHERE RequestID = @RequestID;
+
+        -- Log manager decision as a ManagerNote (for HR visibility)
+        DECLARE @NoteID INT;
+
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (
+                @NoteID,
+                @ReqEmployeeID,
+                @ManagerID,
+                'Time request ' + CAST(@RequestID AS VARCHAR(10))
+                + ' ' + @DecisionNorm
+                + CASE WHEN @Comments IS NOT NULL AND LTRIM(RTRIM(@Comments)) <> ''
+                       THEN '. Comments: ' + @Comments
+                       ELSE ''
+                  END,
+                GETDATE()
+            );
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Time management request ' + @DecisionNorm + ' successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ApproveTimeRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--19
+-- Review leave requests assigned to me.
+-- Signature:
+-- Name: ViewLeaveRequest.
+-- Input: @LeaveRequestID int, @ManagerID int.
+-- Output: Leave request details.
+
+CREATE OR ALTER PROCEDURE dbo.ViewLeaveRequest
+(
+    @LeaveRequestID INT,
+    @ManagerID      INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @LeaveRequestID IS NULL
+    BEGIN
+        RAISERROR('LeaveRequestID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @EmpID       INT,
+        @EmpManager  INT;
+
+    -- Load leave request basic info
+    SELECT
+        @EmpID = employee_id
+    FROM dbo.LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @EmpID IS NULL
+    BEGIN
+        RAISERROR('Leave request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually the employee's manager
+    SELECT @EmpManager = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmpID;
+
+    IF @EmpManager IS NULL OR @EmpManager <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to view this leave request.', 16, 1);
+        RETURN;
+    END;
+
+    -- Return leave request details
+    SELECT
+        lr.RequestID,
+        lr.employee_id,
+        e.first_name,
+        e.last_name,
+        lr.leave_id,
+        l.leave_type,
+        lr.justification,
+        lr.duration,
+        lr.approval_timing,
+        lr.status
+    FROM dbo.LeaveRequest AS lr
+    JOIN dbo.Employee AS e
+        ON lr.employee_id = e.EmployeeID
+    LEFT JOIN dbo.Leave AS l
+        ON lr.leave_id = l.LeaveID
+    WHERE lr.RequestID = @LeaveRequestID;
+END;
+GO
+--20
+-- Approve a leave request.
+-- Signature:
+-- Name: ApproveLeaveRequest.
+-- Input: @LeaveRequestID int, @ManagerID int.
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.ApproveLeaveRequest
+(
+    @LeaveRequestID INT,
+    @ManagerID      INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @LeaveRequestID IS NULL
+    BEGIN
+        RAISERROR('LeaveRequestID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @EmpID      INT,
+        @ReqStatus  VARCHAR(50),
+        @EmpManager INT;
+
+    -- Load leave request info
+    SELECT
+        @EmpID     = employee_id,
+        @ReqStatus = status
+    FROM dbo.LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @EmpID IS NULL
+    BEGIN
+        RAISERROR('Leave request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually the employee's manager
+    SELECT @EmpManager = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmpID;
+
+    IF @EmpManager IS NULL OR @EmpManager <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to approve this leave request.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure request is not already processed
+    IF UPPER(ISNULL(@ReqStatus, '')) IN ('APPROVED', 'REJECTED')
+    BEGIN
+        RAISERROR('This leave request has already been processed.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Approve the leave request
+        UPDATE dbo.LeaveRequest
+        SET status          = 'APPROVED',
+            approval_timing = GETDATE()
+        WHERE RequestID = @LeaveRequestID;
+
+        -- Optional audit: log in ManagerNotes (visible to HR)
+        DECLARE @NoteID INT;
+
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (
+                @NoteID,
+                @EmpID,
+                @ManagerID,
+                'Leave request ' + CAST(@LeaveRequestID AS VARCHAR(10)) + ' approved.',
+                GETDATE()
+            );
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Leave request approved successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('ApproveLeaveRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--21
+-- Reject a leave request.
+-- Signature:
+-- Name: RejectLeaveRequest.
+-- Input: @LeaveRequestID int, @ManagerID int, @Reason varchar(200).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.RejectLeaveRequest
+(
+    @LeaveRequestID INT,
+    @ManagerID      INT,
+    @Reason         VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @LeaveRequestID IS NULL
+    BEGIN
+        RAISERROR('LeaveRequestID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+    BEGIN
+        RAISERROR('Reason is required when rejecting a leave request.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @EmpID      INT,
+        @ReqStatus  VARCHAR(50),
+        @EmpManager INT;
+
+    -- Load leave request info
+    SELECT
+        @EmpID     = employee_id,
+        @ReqStatus = status
+    FROM dbo.LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @EmpID IS NULL
+    BEGIN
+        RAISERROR('Leave request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually the employee's manager
+    SELECT @EmpManager = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmpID;
+
+    IF @EmpManager IS NULL OR @EmpManager <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to reject this leave request.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure request is not already processed
+    IF UPPER(ISNULL(@ReqStatus, '')) IN ('APPROVED', 'REJECTED')
+    BEGIN
+        RAISERROR('This leave request has already been processed.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Reject the leave request
+        UPDATE dbo.LeaveRequest
+        SET status          = 'REJECTED',
+            approval_timing = GETDATE()
+        WHERE RequestID = @LeaveRequestID;
+
+        -- Audit in ManagerNotes (HR-visible)
+        DECLARE @NoteID INT;
+
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (
+                @NoteID,
+                @EmpID,
+                @ManagerID,
+                'Leave request ' + CAST(@LeaveRequestID AS VARCHAR(10))
+                + ' rejected. Reason: ' + @Reason,
+                GETDATE()
+            );
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Leave request rejected successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('RejectLeaveRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--22
+-- Delegate leave approval authority.
+-- Signature:
+-- Name: DelegateLeaveApproval.
+-- Input: @ManagerID int, @DelegateID int, @StartDate date, @EndDate date.
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.DelegateLeaveApproval
+(
+    @ManagerID  INT,
+    @DelegateID INT,
+    @StartDate  DATE,
+    @EndDate    DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @DelegateID IS NULL
+    BEGIN
+        RAISERROR('DelegateID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        RAISERROR('StartDate and EndDate are required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('StartDate must be earlier than or equal to EndDate.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID = @DelegateID
+    BEGIN
+        RAISERROR('ManagerID and DelegateID must be different.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure delegate exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @DelegateID)
+    BEGIN
+        RAISERROR('Delegate with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        DECLARE @NoteID INT;
+        DECLARE @NoteText VARCHAR(500);
+
+        -- Generate next NoteID
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        -- Build HR-visible delegation note
+        SET @NoteText =
+            'Leave approval delegated to this employee from '
+            + CONVERT(varchar(10), @StartDate, 120)
+            + ' to '
+            + CONVERT(varchar(10), @EndDate, 120)
+            + ' by manager ID '
+            + CAST(@ManagerID AS varchar(10)) + '.';
+
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (@NoteID, @DelegateID, @ManagerID, @NoteText, GETDATE());
+
+        -- Confirmation message
+        SELECT 'Leave approval delegated successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('DelegateLeaveApproval failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+--23
+-- Flag irregular leave patterns in team members.
+-- Signature:
+-- Name: FlagIrregularLeave.
+-- Input: @EmployeeID int, @ManagerID int, @PatternDescription varchar(200).
+-- Output: Confirmation message
+
+CREATE OR ALTER PROCEDURE dbo.FlagIrregularLeave
+(
+    @EmployeeID          INT,
+    @ManagerID           INT,
+    @PatternDescription  VARCHAR(200)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @PatternDescription IS NULL OR LTRIM(RTRIM(@PatternDescription)) = ''
+    BEGIN
+        RAISERROR('PatternDescription is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @EmpManagerID INT,
+        @ExceptionID  INT,
+        @NoteID       INT,
+        @ExceptionName VARCHAR(100);
+
+    -- Ensure employee exists and get their manager
+    SELECT @EmpManagerID = manager_id
+    FROM dbo.Employee
+    WHERE EmployeeID = @EmployeeID;
+
+    IF @EmpManagerID IS NULL
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist or has no assigned manager.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually the employee's manager
+    IF @EmpManagerID <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized to flag leave patterns for this employee.', 16, 1);
+        RETURN;
+    END;
+
+    -- Exception.name is varchar(100) – trim description to fit
+    SET @ExceptionName = LEFT(@PatternDescription, 100);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Create an Exception entry with category 'LEAVE_PATTERN'
+        SELECT @ExceptionID = ISNULL(MAX(ExceptionID), 0) + 1
+        FROM dbo.Exception;
+
+        INSERT INTO dbo.Exception
+            (ExceptionID, name, category, date, status)
+        VALUES
+            (
+                @ExceptionID,
+                @ExceptionName,
+                'LEAVE_PATTERN',
+                GETDATE(),
+                'FLAGGED'
+            );
+
+        -- Also log a manager note for HR visibility
+        SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1
+        FROM dbo.ManagerNotes;
+
+        INSERT INTO dbo.ManagerNotes
+            (NoteID, employee_id, manager_id, note_content, created_at)
+        VALUES
+            (
+                @NoteID,
+                @EmployeeID,
+                @ManagerID,
+                'Irregular leave pattern flagged: ' + @PatternDescription,
+                GETDATE()
+            );
+
+        COMMIT TRANSACTION;
+
+        -- Confirmation message
+        SELECT 'Irregular leave pattern flagged successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('FlagIrregularLeave failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+--24
+-- Receive notifications when a new leave request is assigned to me.
+-- Signature:
+-- Name: NotifyNewLeaveRequest.
+-- Input: @ManagerID int, @RequestID int.
+-- Output: Notification message.
+
+CREATE OR ALTER PROCEDURE dbo.NotifyNewLeaveRequest
+(
+    @ManagerID INT,
+    @RequestID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @ManagerID IS NULL
+    BEGIN
+        RAISERROR('ManagerID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @RequestID IS NULL
+    BEGIN
+        RAISERROR('RequestID is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @EmpID        INT,
+        @EmpManagerID INT,
+        @EmpFirstName VARCHAR(50),
+        @EmpLastName  VARCHAR(50),
+        @ReqStatus    VARCHAR(50),
+        @NotificationID INT;
+
+    -- Ensure manager exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ManagerID)
+    BEGIN
+        RAISERROR('Manager with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Load leave request info
+    SELECT
+        @EmpID     = lr.employee_id,
+        @ReqStatus = lr.status
+    FROM dbo.LeaveRequest AS lr
+    WHERE lr.RequestID = @RequestID;
+
+    IF @EmpID IS NULL
+    BEGIN
+        RAISERROR('Leave request with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure this manager is actually the employee's manager
+    SELECT
+        @EmpManagerID = e.manager_id,
+        @EmpFirstName = e.first_name,
+        @EmpLastName  = e.last_name
+    FROM dbo.Employee AS e
+    WHERE e.EmployeeID = @EmpID;
+
+    IF @EmpManagerID IS NULL OR @EmpManagerID <> @ManagerID
+    BEGIN
+        RAISERROR('Manager is not authorized for this leave request.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Generate new NotificationID
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification;
+
+        -- Create notification record
+        INSERT INTO dbo.Notification
+            (NotificationID, mesage_content, timestamp, urgency, read_status, notification_type)
+        VALUES
+            (
+                @NotificationID,
+                'New leave request #' + CAST(@RequestID AS VARCHAR(10))
+                + ' from ' + ISNULL(@EmpFirstName, '') + ' ' + ISNULL(@EmpLastName, '')
+                + ' is ' + ISNULL(@ReqStatus, 'PENDING') + '.',
+                GETDATE(),
+                'MEDIUM',
+                0,
+                'LEAVE_REQUEST'
+            );
+
+        -- Link notification to the manager
+        INSERT INTO dbo.EmployeeNotification
+            (employee_id, notification_id, delivery_status, delivered_at)
+        VALUES
+            (@ManagerID, @NotificationID, 'SENT', GETDATE());
+
+        COMMIT TRANSACTION;
+
+        -- Notification message
+        SELECT 'New leave request notification sent to manager.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('NotifyNewLeaveRequest failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+-- ============================================
+-- Employee Procedures 
+-- ============================================
+
+-- SubmitLeaveRequest
+CREATE OR ALTER PROCEDURE dbo.SubmitLeaveRequest
+(
+    @EmployeeID   INT,
+    @LeaveTypeID  INT,
+    @StartDate    DATE,
+    @EndDate      DATE,
+    @Reason       VARCHAR(100)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate employee
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate leave type
+    IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = @LeaveTypeID)
+    BEGIN
+        RAISERROR('Leave type does not exist.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate dates
+    IF @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        RAISERROR('Start and End dates are required.', 16, 1);
+        RETURN;
+    END
+
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('StartDate cannot be after EndDate.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @NewRequestID INT;
+    DECLARE @Duration INT = DATEDIFF(DAY, @StartDate, @EndDate) + 1;
+
+    -- Normalize empty reason
+    IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+        SET @Reason = NULL;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Generate RequestID
+        SELECT @NewRequestID = ISNULL(MAX(RequestID), 0) + 1
+        FROM dbo.LeaveRequest WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.LeaveRequest
+        (
+            RequestID,
+            employee_id,
+            leave_id,
+            justification,
+            duration,
+            approval_timing,
+            status
+        )
+        VALUES
+        (
+            @NewRequestID,
+            @EmployeeID,
+            @LeaveTypeID,
+            @Reason,
+            @Duration,
+            NULL,
+            'PENDING'
+        );
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Leave request submitted successfully' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('SubmitLeaveRequest failed: %s', 16, 1, @Err);
+    END CATCH
+END;
+GO
+
+--2--
+CREATE OR ALTER PROCEDURE dbo.GetLeaveBalance
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @Used INT = (
+        SELECT ISNULL(SUM(duration), 0)
+        FROM dbo.LeaveRequest
+        WHERE employee_id = @EmployeeID
+          AND status = 'APPROVED'
+    );
+
+    DECLARE @Total INT = 30;  -- fixed annual allocation
+
+    SELECT (@Total - @Used) AS RemainingLeaveDays;
+END;
+GO
+--3--
+CREATE OR ALTER PROCEDURE dbo.RecordAttendance
+(
+    @EmployeeID INT,
+    @ShiftID    INT,
+    @EntryTime  TIME,
+    @ExitTime   TIME
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ShiftID IS NULL
+    BEGIN
+        RAISERROR('ShiftID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @EntryTime IS NULL OR @ExitTime IS NULL
+    BEGIN
+        RAISERROR('EntryTime and ExitTime are required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ExitTime <= @EntryTime
+    BEGIN
+        RAISERROR('ExitTime must be later than EntryTime.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @ShiftEmployeeID INT;
+
+    -- Ensure shift exists and is not assigned to a different employee
+    SELECT @ShiftEmployeeID = employee_id
+    FROM dbo.ShiftSchedule
+    WHERE ShiftID = @ShiftID;
+
+    IF @ShiftEmployeeID IS NULL
+    BEGIN
+        RAISERROR('Shift does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ShiftEmployeeID IS NOT NULL AND @ShiftEmployeeID <> @EmployeeID
+    BEGIN
+        RAISERROR('Shift is not assigned to this employee.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @AttendanceID INT;
+    DECLARE @DurationMinutes INT;
+
+    SET @DurationMinutes = DATEDIFF(MINUTE, @EntryTime, @ExitTime);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        SELECT @AttendanceID = ISNULL(MAX(AttendanceID), 0) + 1
+        FROM dbo.Attendance WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.Attendance
+            (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+        VALUES
+            (@AttendanceID, @EmployeeID, @EntryTime, @ExitTime, @DurationMinutes, 'SYSTEM', 'SYSTEM', NULL);
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Attendance recorded successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('RecordAttendance failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH
+END;
+GO
+
+
+--4--
+
+CREATE OR ALTER PROCEDURE dbo.SubmitReimbursement
+(
+    @EmployeeID  INT,
+    @ExpenseType VARCHAR(50),
+    @Amount      DECIMAL(10,2)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @ExpenseType IS NULL OR LTRIM(RTRIM(@ExpenseType)) = ''
+    BEGIN
+        RAISERROR('Expense type is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Amount IS NULL OR @Amount <= 0
+    BEGIN
+        RAISERROR('Amount must be greater than zero.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @NewID INT;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        SELECT @NewID = ISNULL(MAX(ReimbursementID), 0) + 1
+        FROM dbo.Reimbursement WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.Reimbursement
+            (ReimbursementID, type, claim_type, approval_date, current_status, employee_id)
+        VALUES
+            (@NewID, @ExpenseType, NULL, NULL, 'PENDING', @EmployeeID);
+
+        COMMIT TRANSACTION;
+
+        SELECT 'Reimbursement request submitted successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH;
+END;
+GO
+--5--
+CREATE OR ALTER PROCEDURE dbo.AddEmployeeSkill
+(
+    @EmployeeID INT,
+    @SkillName  VARCHAR(50)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @SkillName IS NULL OR LTRIM(RTRIM(@SkillName)) = ''
+    BEGIN
+        RAISERROR('Skill name is required.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @SkillID INT;
+
+    -- Check if skill exists
+    SELECT @SkillID = SkillID
+    FROM dbo.Skill
+    WHERE skill_name = @SkillName;
+
+    -- If not, create it
+    IF @SkillID IS NULL
+    BEGIN
+        SELECT @SkillID = ISNULL(MAX(SkillID), 0) + 1
+        FROM dbo.Skill WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.Skill (SkillID, skill_name, description)
+        VALUES (@SkillID, @SkillName, NULL);
+    END;
+
+    -- Prevent duplicate assignment
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.EmployeeSkill
+        WHERE employee_id = @EmployeeID
+          AND skill_id = @SkillID
+    )
+    BEGIN
+        RAISERROR('Employee already has this skill.', 16, 1);
+        RETURN;
+    END;
+
+    INSERT INTO dbo.EmployeeSkill (employee_id, skill_id, proficiency_level)
+    VALUES (@EmployeeID, @SkillID, NULL);
+
+    SELECT 'Skill added successfully.' AS Message;
+END;
+GO
+
+
+--6--
+
+CREATE OR ALTER PROCEDURE dbo.ViewAssignedShifts
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        s.ShiftID,
+        CAST(s.start_date AS date) AS ShiftDate,
+        CAST(s.start_date AS time) AS StartTime,
+        CAST(s.end_date   AS time) AS EndTime,
+        s.start_date,
+        s.end_date,
+        s.status,
+        d.department_name AS Location
+    FROM dbo.ShiftSchedule AS s
+    LEFT JOIN dbo.Employee AS e
+        ON s.employee_id = e.EmployeeID
+    LEFT JOIN dbo.Department AS d
+        ON e.department_id = d.DepartmentID
+    WHERE s.employee_id = @EmployeeID
+    ORDER BY s.start_date, s.ShiftID;
+END;
+GO
+
+--7--
+CREATE OR ALTER PROCEDURE dbo.ViewMyContracts
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        c.ContractID,
+        c.type,
+        c.start_date,
+        c.end_date,
+        c.current_state,
+        t.TerminationID,
+        t.date   AS termination_date,
+        t.reason AS termination_reason
+    FROM dbo.Employee   AS e
+    LEFT JOIN dbo.Contract    AS c
+        ON c.ContractID = e.contract_id
+    LEFT JOIN dbo.Termination AS t
+        ON t.contract_id = c.ContractID
+    WHERE e.EmployeeID = @EmployeeID;
+END;
+GO
+
+--8--
+
+CREATE OR ALTER PROCEDURE dbo.ViewMyPayroll
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        PayrollID,
+        employee_id,
+        period_start,
+        period_end,
+        base_amount,
+        adjustments,
+        contributions,
+        taxes,
+        actual_pay,
+        net_salary,
+        payment_date
+    FROM dbo.Payroll
+    WHERE employee_id = @EmployeeID
+    ORDER BY period_start DESC, PayrollID DESC;
+END;
+GO
+CREATE OR ALTER PROCEDURE dbo.UpdatePersonalDetails
+(
+    @EmployeeID INT,
+    @Phone      VARCHAR(20),
+    @Address    VARCHAR(150)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    UPDATE dbo.Employee
+    SET
+        phone   = @Phone,
+        address = @Address
+    WHERE EmployeeID = @EmployeeID;
+
+    SELECT 'Personal details updated successfully.' AS Message;
+END;
+GO
+
+
+--10--
+CREATE OR ALTER PROCEDURE dbo.ViewMyMissions
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        MissionID,
+        destination,
+        start_date,
+        end_date,
+        status,
+        manager_id
+    FROM dbo.Mission
+    WHERE employee_id = @EmployeeID
+    ORDER BY start_date DESC, MissionID DESC;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.ViewEmployeeProfile
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        e.EmployeeID,
+        e.first_name,
+        e.last_name,
+        e.national_id,
+        e.date_of_birth,
+        e.country_of_birth,
+        e.phone,
+        e.email,
+        e.address,
+        e.employment_status,
+        e.account_status,
+        e.hire_date,
+        e.is_active,
+        d.department_name,
+        p.title AS position_title
+    FROM dbo.Employee e
+    LEFT JOIN dbo.Department d ON e.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position   p ON e.position_id   = p.PositionID
+    WHERE e.EmployeeID = @EmployeeID;
+END;
+GO
+
+--11--
+-- View full employee profile.
+-- Signature:
+-- Name: ViewEmployeeProfile.
+-- Input: @EmployeeID int.
+-- Output: Row with personal details, job info.
+
+CREATE OR ALTER PROCEDURE dbo.ViewEmployeeProfile
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    SELECT
+        e.EmployeeID,
+        e.first_name,
+        e.last_name,
+        e.full_name,
+        e.national_id,
+        e.date_of_birth,
+        e.country_of_birth,
+        e.phone,
+        e.email,
+        e.address,
+        e.employment_status,
+        e.account_status,
+        e.hire_date,
+        e.is_active,
+        d.department_name,
+        p.position_title
+    FROM dbo.Employee   AS e
+    LEFT JOIN dbo.Department AS d ON e.department_id = d.DepartmentID
+    LEFT JOIN dbo.Position   AS p ON e.position_id   = p.PositionID
+    WHERE e.EmployeeID = @EmployeeID;
+END;
+GO
+--12--
+-- Update contact information (phone or address).
+-- Output: ONLY a single confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.UpdateContactInformation
+(
+    @EmployeeID  INT,
+    @RequestType VARCHAR(50),
+    @NewValue    VARCHAR(100)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate EmployeeID
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate RequestType
+    IF @RequestType NOT IN ('PHONE', 'ADDRESS')
+    BEGIN
+        RAISERROR('RequestType must be PHONE or ADDRESS.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate NewValue
+    IF @NewValue IS NULL OR LTRIM(RTRIM(@NewValue)) = ''
+    BEGIN
+        RAISERROR('NewValue cannot be empty.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        IF @RequestType = 'PHONE'
+        BEGIN
+            UPDATE dbo.Employee
+            SET phone = @NewValue
+            WHERE EmployeeID = @EmployeeID;
+        END
+        ELSE
+        BEGIN
+            UPDATE dbo.Employee
+            SET address = @NewValue
+            WHERE EmployeeID = @EmployeeID;
+        END
+
+        COMMIT TRANSACTION;
+
+        -- *** ONLY OUTPUT THIS ONE MESSAGE ***
+        SELECT 'Contact information updated successfully.' AS Message;
+
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('UpdateContactInformation failed: %s', 16, 1, @ErrMsg);
+    END CATCH
+END;
+GO
+--13--
+-- View employment timeline (hire date, promotions, transfers).
+-- Signature:
+-- Name: ViewEmploymentTimeline.
+-- Input: @EmployeeID int.
+-- Output: Table showing historical records.
+
+CREATE OR ALTER PROCEDURE dbo.ViewEmploymentTimeline
+(
+    @EmployeeID INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ;WITH Timeline AS
+    (
+        -- 1) Hire event
+        SELECT
+            e.hire_date                     AS EventDate,
+            'HIRE'                          AS EventType,
+            d.department_name               AS DepartmentName,
+            p.position_title                AS PositionTitle,
+            'Employee hired.'               AS Details
+        FROM dbo.Employee   AS e
+        LEFT JOIN dbo.Department AS d ON e.department_id = d.DepartmentID
+        LEFT JOIN dbo.Position   AS p ON e.position_id   = p.PositionID
+        WHERE e.EmployeeID = @EmployeeID
+          AND e.hire_date IS NOT NULL
+
+        UNION ALL
+
+        -- 2) Contract start (treated as a key employment event)
+        SELECT
+            c.start_date                    AS EventDate,
+            'CONTRACT_START'                AS EventType,
+            d.department_name               AS DepartmentName,
+            p.position_title                AS PositionTitle,
+            CONCAT(
+                'Contract ', CAST(c.ContractID AS VARCHAR(20)),
+                ' started (', ISNULL(c.type, 'N/A'), ').'
+            )                               AS Details
+        FROM dbo.Employee   AS e
+        INNER JOIN dbo.Contract   AS c ON e.contract_id = c.ContractID
+        LEFT  JOIN dbo.Department AS d ON e.department_id = d.DepartmentID
+        LEFT  JOIN dbo.Position   AS p ON e.position_id   = p.PositionID
+        WHERE e.EmployeeID = @EmployeeID
+          AND c.start_date IS NOT NULL
+
+        UNION ALL
+
+        -- 3) Contract end (can be seen as a change / end of assignment)
+        SELECT
+            c.end_date                      AS EventDate,
+            'CONTRACT_END'                  AS EventType,
+            d.department_name               AS DepartmentName,
+            p.position_title                AS PositionTitle,
+            CONCAT(
+                'Contract ', CAST(c.ContractID AS VARCHAR(20)),
+                ' ended (state ', ISNULL(c.current_state, 'N/A'), ').'
+            )                               AS Details
+        FROM dbo.Employee   AS e
+        INNER JOIN dbo.Contract   AS c ON e.contract_id = c.ContractID
+        LEFT  JOIN dbo.Department AS d ON e.department_id = d.DepartmentID
+        LEFT  JOIN dbo.Position   AS p ON e.position_id   = p.PositionID
+        WHERE e.EmployeeID = @EmployeeID
+          AND c.end_date IS NOT NULL
+
+        UNION ALL
+
+        -- 4) Termination record (represents end / transfer out of org)
+        SELECT
+            t.date                           AS EventDate,
+            'TERMINATION'                    AS EventType,
+            d.department_name                AS DepartmentName,
+            p.position_title                 AS PositionTitle,
+            ISNULL(t.reason, 'Termination recorded.') AS Details
+        FROM dbo.Employee     AS e
+        INNER JOIN dbo.Contract     AS c ON e.contract_id = c.ContractID
+        INNER JOIN dbo.Termination  AS t ON t.contract_id = c.ContractID
+        LEFT  JOIN dbo.Department   AS d ON e.department_id = d.DepartmentID
+        LEFT  JOIN dbo.Position     AS p ON e.position_id   = p.PositionID
+        WHERE e.EmployeeID = @EmployeeID
+          AND t.date IS NOT NULL
+    )
+    SELECT
+        EventDate,
+        EventType,
+        DepartmentName,
+        PositionTitle,
+        Details
+    FROM Timeline
+    WHERE EventDate IS NOT NULL
+    ORDER BY EventDate;
+END;
+GO
+--14--
+-- Add or update emergency contact details.
+-- Signature:
+-- Name: UpdateEmergencyContact.
+-- Input: @EmployeeID int, @ContactName varchar(100),
+--        @Relation varchar(50), @Phone varchar(20).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.UpdateEmergencyContact
+(
+    @EmployeeID   INT,
+    @ContactName  VARCHAR(100),
+    @Relation     VARCHAR(50),
+    @Phone        VARCHAR(20)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate EmployeeID
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate ContactName
+    IF @ContactName IS NULL OR LTRIM(RTRIM(@ContactName)) = ''
+    BEGIN
+        RAISERROR('ContactName is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate Relation
+    IF @Relation IS NULL OR LTRIM(RTRIM(@Relation)) = ''
+    BEGIN
+        RAISERROR('Relation is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Validate Phone
+    IF @Phone IS NULL OR LTRIM(RTRIM(@Phone)) = ''
+    BEGIN
+        RAISERROR('Phone is required.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Employee
+        SET
+            emergency_contact_name  = @ContactName,
+            emergency_contact_phone = @Phone,
+            relationship            = @Relation
+        WHERE EmployeeID = @EmployeeID;
+
+        COMMIT TRANSACTION;
+
+        -- ONLY output a single confirmation message
+        SELECT 'Emergency contact updated successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('UpdateEmergencyContact failed: %s', 16, 1, @ErrMsg);
+    END CATCH
+END;
+GO
+--------------------------------------------------------------
+--15
+-- Request employment verification or HR letters.
+-- Signature:
+-- Name: RequestHRDocument.
+-- Input:  @EmployeeID int, @DocumentType varchar(50).
+-- Output: Confirmation message (single column).
+--------------------------------------------------------------
+CREATE OR ALTER PROCEDURE dbo.RequestHRDocument
+(
+    @EmployeeID   INT,
+    @DocumentType VARCHAR(50)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Basic validation
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @DocumentType IS NULL OR LTRIM(RTRIM(@DocumentType)) = ''
+    BEGIN
+        RAISERROR('DocumentType is required.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        DECLARE @NotificationID INT;
+
+        -- Generate a new NotificationID
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification;
+
+        -- Create notification to HR
+        INSERT INTO dbo.Notification
+        (
+            NotificationID,
+            mesage_content,
+            timestamp,
+            urgency,
+            read_status,
+            notification_type
+        )
+        VALUES
+        (
+            @NotificationID,
+            CONCAT('Employee ', @EmployeeID, ' requested HR document: ', @DocumentType),
+            GETDATE(),
+            'MEDIUM',
+            0,
+            'HR Document Request'
+        );
+
+        -- Link notification to all HR administrators (if any)
+        INSERT INTO dbo.EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+        SELECT ha.employee_id, @NotificationID, 'PENDING', GETDATE()
+        FROM dbo.HRAdministrator AS ha;
+
+        -- Only output the confirmation message (no IDs or extra columns)
+        SELECT 'HR document request submitted successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('RequestHRDocument failed: %s', 16, 1, @ErrMsg);
+    END CATCH;
+END;
+GO
+
+--16
+-- Get notified of profile updates or document changes.
+-- Signature:
+-- Name: NotifyProfileUpdate.
+-- Input: @EmployeeID int, @notificationType varchar(50).
+-- Output: Confirmation message.
+
+CREATE OR ALTER PROCEDURE dbo.NotifyProfileUpdate
+(
+    @EmployeeID      INT,
+    @notificationType VARCHAR(50)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ------------------------------------------------------------
+    -- Basic validation
+    ------------------------------------------------------------
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE @CleanType VARCHAR(50) = LTRIM(RTRIM(@notificationType));
+
+    IF @CleanType IS NULL OR @CleanType = ''
+    BEGIN
+        RAISERROR('notificationType is required.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRY
+        DECLARE @NotificationID INT;
+
+        --------------------------------------------------------
+        -- Generate a new NotificationID
+        --------------------------------------------------------
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification;
+
+        --------------------------------------------------------
+        -- Insert a notification describing the preference
+        --------------------------------------------------------
+        INSERT INTO dbo.Notification
+        (
+            NotificationID,
+            mesage_content,
+            timestamp,
+            urgency,
+            read_status,
+            notification_type
+        )
+        VALUES
+        (
+            @NotificationID,
+            CONCAT('Notification preference set: ', @CleanType,
+                   ' for EmployeeID ', @EmployeeID),
+            GETDATE(),
+            'LOW',
+            0,
+            'PROFILE_UPDATE_PREFERENCE'
+        );
+
+        --------------------------------------------------------
+        -- Link notification to this employee
+        --------------------------------------------------------
+        INSERT INTO dbo.EmployeeNotification
+        (
+            employee_id,
+            notification_id,
+            delivery_status,
+            delivered_at
+        )
+        VALUES
+        (
+            @EmployeeID,
+            @NotificationID,
+            'REGISTERED',
+            GETDATE()
+        );
+
+        --------------------------------------------------------
+        -- Only output ONE confirmation message
+        --------------------------------------------------------
+        SELECT 'Notification preference saved successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('NotifyProfileUpdate failed: %s', 16, 1, @ErrMsg);
+    END CATCH;
+END;
+GO
+--17
+-- Work under flex-in/flex-out rules to complete required hours within flexible timing.
+-- Signature:
+-- Name: LogFlexibleAttendance.
+-- Input: @EmployeeID int, @Date date, @CheckIn time, @CheckOut time.
+-- Output: Confirmation message with calculated total working hours.
+
+CREATE OR ALTER PROCEDURE dbo.LogFlexibleAttendance
+(
+    @EmployeeID INT,
+    @Date       DATE,
+    @CheckIn    TIME,
+    @CheckOut   TIME
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ------------------------------------------------------------
+    -- Basic validation
+    ------------------------------------------------------------
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Date IS NULL
+    BEGIN
+        RAISERROR('Date is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @CheckIn IS NULL OR @CheckOut IS NULL
+    BEGIN
+        RAISERROR('CheckIn and CheckOut are required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @CheckOut <= @CheckIn
+    BEGIN
+        RAISERROR('CheckOut must be later than CheckIn.', 16, 1);
+        RETURN;
+    END;
+
+    DECLARE
+        @AttendanceID       INT,
+        @DurationMinutes    INT,
+        @ClockInDateTime    DATETIME,
+        @ClockOutDateTime   DATETIME,
+        @NextLogID          INT,
+        @TotalHoursDecimal  DECIMAL(10,2);
+
+    -- Duration in minutes (same day)
+    SET @DurationMinutes = DATEDIFF(MINUTE, CAST(@CheckIn AS DATETIME), CAST(@CheckOut AS DATETIME));
+    SET @TotalHoursDecimal = CAST(@DurationMinutes AS DECIMAL(10,2)) / 60.0;
+
+    -- Build full datetime values for audit trail
+    SET @ClockInDateTime  = DATEADD(DAY, DATEDIFF(DAY, 0, @Date), CAST(@CheckIn AS DATETIME));
+    SET @ClockOutDateTime = DATEADD(DAY, DATEDIFF(DAY, 0, @Date), CAST(@CheckOut AS DATETIME));
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        --------------------------------------------------------
+        -- Check if there is already an attendance record 
+        -- for this employee on this date (via AttendanceLog)
+        --------------------------------------------------------
+        SELECT TOP 1 @AttendanceID = a.AttendanceID
+        FROM dbo.Attendance AS a
+        JOIN dbo.AttendanceLog AS l
+            ON l.attendance_id = a.AttendanceID
+        WHERE a.employee_id = @EmployeeID
+          AND CAST(l.[timestamp] AS DATE) = @Date
+        ORDER BY l.[timestamp];
+
+        --------------------------------------------------------
+        -- If no existing attendance for that date, create one
+        --------------------------------------------------------
+        IF @AttendanceID IS NULL
+        BEGIN
+            SELECT @AttendanceID = ISNULL(MAX(AttendanceID), 0) + 1
+            FROM dbo.Attendance;
+
+            INSERT INTO dbo.Attendance
+                (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+            VALUES
+                (@AttendanceID, @EmployeeID, @CheckIn, @CheckOut, @DurationMinutes, 'FLEX', 'FLEX', NULL);
+        END
+        ELSE
+        BEGIN
+            -- Update existing attendance record for that date
+            UPDATE dbo.Attendance
+            SET entry_time    = @CheckIn,
+                exit_time     = @CheckOut,
+                duration      = @DurationMinutes,
+                login_method  = 'FLEX',
+                logout_method = 'FLEX'
+            WHERE AttendanceID = @AttendanceID;
+        END;
+
+        --------------------------------------------------------
+        -- Create AttendanceLog entries (IN / OUT) for audit
+        --------------------------------------------------------
+        SELECT @NextLogID = ISNULL(MAX(AttendanceLogID), 0) + 1
+        FROM dbo.AttendanceLog;
+
+        INSERT INTO dbo.AttendanceLog
+            (AttendanceLogID, attendance_id, actor, [timestamp], reason)
+        VALUES
+            (
+                @NextLogID,
+                @AttendanceID,
+                'FLEX_SELF_SERVICE_IN',
+                @ClockInDateTime,
+                'Flexible self-service check-in recorded.'
+            ),
+            (
+                @NextLogID + 1,
+                @AttendanceID,
+                'FLEX_SELF_SERVICE_OUT',
+                @ClockOutDateTime,
+                'Flexible self-service check-out recorded.'
+            );
+
+        COMMIT TRANSACTION;
+
+        --------------------------------------------------------
+        -- Single confirmation message (includes total hours)
+        --------------------------------------------------------
+        SELECT 'Flexible attendance logged successfully. Total working hours: '
+               + CAST(@TotalHoursDecimal AS VARCHAR(20)) AS Message;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('LogFlexibleAttendance failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH;
+END;
+GO
+--18
+-- Be notified when I miss a punch so that I can correct it.
+-- Signature:
+-- Name: NotifyMissedPunch.
+-- Input: @EmployeeID int, @Date date.
+-- Output: Notification message (single row, single column).
+
+CREATE OR ALTER PROCEDURE dbo.NotifyMissedPunch
+(
+    @EmployeeID INT,
+    @Date       DATE
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ------------------------------------------------------------
+    -- Basic validation
+    ------------------------------------------------------------
+    IF @EmployeeID IS NULL
+    BEGIN
+        RAISERROR('EmployeeID is required.', 16, 1);
+        RETURN;
+    END;
+
+    IF @Date IS NULL
+    BEGIN
+        RAISERROR('Date is required.', 16, 1);
+        RETURN;
+    END;
+
+    -- Ensure employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with the specified ID does not exist.', 16, 1);
+        RETURN;
+    END;
+
+    ------------------------------------------------------------
+    -- Check if there is an open ATTENDANCE exception for that day
+    -- (meaning: a missed punch / attendance issue is already flagged)
+    ------------------------------------------------------------
+    DECLARE @ExceptionID INT;
+
+    SELECT TOP 1 @ExceptionID = ex.ExceptionID
+    FROM dbo.Attendance AS a
+    JOIN dbo.Exception  AS ex
+        ON ex.ExceptionID = a.exception_id
+    WHERE a.employee_id = @EmployeeID
+      AND CAST(ex.date AS date) = @Date
+      AND UPPER(ex.category) = 'ATTENDANCE'
+      AND UPPER(ex.status) IN ('FLAGGED', 'OPEN', 'PENDING')
+    ORDER BY ex.date;
+
+    -- If nothing is flagged, just tell the employee and exit
+    IF @ExceptionID IS NULL
+    BEGIN
+        SELECT 'No missed punch detected for the selected date.' AS Message;
+        RETURN;
+    END;
+
+    ------------------------------------------------------------
+    -- Create a notification for the employee about the missed punch
+    ------------------------------------------------------------
+    BEGIN TRY
+        DECLARE @NotificationID INT;
+
+        -- Generate a new NotificationID
+        SELECT @NotificationID = ISNULL(MAX(NotificationID), 0) + 1
+        FROM dbo.Notification;
+
+        -- Insert notification (use correct column names from Notification table)
+        INSERT INTO dbo.Notification
+        (
+            NotificationID,
+            mesage_content,
+            timestamp,
+            urgency,
+            read_status,
+            notification_type
+        )
+        VALUES
+        (
+            @NotificationID,
+            CONCAT(
+                'Missed punch detected on ',
+                CONVERT(varchar(10), @Date, 120),
+                '. Please submit a manual attendance correction if needed.'
+            ),
+            GETDATE(),
+            'MEDIUM',
+            0,
+            'MISSED_PUNCH_ALERT'
+        );
+
+        -- Link notification to this employee
+        INSERT INTO dbo.EmployeeNotification
+        (
+            employee_id,
+            notification_id,
+            delivery_status,
+            delivered_at
+        )
+        VALUES
+        (
+            @EmployeeID,
+            @NotificationID,
+            'PENDING',
+            NULL
+        );
+
+        -- Single confirmation message only
+        SELECT 'Missed punch notification created successfully.' AS Message;
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR('NotifyMissedPunch failed: %s', 16, 1, @ErrMsg);
+        RETURN;
+    END CATCH;
+END;
+GO
+
+
+
+-- OTHER PROCEDURES GO HERE
+--------------------------------------------------------------
+
+--19 RecordMultiplePunches
+CREATE OR ALTER PROCEDURE RecordMultiplePunches
+    @EmployeeID INT,
+    @ClockInOutTime DATETIME,
+    @Type VARCHAR(10)
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate type
+    IF @Type NOT IN ('IN', 'OUT')
+    BEGIN
+        RAISERROR('Type must be IN or OUT.', 16, 1);
+        RETURN;
+    END
+
+    -- Get current date for this punch
+    DECLARE @PunchDate DATE = CAST(@ClockInOutTime AS DATE);
+    DECLARE @PunchTime TIME = CAST(@ClockInOutTime AS TIME);
+
+    -- Find or create attendance record for this date
+    DECLARE @AttendanceID INT;
+    DECLARE @CurrentEntryTime TIME;
+    DECLARE @CurrentExitTime TIME;
+
+    SELECT @AttendanceID = AttendanceID,
+           @CurrentEntryTime = entry_time,
+           @CurrentExitTime = exit_time
+    FROM Attendance
+    WHERE employee_id = @EmployeeID
+      AND CAST(DATEADD(HOUR, 0, @ClockInOutTime) AS DATE) = @PunchDate;
+
+    IF @AttendanceID IS NULL
+    BEGIN
+        -- First punch of the day - GENERATE AttendanceID
+        IF @Type = 'IN'
+        BEGIN
+            -- Generate next AttendanceID
+            SELECT @AttendanceID = ISNULL(MAX(AttendanceID), 0) + 1 FROM Attendance;
+            
+            INSERT INTO Attendance (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method)
+            VALUES (@AttendanceID, @EmployeeID, @PunchTime, NULL, 0, 'BIOMETRIC', NULL);
+        END
+        ELSE
+        BEGIN
+            RAISERROR('Cannot clock out before clocking in.', 16, 1);
+            RETURN;
+        END
+    END
+    ELSE
+    BEGIN
+        -- Subsequent punch
+        IF @Type = 'IN'
+        BEGIN
+            -- Update entry time if this is earlier, or track as break end
+            IF @CurrentExitTime IS NOT NULL
+            BEGIN
+                -- They clocked out before, now clocking back in (break end)
+                -- For split shifts, we just update the exit time to NULL to show they're back
+                UPDATE Attendance
+                SET exit_time = NULL
+                WHERE AttendanceID = @AttendanceID;
+            END
+        END
+        ELSE -- OUT
+        BEGIN
+            -- Update exit time
+            UPDATE Attendance
+            SET exit_time = @PunchTime,
+                logout_method = 'BIOMETRIC'
+            WHERE AttendanceID = @AttendanceID;
+            
+            -- Calculate duration if both times exist
+            IF @CurrentEntryTime IS NOT NULL
+            BEGIN
+                DECLARE @Duration INT = DATEDIFF(MINUTE, @CurrentEntryTime, @PunchTime);
+                UPDATE Attendance
+                SET duration = @Duration
+                WHERE AttendanceID = @AttendanceID;
+            END
+        END
+    END
+
+    -- Log the punch
+    DECLARE @NextLogID INT;
+    SELECT @NextLogID = ISNULL(MAX(AttendanceLogID), 0) + 1 FROM AttendanceLog;
+    
+    INSERT INTO AttendanceLog (AttendanceLogID, attendance_id, actor, timestamp, reason)
+    VALUES (@NextLogID, @AttendanceID, 
+            CONCAT('Employee ', @EmployeeID), 
+            @ClockInOutTime, 
+            CONCAT(@Type, ' punch recorded'));
+
+    SELECT 'Multiple punch recorded successfully.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--20 SubmitCorrectionRequest
+CREATE PROCEDURE SubmitCorrectionRequest
+    @EmployeeID INT,
+    @Date DATE,
+    @CorrectionType VARCHAR(50),
+    @Reason VARCHAR(200)
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate correction type
+    IF @CorrectionType NOT IN ('Missed Punch', 'Incorrect Time', 'Forgotten Checkout', 'Wrong Shift')
+    BEGIN
+        RAISERROR('Invalid correction type.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate date is not in future
+    IF @Date > CAST(GETDATE() AS DATE)
+    BEGIN
+        RAISERROR('Cannot submit correction request for future dates.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate reason is provided
+    IF LTRIM(RTRIM(@Reason)) = ''
+    BEGIN
+        RAISERROR('Reason is required for correction requests.', 16, 1);
+        RETURN;
+    END
+
+    -- Get employee's manager for routing
+    DECLARE @ManagerID INT;
+    SELECT @ManagerID = manager_id
+    FROM Employee
+    WHERE EmployeeID = @EmployeeID;
+
+    -- Create correction request
+    DECLARE @RequestID INT;
+    SELECT @RequestID = ISNULL(MAX(RequestID), 0) + 1
+    FROM AttendanceCorrectionRequest;
+
+    INSERT INTO AttendanceCorrectionRequest 
+        (RequestID, employee_id, date, correction_type, reason, status, recommended_by)
+    VALUES 
+        (@RequestID, @EmployeeID, @Date, @CorrectionType, @Reason, 'PENDING', @ManagerID);
+
+    -- Notify manager if exists
+    IF @ManagerID IS NOT NULL
+    BEGIN
+        DECLARE @NotifID INT;
+        SELECT @NotifID = ISNULL(MAX(NotificationID), 0) + 1 FROM Notification;
+        
+        INSERT INTO Notification (NotificationID, mesage_content, timestamp, urgency, read_status, notification_type)
+        VALUES (@NotifID,
+                CONCAT('Correction request from Employee ', @EmployeeID, ' for date ', 
+                       CONVERT(VARCHAR, @Date, 23), ': ', @CorrectionType),
+                GETDATE(), 'MEDIUM', 0, 'Correction Request');
+        
+        INSERT INTO EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+        VALUES (@ManagerID, @NotifID, 'PENDING', GETDATE());
+    END
+
+    SELECT 'Correction request submitted successfully.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--21 ViewRequestStatus
+CREATE PROCEDURE ViewRequestStatus
+    @EmployeeID INT
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Return all types of requests with their statuses
+    SELECT 
+        'Leave Request' AS RequestType,
+        CAST(RequestID AS VARCHAR(20)) AS RequestID,
+        CONCAT('Leave from ', CONVERT(VARCHAR, approval_timing, 23)) AS Description,
+        status AS Status,
+        approval_timing AS DecisionDate
+    FROM LeaveRequest
+    WHERE employee_id = @EmployeeID
+
+    UNION ALL
+
+    SELECT 
+        'Attendance Correction' AS RequestType,
+        CAST(RequestID AS VARCHAR(20)) AS RequestID,
+        CONCAT(correction_type, ' on ', CONVERT(VARCHAR, date, 23)) AS Description,
+        status AS Status,
+        NULL AS DecisionDate
+    FROM AttendanceCorrectionRequest
+    WHERE employee_id = @EmployeeID
+
+    UNION ALL
+
+    SELECT 
+        'Reimbursement' AS RequestType,
+        CAST(ReimbursementID AS VARCHAR(20)) AS RequestID,
+        CONCAT(type, ' - ', claim_type) AS Description,
+        current_status AS Status,
+        approval_date AS DecisionDate
+    FROM Reimbursement
+    WHERE employee_id = @EmployeeID
+
+    ORDER BY RequestType, RequestID DESC;
+END;
+GO
+
+--------------------------------------------------------------
+--22 AttachLeaveDocuments
+CREATE PROCEDURE AttachLeaveDocuments
+    @LeaveRequestID INT,
+    @FilePath VARCHAR(200)
+AS
+BEGIN
+    -- Validate leave request exists
+    IF NOT EXISTS (SELECT 1 FROM LeaveRequest WHERE RequestID = @LeaveRequestID)
+    BEGIN
+        RAISERROR('Leave request not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate file path is provided
+    IF LTRIM(RTRIM(@FilePath)) = ''
+    BEGIN
+        RAISERROR('File path is required.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if request is still pending (can't attach to finalized requests)
+    DECLARE @Status VARCHAR(50);
+    SELECT @Status = status
+    FROM LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @Status NOT IN ('PENDING', 'RETURNED')
+    BEGIN
+        RAISERROR('Cannot attach documents to approved or rejected leave requests.', 16, 1);
+        RETURN;
+    END
+
+    -- Create document record
+    DECLARE @DocumentID INT;
+    SELECT @DocumentID = ISNULL(MAX(DocumentID), 0) + 1
+    FROM LeaveDocument;
+
+    INSERT INTO LeaveDocument (DocumentID, leave_request_id, file_path, uploaded_at)
+    VALUES (@DocumentID, @LeaveRequestID, @FilePath, GETDATE());
+
+    SELECT 'Document attached successfully to leave request.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--24 ModifyLeaveRequest
+CREATE PROCEDURE ModifyLeaveRequest
+    @LeaveRequestID INT,
+    @StartDate DATE,
+    @EndDate DATE,
+    @Reason VARCHAR(100)
+AS
+BEGIN
+    -- Validate leave request exists
+    IF NOT EXISTS (SELECT 1 FROM LeaveRequest WHERE RequestID = @LeaveRequestID)
+    BEGIN
+        RAISERROR('Leave request not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate dates
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('Start date must be before or equal to end date.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if request is still modifiable
+    DECLARE @Status VARCHAR(50);
+    DECLARE @EmployeeID INT;
+    
+    SELECT @Status = status, @EmployeeID = employee_id
+    FROM LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @Status NOT IN ('PENDING', 'RETURNED')
+    BEGIN
+        RAISERROR('Cannot modify approved or rejected leave requests.', 16, 1);
+        RETURN;
+    END
+
+    -- Calculate new duration
+    DECLARE @Duration INT = DATEDIFF(DAY, @StartDate, @EndDate) + 1;
+
+    -- Update request
+    UPDATE LeaveRequest
+    SET justification = ISNULL(NULLIF(LTRIM(RTRIM(@Reason)), ''), justification),
+        duration = @Duration,
+        status = 'PENDING'  -- Reset to pending if it was returned
+    WHERE RequestID = @LeaveRequestID;
+
+    -- Log modification
+    DECLARE @NoteID INT;
+    SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1 FROM ManagerNotes;
+    
+    INSERT INTO ManagerNotes (NoteID, employee_id, manager_id, note_content, created_at)
+    VALUES (@NoteID, @EmployeeID, NULL,
+            CONCAT('Leave request ', @LeaveRequestID, ' modified. New dates: ',
+                   CONVERT(VARCHAR, @StartDate, 23), ' to ', CONVERT(VARCHAR, @EndDate, 23)),
+            GETDATE());
+
+    SELECT 'Leave request modified successfully.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--25 CancelLeaveRequest
+CREATE PROCEDURE CancelLeaveRequest
+    @LeaveRequestID INT
+AS
+BEGIN
+    -- Validate leave request exists
+    IF NOT EXISTS (SELECT 1 FROM LeaveRequest WHERE RequestID = @LeaveRequestID)
+    BEGIN
+        RAISERROR('Leave request not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if request can be cancelled
+    DECLARE @Status VARCHAR(50);
+    DECLARE @EmployeeID INT;
+    
+    SELECT @Status = status, @EmployeeID = employee_id
+    FROM LeaveRequest
+    WHERE RequestID = @LeaveRequestID;
+
+    IF @Status IN ('APPROVED', 'CANCELLED')
+    BEGIN
+        IF @Status = 'APPROVED'
+            RAISERROR('Cannot cancel already approved leave request. Contact your manager.', 16, 1);
+        ELSE
+            RAISERROR('Leave request is already cancelled.', 16, 1);
+        RETURN;
+    END
+
+    -- Cancel the request
+    UPDATE LeaveRequest
+    SET status = 'CANCELLED'
+    WHERE RequestID = @LeaveRequestID;
+
+    -- Log cancellation
+    DECLARE @NoteID INT;
+    SELECT @NoteID = ISNULL(MAX(NoteID), 0) + 1 FROM ManagerNotes;
+    
+    INSERT INTO ManagerNotes (NoteID, employee_id, manager_id, note_content, created_at)
+    VALUES (@NoteID, @EmployeeID, NULL,
+            CONCAT('Employee cancelled leave request ', @LeaveRequestID),
+            GETDATE());
+
+    SELECT 'Leave request cancelled successfully.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--26 ViewLeaveBalance
+CREATE PROCEDURE ViewLeaveBalance
+    @EmployeeID INT
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Return leave balances by type
+    SELECT 
+        l.leave_type AS LeaveType,
+        le.entitlement AS TotalEntitlement,
+        ISNULL(used.UsedDays, 0) AS UsedDays,
+        (le.entitlement - ISNULL(used.UsedDays, 0)) AS RemainingDays
+    FROM LeaveEntitlement le
+    INNER JOIN Leave l ON le.leave_type_id = l.LeaveID
+    LEFT JOIN (
+        SELECT leave_id, SUM(duration) AS UsedDays
+        FROM LeaveRequest
+        WHERE employee_id = @EmployeeID
+          AND status = 'APPROVED'
+        GROUP BY leave_id
+    ) used ON le.leave_type_id = used.leave_id
+    WHERE le.employee_id = @EmployeeID
+    ORDER BY l.leave_type;
+
+    -- Return total summary
+    SELECT 
+        SUM(le.entitlement) AS TotalEntitlement,
+        SUM(ISNULL(used.UsedDays, 0)) AS TotalUsed,
+        SUM(le.entitlement - ISNULL(used.UsedDays, 0)) AS TotalRemaining
+    FROM LeaveEntitlement le
+    LEFT JOIN (
+        SELECT leave_id, SUM(duration) AS UsedDays
+        FROM LeaveRequest
+        WHERE employee_id = @EmployeeID
+          AND status = 'APPROVED'
+        GROUP BY leave_id
+    ) used ON le.leave_type_id = used.leave_id
+    WHERE le.employee_id = @EmployeeID;
+END;
+GO
+
+--------------------------------------------------------------
+--27 ViewLeaveHistory
+CREATE PROCEDURE ViewLeaveHistory
+    @EmployeeID INT
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Return leave request history
+    SELECT 
+        lr.RequestID,
+        l.leave_type AS LeaveType,
+        lr.justification AS Reason,
+        lr.duration AS Days,
+        lr.status AS Status,
+        lr.approval_timing AS DecisionDate
+    FROM LeaveRequest lr
+    INNER JOIN Leave l ON lr.leave_id = l.LeaveID
+    WHERE lr.employee_id = @EmployeeID
+    ORDER BY lr.RequestID DESC;
+END;
+GO
+
+--------------------------------------------------------------
+--28 SubmitLeaveAfterAbsence
+CREATE PROCEDURE SubmitLeaveAfterAbsence
+    @EmployeeID INT,
+    @LeaveTypeID INT,
+    @StartDate DATE,
+    @EndDate DATE,
+    @Reason VARCHAR(100)
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate leave type exists
+    IF NOT EXISTS (SELECT 1 FROM Leave WHERE LeaveID = @LeaveTypeID)
+    BEGIN
+        RAISERROR('Leave type not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate dates
+    IF @StartDate > @EndDate
+    BEGIN
+        RAISERROR('Start date must be before or equal to end date.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if absence start date is not too old (e.g., within 30 days)
+    IF DATEDIFF(DAY, @StartDate, GETDATE()) > 30
+    BEGIN
+        RAISERROR('Cannot submit retroactive leave request for dates older than 30 days.', 16, 1);
+        RETURN;
+    END
+
+    -- Check if start date is in the past
+    IF @StartDate > CAST(GETDATE() AS DATE)
+    BEGIN
+        RAISERROR('This procedure is for leave already taken. Use SubmitLeaveRequest for future leave.', 16, 1);
+        RETURN;
+    END
+
+    -- Calculate duration
+    DECLARE @Duration INT = DATEDIFF(DAY, @StartDate, @EndDate) + 1;
+
+    -- Create leave request with special flag
+    DECLARE @RequestID INT;
+    SELECT @RequestID = ISNULL(MAX(RequestID), 0) + 1 FROM LeaveRequest;
+
+    INSERT INTO LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+    VALUES (@RequestID, @EmployeeID, @LeaveTypeID, 
+            CONCAT('[RETROACTIVE] ', ISNULL(@Reason, '')), 
+            @Duration, 'PENDING');
+
+    -- Notify manager
+    DECLARE @ManagerID INT;
+    SELECT @ManagerID = manager_id FROM Employee WHERE EmployeeID = @EmployeeID;
+
+    IF @ManagerID IS NOT NULL
+    BEGIN
+        DECLARE @NotifID INT;
+        SELECT @NotifID = ISNULL(MAX(NotificationID), 0) + 1 FROM Notification;
+        
+        INSERT INTO Notification (NotificationID, mesage_content, timestamp, urgency, read_status, notification_type)
+        VALUES (@NotifID,
+                CONCAT('RETROACTIVE leave request from Employee ', @EmployeeID, 
+                       ' for dates already passed: ', CONVERT(VARCHAR, @StartDate, 23), 
+                       ' to ', CONVERT(VARCHAR, @EndDate, 23)),
+                GETDATE(), 'HIGH', 0, 'Retroactive Leave');
+        
+        INSERT INTO EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+        VALUES (@ManagerID, @NotifID, 'PENDING', GETDATE());
+    END
+
+    SELECT 'Retroactive leave request submitted successfully. Manager notification sent.' AS ConfirmationMessage;
+END;
+GO
+
+--------------------------------------------------------------
+--29 NotifyLeaveStatusChange
+CREATE PROCEDURE NotifyLeaveStatusChange
+    @EmployeeID INT,
+    @RequestID INT,
+    @Status VARCHAR(20)
+AS
+BEGIN
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate leave request exists and belongs to employee
+    IF NOT EXISTS (SELECT 1 FROM LeaveRequest 
+                   WHERE RequestID = @RequestID AND employee_id = @EmployeeID)
+    BEGIN
+        RAISERROR('Leave request not found or does not belong to this employee.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate status
+    IF @Status NOT IN ('APPROVED', 'REJECTED', 'RETURNED', 'MODIFIED', 'CANCELLED')
+    BEGIN
+        RAISERROR('Invalid status. Must be APPROVED, REJECTED, RETURNED, MODIFIED, or CANCELLED.', 16, 1);
+        RETURN;
+    END
+
+    -- Create notification message based on status
+    DECLARE @Message VARCHAR(500);
+    SET @Message = CASE @Status
+        WHEN 'APPROVED' THEN 'Your leave request #' + CAST(@RequestID AS VARCHAR) + ' has been APPROVED.'
+        WHEN 'REJECTED' THEN 'Your leave request #' + CAST(@RequestID AS VARCHAR) + ' has been REJECTED.'
+        WHEN 'RETURNED' THEN 'Your leave request #' + CAST(@RequestID AS VARCHAR) + ' has been RETURNED for correction.'
+        WHEN 'MODIFIED' THEN 'Your leave request #' + CAST(@RequestID AS VARCHAR) + ' has been MODIFIED by your manager.'
+        WHEN 'CANCELLED' THEN 'Your leave request #' + CAST(@RequestID AS VARCHAR) + ' has been CANCELLED.'
+    END;
+
+    -- Create notification
+    DECLARE @NotifID INT;
+    SELECT @NotifID = ISNULL(MAX(NotificationID), 0) + 1 FROM Notification;
+    
+    DECLARE @Urgency VARCHAR(10) = CASE 
+        WHEN @Status IN ('APPROVED', 'REJECTED') THEN 'HIGH'
+        ELSE 'MEDIUM'
+    END;
+
+    INSERT INTO Notification (NotificationID, mesage_content, timestamp, urgency, read_status, notification_type)
+    VALUES (@NotifID, @Message, GETDATE(), @Urgency, 0, 'Leave Status Change');
+    
+    -- Link to employee
+    INSERT INTO EmployeeNotification (employee_id, notification_id, delivery_status, delivered_at)
+    VALUES (@EmployeeID, @NotifID, 'DELIVERED', GETDATE());
+
+    SELECT @Message AS NotificationMessage;
+END;
+GO

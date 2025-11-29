@@ -5590,3 +5590,3826 @@ BEGIN CATCH
 END CATCH
 PRINT '';
 
+
+-- Test ReviewLeaveRequest
+PRINT '--- ReviewLeaveRequest tests ---';
+
+-- Using the test employee from SubmitLeaveRequest tests
+DECLARE @TestEmp INT;
+DECLARE @TestManager INT = 2; -- Bob Johnson is a manager (from your setup)
+
+-- Get the test employee ID
+SELECT @TestEmp = EmployeeID FROM dbo.Employee WHERE email = 'submit.leave.test@example.com';
+
+-- If that employee doesn't exist, use Employee 1 (Alice) with Manager 2 (Bob)
+IF @TestEmp IS NULL
+    SET @TestEmp = 1;
+
+PRINT 'Using Test Employee: ' + CAST(@TestEmp AS VARCHAR(10));
+PRINT 'Using Test Manager: ' + CAST(@TestManager AS VARCHAR(10));
+
+-- Update employee to have the test manager
+UPDATE dbo.Employee SET manager_id = @TestManager WHERE EmployeeID = @TestEmp;
+
+-- Create fresh leave requests for testing
+DECLARE @LeaveReqID1 INT, @LeaveReqID2 INT, @LeaveReqID3 INT;
+
+EXEC dbo.SubmitLeaveRequest
+    @EmployeeID = @TestEmp,
+    @LeaveTypeID = 1,
+    @StartDate = '2025-12-01',
+    @EndDate = '2025-12-05',
+    @Reason = 'For review test 1';
+
+SELECT @LeaveReqID1 = MAX(RequestID) FROM dbo.LeaveRequest WHERE employee_id = @TestEmp;
+
+EXEC dbo.SubmitLeaveRequest
+    @EmployeeID = @TestEmp,
+    @LeaveTypeID = 1,
+    @StartDate = '2025-12-10',
+    @EndDate = '2025-12-15',
+    @Reason = 'For review test 2';
+
+SELECT @LeaveReqID2 = MAX(RequestID) FROM dbo.LeaveRequest WHERE employee_id = @TestEmp;
+
+EXEC dbo.SubmitLeaveRequest
+    @EmployeeID = @TestEmp,
+    @LeaveTypeID = 2,
+    @StartDate = '2025-12-20',
+    @EndDate = '2025-12-22',
+    @Reason = 'For review test 3';
+
+SELECT @LeaveReqID3 = MAX(RequestID) FROM dbo.LeaveRequest WHERE employee_id = @TestEmp;
+
+PRINT 'Created leave requests with IDs: ' + CAST(@LeaveReqID1 AS VARCHAR(10)) + ', ' + 
+      CAST(@LeaveReqID2 AS VARCHAR(10)) + ', ' + CAST(@LeaveReqID3 AS VARCHAR(10));
+
+-- Test 1: Manager approves leave request
+PRINT 'Test 1: Manager approves leave request';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = @LeaveReqID1,
+        @ManagerID = @TestManager,
+        @Decision = 'APPROVED';
+    PRINT 'Test 1 PASSED';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 2: Manager rejects leave request
+PRINT 'Test 2: Manager rejects leave request';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = @LeaveReqID2,
+        @ManagerID = @TestManager,
+        @Decision = 'REJECTED';
+    PRINT 'Test 2 PASSED';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 3: Invalid decision (should fail)
+PRINT 'Test 3: Invalid decision (should fail)';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = @LeaveReqID3,
+        @ManagerID = @TestManager,
+        @Decision = 'INVALID';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 4: Unauthorized manager (should fail)
+PRINT 'Test 4: Unauthorized manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = @LeaveReqID3,
+        @ManagerID = 999,
+        @Decision = 'APPROVED';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 5: Non-existing leave request (should fail)
+PRINT 'Test 5: Non-existing leave request (should fail)';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = 999999,
+        @ManagerID = @TestManager,
+        @Decision = 'APPROVED';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 6: Manager not authorized for this employee (should fail)
+-- First create an employee with a different manager
+DECLARE @OtherEmp INT, @OtherManager INT = 4;
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 100)
+BEGIN
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
+    VALUES (100, 'Other', 'Employee', 'other.emp@example.com', '2025-01-01', 1, 1, 1, @OtherManager);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Employee SET manager_id = @OtherManager WHERE EmployeeID = 100;
+END
+
+DECLARE @OtherLeaveReq INT;
+EXEC dbo.SubmitLeaveRequest
+    @EmployeeID = 100,
+    @LeaveTypeID = 1,
+    @StartDate = '2025-12-25',
+    @EndDate = '2025-12-26',
+    @Reason = 'For authorization test';
+
+SELECT @OtherLeaveReq = MAX(RequestID) FROM dbo.LeaveRequest WHERE employee_id = 100;
+
+PRINT 'Test 6: Manager reviews request for employee they don''t manage (should fail)';
+BEGIN TRY
+    EXEC dbo.ReviewLeaveRequest 
+        @LeaveRequestID = @OtherLeaveReq,
+        @ManagerID = @TestManager,
+        @Decision = 'APPROVED';
+    PRINT 'Test 6 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 6 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Verify updates
+PRINT 'Verifying LeaveRequest updates:';
+SELECT 
+    RequestID,
+    employee_id,
+    leave_id,
+    status,
+    approval_timing,
+    justification
+FROM dbo.LeaveRequest 
+WHERE RequestID IN (@LeaveReqID1, @LeaveReqID2, @LeaveReqID3, @OtherLeaveReq)
+ORDER BY RequestID;
+
+GO
+
+--2--
+-- Test AssignShift
+PRINT '--- AssignShift tests ---';
+
+-- Setup: Create test shifts in ShiftSchedule
+DECLARE @TestEmp1 INT = 1; -- Alice
+DECLARE @TestEmp2 INT = 2; -- Bob
+DECLARE @TestManager INT = 2; -- Bob is manager
+
+PRINT 'Setting up test shifts...';
+
+-- Create test shifts if they don't exist
+DECLARE @ShiftID1 INT, @ShiftID2 INT, @ShiftID3 INT;
+
+-- Get next available ShiftID
+SELECT @ShiftID1 = ISNULL(MAX(ShiftID), 0) + 1 FROM dbo.ShiftSchedule;
+SELECT @ShiftID2 = @ShiftID1 + 1;
+SELECT @ShiftID3 = @ShiftID1 + 2;
+
+-- Insert test shifts (unassigned initially)
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftID1)
+BEGIN
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftID1, NULL, '2025-12-01', '2025-12-31', 'PENDING');
+    PRINT 'Created shift ' + CAST(@ShiftID1 AS VARCHAR(10));
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftID2)
+BEGIN
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftID2, NULL, '2026-01-01', '2026-01-31', 'PENDING');
+    PRINT 'Created shift ' + CAST(@ShiftID2 AS VARCHAR(10));
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftID3)
+BEGIN
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftID3, NULL, '2026-02-01', '2026-02-28', 'PENDING');
+    PRINT 'Created shift ' + CAST(@ShiftID3 AS VARCHAR(10));
+END
+
+PRINT 'Test shifts created: ' + CAST(@ShiftID1 AS VARCHAR(10)) + ', ' + 
+      CAST(@ShiftID2 AS VARCHAR(10)) + ', ' + CAST(@ShiftID3 AS VARCHAR(10));
+
+-- Test 1: Successfully assign shift to employee
+PRINT 'Test 1: Successfully assign shift to employee';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp1,
+        @ShiftID = @ShiftID1;
+    PRINT 'Test 1 PASSED';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 2: Assign different shift to same employee
+PRINT 'Test 2: Assign different shift to same employee';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp1,
+        @ShiftID = @ShiftID2;
+    PRINT 'Test 2 PASSED';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 3: Assign shift to different employee
+PRINT 'Test 3: Assign shift to different employee';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp2,
+        @ShiftID = @ShiftID3;
+    PRINT 'Test 3 PASSED';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 4: Assign same shift again (should show already assigned)
+PRINT 'Test 4: Re-assign same shift (should show already assigned)';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp1,
+        @ShiftID = @ShiftID1;
+    PRINT 'Test 4 PASSED (duplicate handled gracefully)';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 FAILED: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 5: Non-existing employee (should fail)
+PRINT 'Test 5: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = 999999,
+        @ShiftID = @ShiftID1;
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 6: Non-existing shift (should fail)
+PRINT 'Test 6: Non-existing shift (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp1,
+        @ShiftID = 999999;
+    PRINT 'Test 6 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 6 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 7: NULL EmployeeID (should fail)
+PRINT 'Test 7: NULL EmployeeID (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = NULL,
+        @ShiftID = @ShiftID1;
+    PRINT 'Test 7 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 7 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Test 8: NULL ShiftID (should fail)
+PRINT 'Test 8: NULL ShiftID (should fail)';
+BEGIN TRY
+    EXEC dbo.AssignShift 
+        @EmployeeID = @TestEmp1,
+        @ShiftID = NULL;
+    PRINT 'Test 8 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 8 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH
+
+-- Verify results
+PRINT 'Verifying ShiftSchedule assignments:';
+SELECT 
+    ShiftID,
+    employee_id,
+    start_date,
+    end_date,
+    status,
+    CASE 
+        WHEN employee_id IS NOT NULL THEN 'Assigned to Employee ' + CAST(employee_id AS VARCHAR(10))
+        ELSE 'Unassigned'
+    END AS AssignmentStatus
+FROM dbo.ShiftSchedule
+WHERE ShiftID IN (@ShiftID1, @ShiftID2, @ShiftID3)
+ORDER BY ShiftID;
+
+-- Show which employees have which shifts
+PRINT 'Employee shift assignments:';
+SELECT 
+    e.EmployeeID,
+    e.first_name + ' ' + e.last_name AS EmployeeName,
+    ss.ShiftID,
+    ss.start_date,
+    ss.end_date,
+    ss.status
+FROM dbo.Employee e
+INNER JOIN dbo.ShiftSchedule ss ON e.EmployeeID = ss.employee_id
+WHERE e.EmployeeID IN (@TestEmp1, @TestEmp2)
+ORDER BY e.EmployeeID, ss.ShiftID;
+
+GO
+--4--
+-- Test ViewTeamAttendance
+PRINT '--- ViewTeamAttendance tests ---';
+
+DECLARE @ManagerID INT = 2;   -- Bob Johnson as manager
+DECLARE @TeamEmp1 INT = 1;    -- Alice
+DECLARE @TeamEmp2 INT = 3;    -- John
+
+-- Ensure manager/employee relationships
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID IN (@TeamEmp1, @TeamEmp2);
+
+-- Create sample attendance records
+DECLARE @NextAttendanceID INT;
+SELECT @NextAttendanceID = ISNULL(MAX(AttendanceID), 0) + 1 FROM dbo.Attendance;
+
+DECLARE @AttID1 INT = @NextAttendanceID;
+DECLARE @AttID2 INT = @NextAttendanceID + 1;
+DECLARE @AttID3 INT = @NextAttendanceID + 2;  -- outside date range
+
+INSERT INTO dbo.Attendance
+    (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+VALUES
+    (@AttID1, @TeamEmp1, '09:00', '17:00', 480, 'BIOMETRIC', 'BIOMETRIC', NULL),
+    (@AttID2, @TeamEmp2, '10:00', '18:00', 480, 'WEB',       'WEB',       NULL),
+    (@AttID3, @TeamEmp1, '09:00', '12:00', 180, 'BIOMETRIC', 'BIOMETRIC', NULL);
+
+-- Create matching attendance logs with dates
+DECLARE @NextLogID INT;
+SELECT @NextLogID = ISNULL(MAX(AttendanceLogID), 0) + 1 FROM dbo.AttendanceLog;
+
+INSERT INTO dbo.AttendanceLog
+    (AttendanceLogID, attendance_id, actor, [timestamp], reason)
+VALUES
+    (@NextLogID,     @AttID1, 'TEST', '2025-12-05T09:00:00', 'Within range'),
+    (@NextLogID + 1, @AttID2, 'TEST', '2025-12-10T10:00:00', 'Within range'),
+    (@NextLogID + 2, @AttID3, 'TEST', '2026-01-10T09:00:00', 'Outside range');
+
+PRINT 'Test 1: View attendance for team members between 2025-12-01 and 2025-12-31';
+EXEC dbo.ViewTeamAttendance
+    @ManagerID      = @ManagerID,
+    @DateRangeStart = '2025-12-01',
+    @DateRangeEnd   = '2025-12-31';
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewTeamAttendance
+        @ManagerID      = 999999,
+        @DateRangeStart = '2025-12-01',
+        @DateRangeEnd   = '2025-12-31';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+
+
+PRINT '--- SendTeamNotification tests ---';
+
+DECLARE @ManagerID INT  = 2;  -- Bob Johnson (from seed data)
+DECLARE @TeamEmp1  INT  = 1;  -- Alice
+DECLARE @TeamEmp2  INT  = 3;  -- John
+DECLARE @LatestNotificationID INT;
+
+-- Ensure team members are assigned to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID IN (@TeamEmp1, @TeamEmp2);
+
+PRINT 'Test 1: Send notification to manager''s team';
+EXEC dbo.SendTeamNotification
+    @ManagerID      = @ManagerID,
+    @MessageContent = 'Team meeting at 10:00',
+    @UrgencyLevel   = 'HIGH';
+
+-- Inspect the most recent notification and its deliveries
+SELECT @LatestNotificationID = MAX(NotificationID)
+FROM dbo.Notification;
+
+SELECT 
+    n.NotificationID,
+    n.mesage_content,
+    n.urgency,
+    en.employee_id,
+    en.delivery_status,
+    en.delivered_at
+FROM dbo.Notification n
+JOIN dbo.EmployeeNotification en
+    ON n.NotificationID = en.notification_id
+WHERE n.NotificationID = @LatestNotificationID
+ORDER BY en.employee_id;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.SendTeamNotification
+        @ManagerID      = 999999,
+        @MessageContent = 'This should fail',
+        @UrgencyLevel   = 'LOW';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Empty message (should fail)';
+BEGIN TRY
+    EXEC dbo.SendTeamNotification
+        @ManagerID      = @ManagerID,
+        @MessageContent = '   ',
+        @UrgencyLevel   = 'MEDIUM';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+
+/***** ApproveMissionCompletion tests *****/
+
+PRINT '--- ApproveMissionCompletion tests ---';
+
+DECLARE @TestManagerID  INT = 2;  -- e.g., Bob Johnson
+DECLARE @TestEmployeeID INT = 1;  -- e.g., Alice Smith
+DECLARE @NewMissionID   INT;
+
+-- Ensure these employees exist from seed (1 = employee, 2 = manager)
+-- and that employee reports to this manager (optional, but consistent)
+UPDATE dbo.Employee
+SET manager_id = @TestManagerID
+WHERE EmployeeID = @TestEmployeeID;
+
+-- Create a test mission
+SELECT @NewMissionID = ISNULL(MAX(MissionID), 0) + 1
+FROM dbo.Mission;
+
+INSERT INTO dbo.Mission
+    (MissionID, destination, start_date, end_date, status, employee_id, manager_id)
+VALUES
+    (@NewMissionID, 'Berlin', '2025-01-01', '2025-01-07', 'IN_PROGRESS', @TestEmployeeID, @TestManagerID);
+
+PRINT 'Test 1: Approve mission completion with valid manager';
+EXEC dbo.ApproveMissionCompletion
+     @MissionID = @NewMissionID,
+     @ManagerID = @TestManagerID,
+     @Remarks   = 'Mission completed successfully and on time.';
+
+-- Check mission status and manager note
+SELECT *
+FROM dbo.Mission
+WHERE MissionID = @NewMissionID;
+
+SELECT TOP 5 *
+FROM dbo.ManagerNotes
+WHERE employee_id = @TestEmployeeID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: Attempt approval with wrong manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ApproveMissionCompletion
+         @MissionID = @NewMissionID,
+         @ManagerID = 999999,  -- not the mission manager
+         @Remarks   = 'This should not be allowed.';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+/***** RequestReplacement tests *****/
+
+PRINT '--- RequestReplacement tests ---';
+
+DECLARE @EmpID INT = 1;      -- existing seeded employee
+DECLARE @MgrID INT = 2;      -- existing seeded manager (e.g., Bob)
+
+/* Ensure employee has a manager so the proc can infer it */
+UPDATE dbo.Employee
+SET manager_id = @MgrID
+WHERE EmployeeID = @EmpID;
+
+PRINT 'Test 1: valid replacement request';
+EXEC dbo.RequestReplacement
+    @EmployeeID = @EmpID,
+    @Reason     = 'On sick leave, need shift coverage.';
+
+-- Inspect the latest manager notes for that employee
+SELECT TOP 5
+    NoteID, employee_id, manager_id, note_content, created_at
+FROM dbo.ManagerNotes
+WHERE employee_id = @EmpID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: invalid employee (should fail)';
+BEGIN TRY
+    EXEC dbo.RequestReplacement
+        @EmployeeID = 999999,
+        @Reason     = 'Invalid employee ID test.';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: employee without manager (should fail)';
+DECLARE @NoManagerEmp INT = 200000;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NoManagerEmp)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES
+        (@NoManagerEmp, 'NoManager', 'Employee', 'nomanager@example.com',
+         GETDATE(), 1, 1, 1);
+END;
+
+UPDATE dbo.Employee
+SET manager_id = NULL
+WHERE EmployeeID = @NoManagerEmp;
+
+BEGIN TRY
+    EXEC dbo.RequestReplacement
+        @EmployeeID = @NoManagerEmp,
+        @Reason     = 'Testing no-manager scenario.';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+/***** ViewDepartmentSummary tests *****/
+
+PRINT '--- ViewDepartmentSummary tests ---';
+
+DECLARE @DeptID INT = 1;       -- test department
+DECLARE @Emp1   INT = 1;       -- existing seeded employee
+DECLARE @Emp2   INT = 3;       -- existing seeded employee
+DECLARE @MgrID  INT = 2;       -- existing seeded manager
+DECLARE @MissionID1 INT;
+DECLARE @MissionID2 INT;
+
+-- Ensure the department exists (create a basic one if missing)
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = @DeptID)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (@DeptID, 'Test Department', 'Testing department summary', @MgrID);
+END;
+
+-- Assign employees to this department
+UPDATE dbo.Employee
+SET department_id = @DeptID,
+    manager_id    = @MgrID
+WHERE EmployeeID IN (@Emp1, @Emp2);
+
+-- Create some IN_PROGRESS missions (treated as active projects)
+SELECT @MissionID1 = ISNULL(MAX(MissionID), 0) + 1
+FROM dbo.Mission;
+
+SET @MissionID2 = @MissionID1 + 1;
+
+INSERT INTO dbo.Mission
+    (MissionID, destination, start_date, end_date, status, employee_id, manager_id)
+VALUES
+    (@MissionID1, 'Project Alpha', '2025-01-01', '2025-03-01', 'IN_PROGRESS', @Emp1, @MgrID),
+    (@MissionID2, 'Project Beta',  '2025-02-01', '2025-04-01', 'IN_PROGRESS', @Emp2, @MgrID);
+
+PRINT 'Test 1: View summary for valid department';
+EXEC dbo.ViewDepartmentSummary
+    @DepartmentID = @DeptID;
+
+PRINT 'Test 2: Invalid department (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewDepartmentSummary
+        @DepartmentID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ReassignShift tests *****/
+
+PRINT '--- ReassignShift tests ---';
+
+DECLARE @EmpID       INT = 1;  -- existing employee (e.g., Alice)
+DECLARE @OldShiftID  INT;
+DECLARE @NewShiftID  INT;
+
+-- Get two new ShiftIDs
+SELECT @OldShiftID = ISNULL(MAX(ShiftID), 0) + 1 FROM dbo.ShiftSchedule;
+SET @NewShiftID = @OldShiftID + 1;
+
+-- Create old shift assigned to employee and new shift as free (PENDING)
+INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+VALUES
+    (@OldShiftID, @EmpID, '2025-11-01', '2025-11-30', 'ACTIVE'),
+    (@NewShiftID, NULL,  '2025-12-01', '2025-12-31', 'PENDING');
+
+PRINT 'Test 1: Successfully reassign shift from old to new';
+BEGIN TRY
+    EXEC dbo.ReassignShift
+        @EmployeeID = @EmpID,
+        @OldShiftID = @OldShiftID,
+        @NewShiftID = @NewShiftID;
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+-- Verify results
+PRINT 'Verifying ShiftSchedule after reassignment:';
+SELECT ShiftID, employee_id, start_date, end_date, status
+FROM dbo.ShiftSchedule
+WHERE ShiftID IN (@OldShiftID, @NewShiftID)
+ORDER BY ShiftID;
+
+PRINT 'Test 2: New shift does not exist (should fail)';
+BEGIN TRY
+    EXEC dbo.ReassignShift
+        @EmployeeID = @EmpID,
+        @OldShiftID = @NewShiftID,  -- now current shift
+        @NewShiftID = 999999;       -- non-existing shift
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** GetPendingLeaveRequests tests *****/
+
+PRINT '--- GetPendingLeaveRequests tests ---';
+
+DECLARE @ManagerID INT = 2;   -- example manager (e.g., Bob)
+DECLARE @Emp1      INT = 1;   -- example employee 1
+DECLARE @Emp2      INT = 3;   -- example employee 2
+DECLARE @LeaveID1  INT = 1;
+DECLARE @LeaveID2  INT = 2;
+DECLARE @ReqID1    INT;
+DECLARE @ReqID2    INT;
+DECLARE @ReqID3    INT;
+
+-- Make sure employees report to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID IN (@Emp1, @Emp2);
+
+-- Ensure Leave rows exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveID1)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveID1, 'Annual Leave', 'Annual vacation leave');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveID2)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveID2, 'Sick Leave', 'Medical sick leave');
+END;
+
+-- Create some leave requests (two pending, one approved)
+SELECT @ReqID1 = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.LeaveRequest;
+SET @ReqID2 = @ReqID1 + 1;
+SET @ReqID3 = @ReqID1 + 2;
+
+INSERT INTO dbo.LeaveRequest
+    (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES
+    (@ReqID1, @Emp1, @LeaveID1, 'Family vacation',      5, NULL,          'PENDING'),
+    (@ReqID2, @Emp2, @LeaveID2, 'Flu and high fever',   3, NULL,          'Pending'),
+    (@ReqID3, @Emp1, @LeaveID1, 'Previously approved',  2, GETDATE(),     'APPROVED');
+
+PRINT 'Test 1: Pending leave requests for valid manager';
+EXEC dbo.GetPendingLeaveRequests
+    @ManagerID = @ManagerID;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.GetPendingLeaveRequests
+        @ManagerID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+
+/***** 10 : GetTeamStatistics tests *****/
+
+PRINT '--- GetTeamStatistics tests ---';
+
+DECLARE @ManagerID INT = 2;  -- example manager (e.g., Bob)
+DECLARE @Emp1      INT = 1;  -- direct report 1
+DECLARE @Emp2      INT = 3;  -- direct report 2
+
+-- Ensure pay grades exist
+IF NOT EXISTS (SELECT 1 FROM dbo.PayGrade WHERE PayGradeID = 1)
+BEGIN
+    INSERT INTO dbo.PayGrade (PayGradeID, grade_name, min_salary, max_salary)
+    VALUES (1, 'Junior', 3000.00, 5000.00);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.PayGrade WHERE PayGradeID = 2)
+BEGIN
+    INSERT INTO dbo.PayGrade (PayGradeID, grade_name, min_salary, max_salary)
+    VALUES (2, 'Senior', 5000.00, 8000.00);
+END;
+
+-- Ensure employees report to this manager and have pay grades
+UPDATE dbo.Employee
+SET manager_id = @ManagerID,
+    paygrade_id = 1
+WHERE EmployeeID = @Emp1;
+
+UPDATE dbo.Employee
+SET manager_id = @ManagerID,
+    paygrade_id = 2
+WHERE EmployeeID = @Emp2;
+
+-- Ensure EmployeeHierarchy contains entries for span of control
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeHierarchy
+    WHERE employee_id = @Emp1 AND manager_id = @ManagerID
+)
+BEGIN
+    INSERT INTO dbo.EmployeeHierarchy (employee_id, manager_id, hierarchy_level)
+    VALUES (@Emp1, @ManagerID, 1);
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeHierarchy
+    WHERE employee_id = @Emp2 AND manager_id = @ManagerID
+)
+BEGIN
+    INSERT INTO dbo.EmployeeHierarchy (employee_id, manager_id, hierarchy_level)
+    VALUES (@Emp2, @ManagerID, 1);
+END;
+
+PRINT 'Test 1: Team statistics for valid manager';
+EXEC dbo.GetTeamStatistics
+    @ManagerID = @ManagerID;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.GetTeamStatistics
+        @ManagerID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ViewTeamProfiles tests *****/
+
+PRINT '--- ViewTeamProfiles tests ---';
+
+DECLARE @ManagerID INT = 2;  -- e.g., Bob
+DECLARE @Emp1      INT = 1;  -- e.g., Alice
+DECLARE @Emp2      INT = 3;  -- e.g., John
+
+-- Make sure some basic department/position rows exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (1, 'IT Department', 'Handles IT services', @ManagerID);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (2, 'Analyst', 'Analyzes data', 'ACTIVE');
+END;
+
+-- Ensure employees are active team members under this manager
+UPDATE dbo.Employee
+SET manager_id    = @ManagerID,
+    department_id = 1,
+    position_id   = 1,
+    is_active     = 1,
+    employment_status = 'FULL_TIME',
+    account_status    = 'ACTIVE'
+WHERE EmployeeID = @Emp1;
+
+UPDATE dbo.Employee
+SET manager_id    = @ManagerID,
+    department_id = 1,
+    position_id   = 2,
+    is_active     = 1,
+    employment_status = 'FULL_TIME',
+    account_status    = 'ACTIVE'
+WHERE EmployeeID = @Emp2;
+
+PRINT 'Test 1: View team profiles for valid manager';
+EXEC dbo.ViewTeamProfiles
+    @ManagerID = @ManagerID;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewTeamProfiles
+        @ManagerID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** GetTeamSummary tests *****/
+
+PRINT '--- GetTeamSummary tests ---';
+
+DECLARE @ManagerID INT = 2;  -- e.g., Bob
+DECLARE @Emp1      INT = 1;  -- e.g., Alice
+DECLARE @Emp2      INT = 3;  -- e.g., John
+
+-- Ensure departments exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 1)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (1, 'IT Department', 'Handles IT services', @ManagerID);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 2)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (2, 'Finance Department', 'Handles finances', @ManagerID);
+END;
+
+-- Ensure positions exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 1)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (1, 'Developer', 'Develops software', 'ACTIVE');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 2)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (2, 'Analyst', 'Analyzes data', 'ACTIVE');
+END;
+
+-- Set up two direct reports with different roles/departments/tenure
+UPDATE dbo.Employee
+SET manager_id    = @ManagerID,
+    department_id = 1,
+    position_id   = 1,
+    is_active     = 1,
+    hire_date     = '2020-01-01'
+WHERE EmployeeID = @Emp1;
+
+UPDATE dbo.Employee
+SET manager_id    = @ManagerID,
+    department_id = 2,
+    position_id   = 2,
+    is_active     = 1,
+    hire_date     = '2022-06-15'
+WHERE EmployeeID = @Emp2;
+
+PRINT 'Test 1: Team summary for valid manager';
+EXEC dbo.GetTeamSummary
+    @ManagerID = @ManagerID;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.GetTeamSummary
+        @ManagerID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+/***** FilterTeamProfiles tests *****/
+
+PRINT '--- FilterTeamProfiles tests ---';
+
+DECLARE @ManagerID INT = 2;  -- e.g., Bob
+DECLARE @Emp1      INT = 1;  -- e.g., Alice
+DECLARE @Emp2      INT = 3;  -- e.g., John
+
+-- Ensure some roles exist (should already be seeded, but keep idempotent)
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 5)
+BEGIN
+    INSERT INTO dbo.Role (RoleID, role_name, purpose)
+    VALUES (5, 'Employee', 'Regular employee role');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Role WHERE RoleID = 4)
+BEGIN
+    INSERT INTO dbo.Role (RoleID, role_name, purpose)
+    VALUES (4, 'Line Manager', 'Manages a team');
+END;
+
+-- Ensure skills exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Skill WHERE SkillID = 1)
+BEGIN
+    INSERT INTO dbo.Skill (SkillID, skill_name, description)
+    VALUES (1, 'SQL', 'Structured Query Language');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Skill WHERE SkillID = 2)
+BEGIN
+    INSERT INTO dbo.Skill (SkillID, skill_name, description)
+    VALUES (2, 'C#', 'C# programming language');
+END;
+
+-- Make employees report to this manager and be active
+UPDATE dbo.Employee
+SET manager_id = @ManagerID,
+    is_active  = 1
+WHERE EmployeeID IN (@Emp1, @Emp2);
+
+-- Assign roles
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeRole
+    WHERE employee_id = @Emp1 AND role_id = 5
+)
+BEGIN
+    INSERT INTO dbo.EmployeeRole (employee_id, role_id, assigned_date)
+    VALUES (@Emp1, 5, GETDATE());
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeRole
+    WHERE employee_id = @Emp2 AND role_id = 4
+)
+BEGIN
+    INSERT INTO dbo.EmployeeRole (employee_id, role_id, assigned_date)
+    VALUES (@Emp2, 4, GETDATE());
+END;
+
+-- Assign skills
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeSkill
+    WHERE employee_id = @Emp1 AND skill_id = 1
+)
+BEGIN
+    INSERT INTO dbo.EmployeeSkill (employee_id, skill_id, proficiency_level)
+    VALUES (@Emp1, 1, 'Intermediate');
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeSkill
+    WHERE employee_id = @Emp2 AND skill_id = 2
+)
+BEGIN
+    INSERT INTO dbo.EmployeeSkill (employee_id, skill_id, proficiency_level)
+    VALUES (@Emp2, 2, 'Advanced');
+END;
+
+PRINT 'Test 1: Filter by skill = ''SQL'' (should return Emp1)';
+EXEC dbo.FilterTeamProfiles
+    @ManagerID = @ManagerID,
+    @Skill     = 'SQL',
+    @RoleID    = NULL;
+
+PRINT 'Test 2: Filter by role = 5 (Employee) only (should return Emp1)';
+EXEC dbo.FilterTeamProfiles
+    @ManagerID = @ManagerID,
+    @Skill     = '',
+    @RoleID    = 5;
+
+PRINT 'Test 3: Filter by skill = ''C#'' and role = 4 (Line Manager) (should return Emp2)';
+EXEC dbo.FilterTeamProfiles
+    @ManagerID = @ManagerID,
+    @Skill     = 'C#',
+    @RoleID    = 4;
+
+PRINT 'Test 4: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.FilterTeamProfiles
+        @ManagerID = 999999,
+        @Skill     = 'SQL',
+        @RoleID    = 5;
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ViewTeamCertifications tests *****/
+
+PRINT '--- ViewTeamCertifications tests ---';
+
+DECLARE @ManagerID INT = 2;  -- e.g., Bob
+DECLARE @Emp1      INT = 1;  -- e.g., Alice
+DECLARE @Emp2      INT = 3;  -- e.g., John
+
+-- Make employees part of this manager's team
+UPDATE dbo.Employee
+SET manager_id = @ManagerID,
+    is_active  = 1
+WHERE EmployeeID IN (@Emp1, @Emp2);
+
+-- Ensure skills exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Skill WHERE SkillID = 1)
+BEGIN
+    INSERT INTO dbo.Skill (SkillID, skill_name, description)
+    VALUES (1, 'SQL', 'Structured Query Language');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Skill WHERE SkillID = 2)
+BEGIN
+    INSERT INTO dbo.Skill (SkillID, skill_name, description)
+    VALUES (2, 'Project Management', 'Managing projects and teams');
+END;
+
+-- Ensure verifications (certifications) exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Verification WHERE VerificationID = 1)
+BEGIN
+    INSERT INTO dbo.Verification
+        (VerificationID, verification_type, issuer, issue_date, expiry_period)
+    VALUES
+        (1, 'PMP Certification', 'PMI', '2022-01-01', '2025-01-01');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Verification WHERE VerificationID = 2)
+BEGIN
+    INSERT INTO dbo.Verification
+        (VerificationID, verification_type, issuer, issue_date, expiry_period)
+    VALUES
+        (2, 'SQL Expert', 'Tech Institute', '2023-05-10', '2026-05-10');
+END;
+
+-- Assign skills to employees
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeSkill
+    WHERE employee_id = @Emp1 AND skill_id = 1
+)
+BEGIN
+    INSERT INTO dbo.EmployeeSkill (employee_id, skill_id, proficiency_level)
+    VALUES (@Emp1, 1, 'Advanced');
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeSkill
+    WHERE employee_id = @Emp2 AND skill_id = 2
+)
+BEGIN
+    INSERT INTO dbo.EmployeeSkill (employee_id, skill_id, proficiency_level)
+    VALUES (@Emp2, 2, 'Intermediate');
+END;
+
+-- Assign verifications (certifications) to employees
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeVerification
+    WHERE employee_id = @Emp1 AND verification_id = 2
+)
+BEGIN
+    INSERT INTO dbo.EmployeeVerification (employee_id, verification_id)
+    VALUES (@Emp1, 2);
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM dbo.EmployeeVerification
+    WHERE employee_id = @Emp2 AND verification_id = 1
+)
+BEGIN
+    INSERT INTO dbo.EmployeeVerification (employee_id, verification_id)
+    VALUES (@Emp2, 1);
+END;
+
+PRINT 'Test 1: View certifications and skills for manager''s team';
+EXEC dbo.ViewTeamCertifications
+    @ManagerID = @ManagerID;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewTeamCertifications
+        @ManagerID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** AddManagerNotes tests *****/
+
+PRINT '--- AddManagerNotes tests ---';
+
+DECLARE @EmpID        INT = 1;  -- e.g., Alice
+DECLARE @ManagerID    INT = 2;  -- e.g., Bob (actual manager)
+DECLARE @OtherManager INT = 3;  -- some other employee, not the manager
+
+-- Ensure employee 1 has manager 2
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+PRINT 'Test 1: Add valid manager note';
+BEGIN TRY
+    EXEC dbo.AddManagerNotes
+        @EmployeeID = @EmpID,
+        @ManagerID  = @ManagerID,
+        @Note       = 'Strong performance in Q4, recommended for leadership track.';
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+-- Inspect latest notes for this employee
+SELECT TOP 5
+    NoteID, employee_id, manager_id, note_content, created_at
+FROM dbo.ManagerNotes
+WHERE employee_id = @EmpID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: Wrong manager for this employee (should fail)';
+BEGIN TRY
+    EXEC dbo.AddManagerNotes
+        @EmployeeID = @EmpID,
+        @ManagerID  = @OtherManager,
+        @Note       = 'This should not be allowed.';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Empty note (should fail)';
+BEGIN TRY
+    EXEC dbo.AddManagerNotes
+        @EmployeeID = @EmpID,
+        @ManagerID  = @ManagerID,
+        @Note       = '   ';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** RecordManualAttendance tests *****/
+
+PRINT '--- RecordManualAttendance tests ---';
+
+DECLARE @EmpID       INT = 1;   -- e.g., Alice
+DECLARE @RecordedBy  INT = 2;   -- e.g., Bob (manager/admin)
+DECLARE @TestDate    DATE = '2025-01-10';
+
+PRINT 'Test 1: Record manual attendance for a missing day';
+BEGIN TRY
+    EXEC dbo.RecordManualAttendance
+        @EmployeeID = @EmpID,
+        @Date       = @TestDate,
+        @ClockIn    = '09:00',
+        @ClockOut   = '17:00',
+        @Reason     = 'Missed punch on timeclock.',
+        @RecordedBy = @RecordedBy;
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check resulting Attendance row(s) for employee and date:';
+SELECT a.*
+FROM dbo.Attendance a
+JOIN dbo.AttendanceLog l
+    ON l.attendance_id = a.AttendanceID
+WHERE a.employee_id = @EmpID
+  AND CAST(l.[timestamp] AS DATE) = @TestDate;
+
+PRINT 'Check corresponding AttendanceLog (audit trail):';
+SELECT *
+FROM dbo.AttendanceLog l
+JOIN dbo.Attendance a
+    ON a.AttendanceID = l.attendance_id
+WHERE a.employee_id = @EmpID
+  AND CAST(l.[timestamp] AS DATE) = @TestDate
+ORDER BY l.[timestamp];
+
+PRINT 'Test 2: Correct (update) existing manual attendance for same date';
+BEGIN TRY
+    EXEC dbo.RecordManualAttendance
+        @EmployeeID = @EmpID,
+        @Date       = @TestDate,
+        @ClockIn    = '08:30',
+        @ClockOut   = '17:30',
+        @Reason     = 'Adjusted after verifying logs.',
+        @RecordedBy = @RecordedBy;
+    PRINT 'Test 2 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Re-check Attendance and AttendanceLog after correction:';
+SELECT a.*
+FROM dbo.Attendance a
+JOIN dbo.AttendanceLog l
+    ON l.attendance_id = a.AttendanceID
+WHERE a.employee_id = @EmpID
+  AND CAST(l.[timestamp] AS DATE) = @TestDate;
+
+SELECT *
+FROM dbo.AttendanceLog l
+JOIN dbo.Attendance a
+    ON a.AttendanceID = l.attendance_id
+WHERE a.employee_id = @EmpID
+  AND CAST(l.[timestamp] AS DATE) = @TestDate
+ORDER BY l.[timestamp];
+
+PRINT 'Test 3: Invalid employee (should fail)';
+BEGIN TRY
+    EXEC dbo.RecordManualAttendance
+        @EmployeeID = 999999,
+        @Date       = @TestDate,
+        @ClockIn    = '09:00',
+        @ClockOut   = '17:00',
+        @Reason     = 'Invalid employee test.',
+        @RecordedBy = @RecordedBy;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ReviewMissedPunches tests *****/
+
+PRINT '--- ReviewMissedPunches tests ---';
+
+DECLARE @ManagerID INT = 2;   -- e.g., Bob (manager)
+DECLARE @Emp1      INT = 1;   -- e.g., Alice
+DECLARE @Emp2      INT = 3;   -- e.g., John
+DECLARE @TestDate  DATE = '2025-01-15';
+
+DECLARE @ExcID1 INT;
+DECLARE @ExcID2 INT;
+DECLARE @AttID1 INT;
+DECLARE @AttID2 INT;
+
+-- Make employees report to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID IN (@Emp1, @Emp2);
+
+-- Create attendance-related exceptions for the test date
+SELECT @ExcID1 = ISNULL(MAX(ExceptionID), 0) + 1
+FROM dbo.Exception;
+
+SET @ExcID2 = @ExcID1 + 1;
+
+INSERT INTO dbo.Exception
+    (ExceptionID, name,              category,      date,        status)
+VALUES
+    (@ExcID1,    'Missed clock-out', 'ATTENDANCE',  @TestDate,   'FLAGGED'),
+    (@ExcID2,    'Old issue',        'ATTENDANCE',  @TestDate,   'RESOLVED');
+
+-- Create matching Attendance records and link exceptions
+SELECT @AttID1 = ISNULL(MAX(AttendanceID), 0) + 1
+FROM dbo.Attendance;
+
+SET @AttID2 = @AttID1 + 1;
+
+INSERT INTO dbo.Attendance
+    (AttendanceID, employee_id, entry_time, exit_time, duration, login_method, logout_method, exception_id)
+VALUES
+    (@AttID1, @Emp1, '09:00', '17:00', 480, 'BIOMETRIC', 'BIOMETRIC', @ExcID1),  -- flagged
+    (@AttID2, @Emp2, '09:00', '17:00', 480, 'BIOMETRIC', 'BIOMETRIC', @ExcID2);  -- resolved
+
+PRINT 'Test 1: Review missed punches for manager and date (should show only FLAGGED/Open/Pending)';
+EXEC dbo.ReviewMissedPunches
+    @ManagerID = @ManagerID,
+    @Date      = @TestDate;
+
+PRINT 'Test 2: Invalid manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ReviewMissedPunches
+        @ManagerID = 999999,
+        @Date      = @TestDate;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ApproveTimeRequest tests *****/
+
+PRINT '--- ApproveTimeRequest tests ---';
+
+DECLARE @ManagerID INT = 2;   -- e.g., Bob (manager)
+DECLARE @EmpID     INT = 1;   -- e.g., Alice (employee)
+DECLARE @ReqID     INT;
+DECLARE @Today     DATE = '2025-01-20';
+
+-- Ensure employee reports to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+-- Create a pending AttendanceCorrectionRequest
+SELECT @ReqID = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.AttendanceCorrectionRequest;
+
+INSERT INTO dbo.AttendanceCorrectionRequest
+    (RequestID, employee_id, date, correction_type, reason, status, recommended_by)
+VALUES
+    (@ReqID, @EmpID, @Today, 'Missed clock-out', 'Forgot to punch out', 'PENDING', @ManagerID);
+
+PRINT 'Test 1: Approve pending time request with valid manager';
+BEGIN TRY
+    EXEC dbo.ApproveTimeRequest
+        @RequestID = @ReqID,
+        @ManagerID = @ManagerID,
+        @Decision  = 'APPROVED',
+        @Comments  = 'Verified against system logs.';
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check updated AttendanceCorrectionRequest row:';
+SELECT *
+FROM dbo.AttendanceCorrectionRequest
+WHERE RequestID = @ReqID;
+
+PRINT 'Check ManagerNotes for this decision:';
+SELECT TOP 5 *
+FROM dbo.ManagerNotes
+WHERE employee_id = @EmpID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: Try to re-approve already processed request (should fail)';
+BEGIN TRY
+    EXEC dbo.ApproveTimeRequest
+        @RequestID = @ReqID,
+        @ManagerID = @ManagerID,
+        @Decision  = 'APPROVED',
+        @Comments  = 'Second attempt.';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Wrong manager (not the employee''s manager) (should fail)';
+BEGIN TRY
+    EXEC dbo.ApproveTimeRequest
+        @RequestID = @ReqID,
+        @ManagerID = 999999,
+        @Decision  = 'REJECTED',
+        @Comments  = 'Unauthorized manager.';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** ViewLeaveRequest tests *****/
+
+PRINT '--- ViewLeaveRequest tests ---';
+
+DECLARE @ManagerID      INT = 2;   -- e.g., Bob
+DECLARE @EmpID          INT = 1;   -- e.g., Alice
+DECLARE @LeaveTypeID    INT = 1;
+DECLARE @LeaveRequestID INT;
+DECLARE @TestDate       DATE = '2025-02-01';
+
+-- Ensure employee reports to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+-- Ensure a Leave type exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveTypeID)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveTypeID, 'Annual Leave', 'Standard annual leave');
+END;
+
+-- Create a leave request for this employee
+SELECT @LeaveRequestID = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.LeaveRequest;
+
+INSERT INTO dbo.LeaveRequest
+    (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES
+    (@LeaveRequestID, @EmpID, @LeaveTypeID,
+     'Family trip', 5, NULL, 'PENDING');
+
+PRINT 'Test 1: Valid manager viewing own assigned leave request';
+EXEC dbo.ViewLeaveRequest
+    @LeaveRequestID = @LeaveRequestID,
+    @ManagerID      = @ManagerID;
+
+PRINT 'Test 2: Wrong manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Non-existing leave request (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewLeaveRequest
+        @LeaveRequestID = 999999,
+        @ManagerID      = @ManagerID;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+/***** ApproveLeaveRequest tests *****/
+
+PRINT '--- ApproveLeaveRequest tests ---';
+
+DECLARE @ManagerID      INT = 2;   -- e.g., Bob
+DECLARE @EmpID          INT = 1;   -- e.g., Alice
+DECLARE @LeaveTypeID    INT = 1;
+DECLARE @LeaveRequestID INT;
+
+-- Ensure employee reports to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+-- Ensure a Leave type exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveTypeID)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveTypeID, 'Annual Leave', 'Standard annual leave');
+END;
+
+-- Create a pending leave request
+SELECT @LeaveRequestID = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.LeaveRequest;
+
+INSERT INTO dbo.LeaveRequest
+    (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES
+    (@LeaveRequestID, @EmpID, @LeaveTypeID,
+     'Conference trip', 3, NULL, 'PENDING');
+
+PRINT 'Test 1: Approve leave request with valid manager';
+BEGIN TRY
+    EXEC dbo.ApproveLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = @ManagerID;
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check updated LeaveRequest row:';
+SELECT *
+FROM dbo.LeaveRequest
+WHERE RequestID = @LeaveRequestID;
+
+PRINT 'Check ManagerNotes audit for approval:';
+SELECT TOP 5 *
+FROM dbo.ManagerNotes
+WHERE employee_id = @EmpID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: Try to re-approve already processed request (should fail)';
+BEGIN TRY
+    EXEC dbo.ApproveLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = @ManagerID;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Wrong manager (should fail)';
+BEGIN TRY
+    EXEC dbo.ApproveLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** RejectLeaveRequest tests *****/
+
+PRINT '--- RejectLeaveRequest tests ---';
+
+DECLARE @ManagerID      INT = 2;   -- e.g., Bob
+DECLARE @EmpID          INT = 1;   -- e.g., Alice
+DECLARE @LeaveTypeID    INT = 1;
+DECLARE @LeaveRequestID INT;
+
+-- Ensure employee reports to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+-- Ensure a Leave type exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveTypeID)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveTypeID, 'Annual Leave', 'Standard annual leave');
+END;
+
+-- Create a pending leave request
+SELECT @LeaveRequestID = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.LeaveRequest;
+
+INSERT INTO dbo.LeaveRequest
+    (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES
+    (@LeaveRequestID, @EmpID, @LeaveTypeID,
+     'Personal reasons', 2, NULL, 'PENDING');
+
+PRINT 'Test 1: Reject leave request with valid manager and reason';
+BEGIN TRY
+    EXEC dbo.RejectLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = @ManagerID,
+        @Reason         = 'Team workload is critical during requested dates.';
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check updated LeaveRequest row:';
+SELECT *
+FROM dbo.LeaveRequest
+WHERE RequestID = @LeaveRequestID;
+
+PRINT 'Check ManagerNotes audit for rejection:';
+SELECT TOP 5 *
+FROM dbo.ManagerNotes
+WHERE employee_id = @EmpID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: Try to re-reject already processed request (should fail)';
+BEGIN TRY
+    EXEC dbo.RejectLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = @ManagerID,
+        @Reason         = 'Second attempt.';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Wrong manager (should fail)';
+BEGIN TRY
+    EXEC dbo.RejectLeaveRequest
+        @LeaveRequestID = @LeaveRequestID,
+        @ManagerID      = 999999,
+        @Reason         = 'Not authorized.';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** DelegateLeaveApproval tests *****/
+
+PRINT '--- DelegateLeaveApproval tests ---';
+
+DECLARE @ManagerID  INT = 2;  -- e.g., Bob
+DECLARE @DelegateID INT = 3;  -- e.g., John
+
+-- Ensure both employees exist (and just treat ManagerID as a manager logically)
+-- (No extra setup needed beyond existence)
+
+PRINT 'Test 1: Valid delegation';
+BEGIN TRY
+    EXEC dbo.DelegateLeaveApproval
+        @ManagerID  = @ManagerID,
+        @DelegateID = @DelegateID,
+        @StartDate  = '2025-03-01',
+        @EndDate    = '2025-03-31';
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check ManagerNotes for delegation record:';
+SELECT TOP 5
+    NoteID, employee_id, manager_id, note_content, created_at
+FROM dbo.ManagerNotes
+WHERE employee_id = @DelegateID
+  AND manager_id  = @ManagerID
+ORDER BY created_at DESC;
+
+PRINT 'Test 2: StartDate after EndDate (should fail)';
+BEGIN TRY
+    EXEC dbo.DelegateLeaveApproval
+        @ManagerID  = @ManagerID,
+        @DelegateID = @DelegateID,
+        @StartDate  = '2025-04-10',
+        @EndDate    = '2025-04-01';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Manager and delegate same person (should fail)';
+BEGIN TRY
+    EXEC dbo.DelegateLeaveApproval
+        @ManagerID  = @ManagerID,
+        @DelegateID = @ManagerID,
+        @StartDate  = '2025-05-01',
+        @EndDate    = '2025-05-15';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** NotifyNewLeaveRequest tests *****/
+
+PRINT '--- NotifyNewLeaveRequest tests ---';
+
+DECLARE @ManagerID      INT = 2;   -- e.g., Bob
+DECLARE @EmpID          INT = 1;   -- e.g., Alice
+DECLARE @LeaveTypeID    INT = 1;
+DECLARE @LeaveRequestID INT;
+DECLARE @LatestNotifID  INT;
+
+-- Ensure employee reports to this manager
+UPDATE dbo.Employee
+SET manager_id = @ManagerID
+WHERE EmployeeID = @EmpID;
+
+-- Ensure a Leave type exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = @LeaveTypeID)
+BEGIN
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (@LeaveTypeID, 'Annual Leave', 'Standard annual leave');
+END;
+
+-- Create a leave request for this employee
+SELECT @LeaveRequestID = ISNULL(MAX(RequestID), 0) + 1
+FROM dbo.LeaveRequest;
+
+INSERT INTO dbo.LeaveRequest
+    (RequestID, employee_id, leave_id, justification, duration, approval_timing, status)
+VALUES
+    (@LeaveRequestID, @EmpID, @LeaveTypeID,
+     'Family vacation', 7, NULL, 'PENDING');
+
+PRINT 'Test 1: Notify manager for new leave request';
+BEGIN TRY
+    EXEC dbo.NotifyNewLeaveRequest
+        @ManagerID = @ManagerID,
+        @RequestID = @LeaveRequestID;
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+-- Use notification_id here, not NotificationID
+SELECT @LatestNotifID = MAX(notification_id)
+FROM dbo.EmployeeNotification
+WHERE employee_id = @ManagerID;
+
+PRINT 'Latest notification for manager:';
+SELECT n.NotificationID,
+       n.mesage_content,
+       n.timestamp,
+       n.urgency,
+       en.employee_id,
+       en.delivery_status,
+       en.delivered_at
+FROM dbo.Notification n
+JOIN dbo.EmployeeNotification en
+    ON n.NotificationID = en.notification_id
+WHERE en.notification_id = @LatestNotifID;
+
+PRINT 'Test 2: Wrong manager (not employee''s manager) (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyNewLeaveRequest
+        @ManagerID = 999999,
+        @RequestID = @LeaveRequestID;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Non-existing request (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyNewLeaveRequest
+        @ManagerID = @ManagerID,
+        @RequestID = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+--Employee Procedures Tests
+
+/***** 1)SubmitLeaveRequest tests *****/
+
+PRINT '--- SubmitLeaveRequest tests ---';
+
+-- Ensure leave types exist
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 1)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (1, 'Vacation', 'Paid vacation');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.[Leave] WHERE LeaveID = 2)
+    INSERT INTO dbo.[Leave] (LeaveID, leave_type, leave_description) VALUES (2, 'Sick', 'Sick leave');
+
+-- Create a test employee if not exists
+DECLARE @TestEmp INT;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE email = 'submit.leave.test@example.com')
+BEGIN
+    DECLARE @NewEmpID INT;
+    EXEC dbo.AddEmployee
+        @FullName = 'Submit Leave',
+        @Email = 'submit.leave.test@example.com',
+        @DepartmentID = 1,
+        @PositionID = 1,
+        @HireDate = '2025-01-01',
+        @NewEmployeeID = @NewEmpID OUTPUT;
+
+    SET @TestEmp = @NewEmpID;
+END
+ELSE
+    SELECT @TestEmp = EmployeeID FROM dbo.Employee WHERE email = 'submit.leave.test@example.com';
+
+PRINT 'Test employee id: ' + CAST(@TestEmp AS VARCHAR(12));
+
+
+PRINT 'Test 1: Normal submission';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-09-01',
+        @EndDate   = '2025-09-05',
+        @Reason    = 'Family vacation';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 2: Empty reason (should succeed)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-10-01',
+        @EndDate   = '2025-10-03',
+        @Reason    = '';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 3: Invalid dates (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-12-10',
+        @EndDate   = '2025-12-01',
+        @Reason    = 'Invalid test';
+    PRINT 'ERROR: Test 3 passed unexpectedly';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 4: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = 999999,
+        @LeaveTypeID = 1,
+        @StartDate = '2025-11-01',
+        @EndDate   = '2025-11-02',
+        @Reason    = 'Should fail';
+    PRINT 'ERROR: Test 4 passed unexpectedly';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 5: Non-existing leave type (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveRequest
+        @EmployeeID = @TestEmp,
+        @LeaveTypeID = 9999,
+        @StartDate = '2025-11-10',
+        @EndDate   = '2025-11-11',
+        @Reason    = 'Should fail';
+    PRINT 'ERROR: Test 5 passed unexpectedly';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Show inserted rows:';
+SELECT TOP (10) *
+FROM dbo.LeaveRequest
+WHERE employee_id = @TestEmp
+ORDER BY RequestID DESC;
+GO
+/***** 2)GetLeaveBalance tests *****/
+
+PRINT '--- GetLeaveBalance tests ---';
+
+DECLARE @Emp INT = 1;
+
+PRINT 'Test 1: Normal check';
+EXEC dbo.GetLeaveBalance @EmployeeID = @Emp;
+
+PRINT 'Test 2: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.GetLeaveBalance @EmployeeID = 999999;
+    PRINT 'ERROR: should have failed';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Show approved leaves for employee:';
+SELECT * FROM dbo.LeaveRequest WHERE employee_id = @Emp AND status = 'APPROVED';
+GO
+
+
+/***** 3)RecordAttendance tests *****/
+
+PRINT '--- RecordAttendance tests ---';
+
+DECLARE @EmpID   INT = 1;
+DECLARE @ShiftID INT;
+
+-- Ensure a shift exists for this employee
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE employee_id = @EmpID)
+BEGIN
+    SELECT @ShiftID = ISNULL(MAX(ShiftID), 0) + 1 FROM dbo.ShiftSchedule;
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftID, @EmpID, '2025-01-01', '2025-01-01', 'ACTIVE');
+END
+ELSE
+    SELECT TOP 1 @ShiftID = ShiftID FROM dbo.ShiftSchedule WHERE employee_id = @EmpID;
+
+PRINT 'Test 1: Valid attendance record';
+BEGIN TRY
+    EXEC dbo.RecordAttendance
+        @EmployeeID = @EmpID,
+        @ShiftID    = @ShiftID,
+        @EntryTime  = '09:00',
+        @ExitTime   = '17:00';
+    PRINT 'Test 1 DONE';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 1 FAILED: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Check Attendance rows for employee:';
+SELECT TOP 10 *
+FROM dbo.Attendance
+WHERE employee_id = @EmpID
+ORDER BY AttendanceID DESC;
+
+PRINT 'Test 2: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.RecordAttendance
+        @EmployeeID = 999999,
+        @ShiftID    = @ShiftID,
+        @EntryTime  = '09:00',
+        @ExitTime   = '17:00';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+/***** 4)SubmitReimbursement tests *****/
+
+PRINT '--- SubmitReimbursement tests ---';
+
+DECLARE @EmpID INT = 3001;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, national_id, date_of_birth,
+         country_of_birth, phone, email, address, employment_progress,
+         account_status, employment_status, hire_date, is_active,
+         profile_completion_percentage)
+    VALUES
+        (@EmpID, 'Reim', 'Test', 'NID3001', '1990-01-01',
+         'TestCountry', '0000000', 'reim@test.com', 'TestAddr',
+         'Onboarded', 'ACTIVE', 'FULL_TIME', '2022-01-01', 1, 100);
+END;
+
+PRINT 'Test 1: Valid reimbursement submission';
+EXEC dbo.SubmitReimbursement
+    @EmployeeID = @EmpID,
+    @ExpenseType = 'Travel',
+    @Amount = 150.75;
+
+PRINT 'Test 2: Missing expense type (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitReimbursement
+        @EmployeeID = @EmpID,
+        @ExpenseType = '',
+        @Amount = 100;
+    PRINT 'UNEXPECTED: test passed';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Invalid amount (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitReimbursement
+        @EmployeeID = @EmpID,
+        @ExpenseType = 'Meals',
+        @Amount = -50;
+    PRINT 'UNEXPECTED: test passed';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 4: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitReimbursement
+        @EmployeeID = 999999,
+        @ExpenseType = 'Taxi',
+        @Amount = 30;
+    PRINT 'UNEXPECTED: test passed';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+
+/***** 5)AddEmployeeSkill tests *****/
+
+PRINT '--- AddEmployeeSkill tests ---';
+
+DECLARE @EmpID INT = 4001;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, national_id, date_of_birth,
+         country_of_birth, phone, email, address, employment_progress,
+         account_status, employment_status, hire_date, is_active,
+         profile_completion_percentage)
+    VALUES
+        (@EmpID, 'Skill', 'Test', 'NID4001', '1990-01-01',
+         'TestCountry', '0000000', 'skill@test.com', 'TestAddr',
+         'Onboarded', 'ACTIVE', 'FULL_TIME', '2022-01-01', 1, 100);
+END;
+
+PRINT 'Test 1: Add new skill';
+EXEC dbo.AddEmployeeSkill
+    @EmployeeID = @EmpID,
+    @SkillName  = 'Teamwork';
+
+PRINT 'Test 2: Add same skill again (should fail)';
+BEGIN TRY
+    EXEC dbo.AddEmployeeSkill
+        @EmployeeID = @EmpID,
+        @SkillName  = 'Teamwork';
+    PRINT 'ERROR: Test 2 passed unexpectedly';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 3: Add another skill';
+EXEC dbo.AddEmployeeSkill
+    @EmployeeID = @EmpID,
+    @SkillName  = 'Communication';
+
+PRINT 'Test 4: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.AddEmployeeSkill
+        @EmployeeID = 999999,
+        @SkillName  = 'Something';
+    PRINT 'ERROR: Test 4 passed unexpectedly';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+SELECT *
+FROM dbo.EmployeeSkill
+WHERE employee_id = @EmpID;
+
+
+
+
+
+/***** 6)ViewAssignedShifts tests *****/
+
+PRINT '--- ViewAssignedShifts tests ---';
+
+DECLARE @EmpID INT = 5001;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 50)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (50, 'Test Department', 'For shift tests', NULL);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        national_id,
+        date_of_birth,
+        country_of_birth,
+        phone,
+        email,
+        address,
+        employment_progress,
+        account_status,
+        employment_status,
+        hire_date,
+        is_active,
+        department_id,
+        profile_completion_percentage
+    )
+    VALUES
+    (
+        @EmpID,
+        'Shift',
+        'Viewer',
+        'NID5001',
+        '1990-01-01',
+        'TestCountry',
+        '0000000000',
+        'shift.viewer@test.com',
+        'Test Address',
+        'Onboarded',
+        'ACTIVE',
+        'FULL_TIME',
+        '2024-01-01',
+        1,
+        50,
+        100
+    );
+END;
+
+DECLARE @ShiftA INT = 9101;
+DECLARE @ShiftB INT = 9102;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftA)
+BEGIN
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftA, @EmpID, '2025-12-01T09:00:00', '2025-12-01T17:00:00', 'ACTIVE');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ShiftSchedule WHERE ShiftID = @ShiftB)
+BEGIN
+    INSERT INTO dbo.ShiftSchedule (ShiftID, employee_id, start_date, end_date, status)
+    VALUES (@ShiftB, @EmpID, '2025-12-02T10:00:00', '2025-12-02T18:00:00', 'ACTIVE');
+END;
+
+PRINT 'Test 1: ViewAssignedShifts for existing employee with shifts';
+EXEC dbo.ViewAssignedShifts @EmployeeID = @EmpID;
+
+PRINT 'Test 2: ViewAssignedShifts for employee with no shifts';
+DECLARE @EmpNoShift INT = 5002;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpNoShift)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        national_id,
+        date_of_birth,
+        country_of_birth,
+        phone,
+        email,
+        address,
+        employment_progress,
+        account_status,
+        employment_status,
+        hire_date,
+        is_active,
+        department_id,
+        profile_completion_percentage
+    )
+    VALUES
+    (
+        @EmpNoShift,
+        'NoShift',
+        'Employee',
+        'NID5002',
+        '1991-01-01',
+        'TestCountry',
+        '0000000001',
+        'noshift.employee@test.com',
+        'Test Address 2',
+        'Onboarded',
+        'ACTIVE',
+        'FULL_TIME',
+        '2024-01-01',
+        1,
+        50,
+        100
+    );
+END;
+
+EXEC dbo.ViewAssignedShifts @EmployeeID = @EmpNoShift;
+
+PRINT 'Test 3: ViewAssignedShifts for non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewAssignedShifts @EmployeeID = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+/***** 7)ViewMyContracts tests *****/
+
+PRINT '--- ViewMyContracts tests ---';
+
+DECLARE @EmpWithContract INT = 7001;
+DECLARE @EmpNoContract   INT = 7002;
+DECLARE @ContractActive  INT = 8101;
+DECLARE @ContractTerm    INT = 8102;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = @ContractActive)
+BEGIN
+    INSERT INTO dbo.Contract (ContractID, type, start_date, end_date, current_state)
+    VALUES (@ContractActive, 'Full-Time', '2024-01-01', '2026-12-31', 'ACTIVE');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = @ContractTerm)
+BEGIN
+    INSERT INTO dbo.Contract (ContractID, type, start_date, end_date, current_state)
+    VALUES (@ContractTerm, 'Consultant', '2022-01-01', '2023-12-31', 'TERMINATED');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Termination WHERE TerminationID = 9101)
+BEGIN
+    INSERT INTO dbo.Termination (TerminationID, date, reason, contract_id)
+    VALUES (9101, '2023-12-31', 'End of fixed term', @ContractTerm);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpWithContract)
+BEGIN
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, hire_date, is_active, contract_id)
+    VALUES (@EmpWithContract, 'Active', 'Contract', '2024-01-01', 1, @ContractActive);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Employee
+    SET contract_id = @ContractActive
+    WHERE EmployeeID = @EmpWithContract;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpNoContract)
+BEGIN
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, hire_date, is_active, contract_id)
+    VALUES (@EmpNoContract, 'Terminated', 'Contract', '2022-01-01', 0, @ContractTerm);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Employee
+    SET contract_id = @ContractTerm
+    WHERE EmployeeID = @EmpNoContract;
+END;
+
+PRINT 'Test 1: Employee with active contract';
+EXEC dbo.ViewMyContracts @EmployeeID = @EmpWithContract;
+
+PRINT 'Test 2: Employee with terminated contract';
+EXEC dbo.ViewMyContracts @EmployeeID = @EmpNoContract;
+
+PRINT 'Test 3: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewMyContracts @EmployeeID = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+/***** 8)ViewMyPayroll tests *****/
+
+PRINT '--- ViewMyPayroll tests ---';
+
+DECLARE @EmpWithPayroll INT = 8001;
+DECLARE @EmpNoPayroll   INT = 8002;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpWithPayroll)
+BEGIN
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, hire_date, is_active)
+    VALUES (@EmpWithPayroll, 'Payroll', 'History', '2024-01-01', 1);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpNoPayroll)
+BEGIN
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, hire_date, is_active)
+    VALUES (@EmpNoPayroll, 'No', 'Payroll', '2024-01-01', 1);
+END;
+
+-- Clean old test rows for these employees
+DELETE FROM dbo.Payroll WHERE employee_id IN (@EmpWithPayroll, @EmpNoPayroll);
+
+-- Insert sample payroll for @EmpWithPayroll
+INSERT INTO dbo.Payroll
+    (PayrollID, employee_id, taxes, period_start, period_end,
+     base_amount, adjustments, contributions, actual_pay, net_salary, payment_date)
+VALUES
+    (90001, @EmpWithPayroll, 500.00, '2025-01-01', '2025-01-31', 5000.00, 200.00, 300.00, 5500.00, 4700.00, '2025-02-01'),
+    (90002, @EmpWithPayroll, 520.00, '2025-02-01', '2025-02-28', 5100.00, 150.00, 320.00, 5570.00, 4750.00, '2025-03-01');
+
+PRINT 'Test 1: Employee with payroll history (should return 2 rows)';
+EXEC dbo.ViewMyPayroll @EmployeeID = @EmpWithPayroll;
+
+PRINT 'Test 2: Employee with no payroll history (should return 0 rows, no error)';
+EXEC dbo.ViewMyPayroll @EmployeeID = @EmpNoPayroll;
+
+PRINT 'Test 3: Non-existing employee (should raise error)';
+BEGIN TRY
+    EXEC dbo.ViewMyPayroll @EmployeeID = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+/***** UpdatePersonalDetails tests *****/
+
+PRINT '--- UpdatePersonalDetails tests ---';
+
+DECLARE @EmpID INT = 9001;
+
+-- Create test employee
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, hire_date, is_active, phone, address)
+    VALUES
+        (@EmpID, 'Update', 'Test', '2024-01-01', 1, '0000', 'Old Address');
+END;
+
+PRINT 'Test 1: Valid update';
+EXEC dbo.UpdatePersonalDetails
+     @EmployeeID = @EmpID,
+     @Phone = '123456789',
+     @Address = 'New Address 123';
+
+SELECT EmployeeID, phone, address
+FROM dbo.Employee
+WHERE EmployeeID = @EmpID;
+
+
+PRINT 'Test 2: Employee does not exist (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdatePersonalDetails
+         @EmployeeID = 999999,
+         @Phone = '555',
+         @Address = 'Nowhere';
+    PRINT 'UNEXPECTED: Test 2 passed';
+END TRY
+BEGIN CATCH
+    PRINT 'Expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 3: Update with NULL values (allowed but should overwrite)';
+EXEC dbo.UpdatePersonalDetails
+     @EmployeeID = @EmpID,
+     @Phone = NULL,
+     @Address = NULL;
+
+SELECT EmployeeID, phone, address
+FROM dbo.Employee
+WHERE EmployeeID = @EmpID;
+
+/***** ViewEmployeeProfile tests *****/
+
+PRINT '--- ViewEmployeeProfile tests ---';
+
+DECLARE @ProfileEmpID INT = 9101;
+
+/* Ensure we have a test employee with department + position */
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = 101)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (101, 'Test Department - Profile', 'Department for profile tests', NULL);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = 201)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (201, 'Test Position - Profile', 'Testing responsibilities', 'ACTIVE');
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ProfileEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, national_id,
+         date_of_birth, country_of_birth, phone, email, address,
+         employment_status, account_status, hire_date, is_active,
+         department_id, position_id)
+    VALUES
+        (@ProfileEmpID, 'Profile', 'Employee', 'NAT-9101',
+         '1990-01-01', 'Egypt', '+20-100-0000000', 'profile.employee@example.com',
+         '123 Test Street, Cairo',
+         'FULL_TIME', 'ACTIVE', '2020-01-01', 1,
+         101, 201);
+END;
+
+PRINT 'Test 1: View profile for existing employee (should return 1 row with personal + job info)';
+EXEC dbo.ViewEmployeeProfile @EmployeeID = @ProfileEmpID;
+
+
+/* Test 2: Non-existing employee -> should raise error */
+PRINT 'Test 2: Non-existing employee (should fail with ""Employee does not exist."")';
+BEGIN TRY
+    EXEC dbo.ViewEmployeeProfile @EmployeeID = 999999;
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+/* Test 3: NULL EmployeeID -> should raise validation error */
+PRINT 'Test 3: NULL EmployeeID (should fail with ""EmployeeID is required."")';
+BEGIN TRY
+    EXEC dbo.ViewEmployeeProfile @EmployeeID = NULL;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+
+
+/***** UpdateContactInformation tests *****/
+
+
+PRINT '--- UpdateContactInformation tests ---';
+
+DECLARE @ContactEmpID INT = 9102;
+
+-- Ensure a test employee exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @ContactEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, hire_date, is_active, phone, address)
+    VALUES
+        (@ContactEmpID, 'Contact', 'Update', '2024-01-01', 1, '0000', 'Old Address 1');
+END;
+
+PRINT 'Test 1: Valid PHONE update (should succeed and update phone only)';
+EXEC dbo.UpdateContactInformation
+     @EmployeeID  = @ContactEmpID,
+     @RequestType = 'PHONE',
+     @NewValue    = '+20-100-1234567';
+
+SELECT EmployeeID, phone, address
+FROM dbo.Employee
+WHERE EmployeeID = @ContactEmpID;
+
+
+PRINT 'Test 2: Valid ADDRESS update (should succeed and update address only)';
+EXEC dbo.UpdateContactInformation
+     @EmployeeID  = @ContactEmpID,
+     @RequestType = 'ADDRESS',
+     @NewValue    = 'New Test Address 123, Cairo';
+
+SELECT EmployeeID, phone, address
+FROM dbo.Employee
+WHERE EmployeeID = @ContactEmpID;
+
+
+PRINT 'Test 3: Non-existing employee (should fail with "Employee with the specified ID does not exist.")';
+BEGIN TRY
+    EXEC dbo.UpdateContactInformation
+         @EmployeeID  = 999999,
+         @RequestType = 'PHONE',
+         @NewValue    = '123';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 4: Invalid RequestType (should fail with "RequestType must be PHONE or ADDRESS.")';
+BEGIN TRY
+    EXEC dbo.UpdateContactInformation
+         @EmployeeID  = @ContactEmpID,
+         @RequestType = 'EMAIL',
+         @NewValue    = 'x@y.com';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 5: Empty NewValue (should fail with "NewValue cannot be empty.")';
+BEGIN TRY
+    EXEC dbo.UpdateContactInformation
+         @EmployeeID  = @ContactEmpID,
+         @RequestType = 'PHONE',
+         @NewValue    = '   ';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+/***** 13) ViewEmploymentTimeline tests *****/
+
+PRINT '--- ViewEmploymentTimeline tests ---';
+
+DECLARE @TimelineEmpID      INT = 9201;
+DECLARE @TimelineEmpNoContr INT = 9202;
+DECLARE @TimelineDeptID     INT = 120;
+DECLARE @TimelinePosID      INT = 220;
+DECLARE @TimelineContractID INT = 93001;
+DECLARE @TimelineTermID     INT = 93002;
+
+-- Ensure supporting Department + Position exist
+IF NOT EXISTS (SELECT 1 FROM dbo.Department WHERE DepartmentID = @TimelineDeptID)
+BEGIN
+    INSERT INTO dbo.Department (DepartmentID, department_name, purpose, department_head_id)
+    VALUES (@TimelineDeptID, 'Timeline Test Dept', 'For employment timeline tests', NULL);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Position WHERE PositionID = @TimelinePosID)
+BEGIN
+    INSERT INTO dbo.Position (PositionID, position_title, responsibilities, status)
+    VALUES (@TimelinePosID, 'Timeline Test Position', 'Timeline test responsibilities', 'ACTIVE');
+END;
+
+-- Ensure Contract row exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Contract WHERE ContractID = @TimelineContractID)
+BEGIN
+    INSERT INTO dbo.Contract (ContractID, type, start_date, end_date, current_state)
+    VALUES (@TimelineContractID, 'Full-Time', '2022-01-01', '2024-12-31', 'TERMINATED');
+END;
+
+-- Ensure Termination row exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Termination WHERE TerminationID = @TimelineTermID)
+BEGIN
+    INSERT INTO dbo.Termination (TerminationID, date, reason, contract_id)
+    VALUES (@TimelineTermID, '2024-12-31', 'Contract ended – project closure', @TimelineContractID);
+END;
+
+-- Employee with full timeline (hire + contract + termination)
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @TimelineEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        national_id,
+        date_of_birth,
+        country_of_birth,
+        phone,
+        email,
+        address,
+        employment_status,
+        account_status,
+        hire_date,
+        is_active,
+        department_id,
+        position_id,
+        contract_id
+    )
+    VALUES
+    (
+        @TimelineEmpID,
+        'Timeline',
+        'Employee',
+        'NID-9201',
+        '1990-01-01',
+        'Egypt',
+        '0000000000',
+        'timeline.employee@test.com',
+        'Timeline Test Address',
+        'FULL_TIME',
+        'INACTIVE',
+        '2020-01-01',
+        0,
+        @TimelineDeptID,
+        @TimelinePosID,
+        @TimelineContractID
+    );
+END
+ELSE
+BEGIN
+    UPDATE dbo.Employee
+    SET hire_date    = '2020-01-01',
+        is_active    = 0,
+        department_id = @TimelineDeptID,
+        position_id   = @TimelinePosID,
+        contract_id   = @TimelineContractID
+    WHERE EmployeeID = @TimelineEmpID;
+END;
+
+-- Employee with hire only (no contract / termination)
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @TimelineEmpNoContr)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        national_id,
+        date_of_birth,
+        country_of_birth,
+        phone,
+        email,
+        address,
+        employment_status,
+        account_status,
+        hire_date,
+        is_active,
+        department_id,
+        position_id
+    )
+    VALUES
+    (
+        @TimelineEmpNoContr,
+        'HireOnly',
+        'Employee',
+        'NID-9202',
+        '1995-01-01',
+        'Egypt',
+        '0000000001',
+        'hireonly.employee@test.com',
+        'HireOnly Test Address',
+        'FULL_TIME',
+        'ACTIVE',
+        '2023-06-01',
+        1,
+        @TimelineDeptID,
+        @TimelinePosID
+    );
+END;
+
+PRINT 'Test 1: Employee with hire + contract + termination timeline (expected multiple rows)';
+EXEC dbo.ViewEmploymentTimeline @EmployeeID = @TimelineEmpID;
+
+PRINT 'Test 2: Employee with hire only (expected 1 row for hire event)';
+EXEC dbo.ViewEmploymentTimeline @EmployeeID = @TimelineEmpNoContr;
+
+PRINT 'Test 3: Non-existing employee (should fail with "Employee does not exist.")';
+BEGIN TRY
+    EXEC dbo.ViewEmploymentTimeline @EmployeeID = 999999;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 4: NULL EmployeeID (should fail with "EmployeeID is required.")';
+BEGIN TRY
+    EXEC dbo.ViewEmploymentTimeline @EmployeeID = NULL;
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+/***** 14) UpdateEmergencyContact tests *****/
+
+PRINT '--- UpdateEmergencyContact tests ---';
+
+DECLARE @EmergencyEmpID INT = 9301;
+
+-- Ensure a test employee exists
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmergencyEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+        (EmployeeID, first_name, last_name, hire_date, is_active)
+    VALUES
+        (@EmergencyEmpID, 'Emergency', 'Test', '2024-01-01', 1);
+END;
+
+PRINT 'Test 1: Valid emergency contact update (should succeed and return confirmation message)';
+EXEC dbo.UpdateEmergencyContact
+     @EmployeeID   = @EmergencyEmpID,
+     @ContactName  = 'Test Contact',
+     @Relation     = 'Brother',
+     @Phone        = '+20-100-0000000';
+
+
+PRINT 'Test 2: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateEmergencyContact
+         @EmployeeID   = 999999,
+         @ContactName  = 'Ghost Person',
+         @Relation     = 'Friend',
+         @Phone        = '+20-111-1111111';
+    PRINT 'Test 2 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 2 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 3: Empty ContactName (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateEmergencyContact
+         @EmployeeID   = @EmergencyEmpID,
+         @ContactName  = '   ',
+         @Relation     = 'Mother',
+         @Phone        = '+20-122-2222222';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 4: Empty Relation (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateEmergencyContact
+         @EmployeeID   = @EmergencyEmpID,
+         @ContactName  = 'Valid Name',
+         @Relation     = '   ',
+         @Phone        = '+20-133-3333333';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+
+PRINT 'Test 5: Empty Phone (should fail)';
+BEGIN TRY
+    EXEC dbo.UpdateEmergencyContact
+         @EmployeeID   = @EmergencyEmpID,
+         @ContactName  = 'Valid Name',
+         @Relation     = 'Father',
+         @Phone        = '   ';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+--------------------------------------------------------------
+-- 15) RequestHRDocument tests
+--------------------------------------------------------------
+DECLARE @Test15EmpID INT = 1801;
+
+-- Ensure a test Employee exists (no department/position to avoid FK issues)
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @Test15EmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        hire_date,
+        is_active
+    )
+    VALUES
+    (
+        @Test15EmpID,
+        'HRDoc',
+        'Employee',
+        GETDATE(),
+        1
+    );
+END;
+
+-- Ensure at least one HRAdministrator row exists for this employee
+IF NOT EXISTS (SELECT 1 FROM dbo.HRAdministrator WHERE employee_id = @Test15EmpID)
+BEGIN
+    INSERT INTO dbo.HRAdministrator
+    (
+        employee_id,
+        approval_level,
+        record_access_scope,
+        document_validation_rights
+    )
+    VALUES
+    (
+        @Test15EmpID,
+        'LEVEL1',
+        'ALL_EMPLOYEES',
+        1
+    );
+END;
+
+PRINT 'Test 1: Valid HR document request (Employment Verification)';
+EXEC dbo.RequestHRDocument
+     @EmployeeID   = @Test15EmpID,
+     @DocumentType = 'Employment Verification';
+
+PRINT 'Test 2: Invalid EmployeeID (should fail)';
+BEGIN TRY
+    EXEC dbo.RequestHRDocument
+         @EmployeeID   = -1,
+         @DocumentType = 'Employment Verification';
+END TRY
+BEGIN CATCH
+    SELECT ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+
+PRINT 'Test 3: Missing DocumentType (should fail)';
+BEGIN TRY
+    EXEC dbo.RequestHRDocument
+         @EmployeeID   = @Test15EmpID,
+         @DocumentType = NULL;
+END TRY
+BEGIN CATCH
+    SELECT ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+
+PRINT 'Test 15 complete.';
+GO
+/***** 16) NotifyProfileUpdate tests *****/
+
+PRINT '--- NotifyProfileUpdate tests ---';
+
+DECLARE @NotifyEmpID INT = 1901;
+
+-- Ensure a test employee exists (no FKs hit: dept/position left NULL)
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @NotifyEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        hire_date,
+        is_active
+    )
+    VALUES
+    (
+        @NotifyEmpID,
+        'Notify',
+        'Employee',
+        GETDATE(),
+        1
+    );
+END;
+
+PRINT 'Test 1: Valid notification preference (PROFILE_UPDATES)';
+EXEC dbo.NotifyProfileUpdate
+     @EmployeeID      = @NotifyEmpID,
+     @notificationType = 'PROFILE_UPDATES';
+
+PRINT 'Test 2: Valid notification preference (DOCUMENT_CHANGES)';
+EXEC dbo.NotifyProfileUpdate
+     @EmployeeID      = @NotifyEmpID,
+     @notificationType = 'DOCUMENT_CHANGES';
+
+PRINT 'Test 3: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyProfileUpdate
+         @EmployeeID      = 999999,
+         @notificationType = 'PROFILE_UPDATES';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 4: Empty notificationType (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyProfileUpdate
+         @EmployeeID      = @NotifyEmpID,
+         @notificationType = '   ';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+PRINT 'Test 5: NULL EmployeeID (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyProfileUpdate
+         @EmployeeID      = NULL,
+         @notificationType = 'PROFILE_UPDATES';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+/***** 17) LogFlexibleAttendance tests *****/
+
+PRINT '--- LogFlexibleAttendance tests ---';
+
+DECLARE @FlexEmpID INT = 2001;
+
+-- Ensure a test employee exists (no department/position to avoid FK issues)
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @FlexEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        hire_date,
+        is_active
+    )
+    VALUES
+    (
+        @FlexEmpID,
+        'Flex',
+        'Employee',
+        GETDATE(),
+        1
+    );
+END;
+
+------------------------------------------------------------
+-- Test 1: Valid flex attendance (expected success + message)
+------------------------------------------------------------
+PRINT 'Test 1: Valid flex attendance (09:00 - 17:30)';
+EXEC dbo.LogFlexibleAttendance
+     @EmployeeID = @FlexEmpID,
+     @Date       = '2024-01-10',
+     @CheckIn    = '09:00',
+     @CheckOut   = '17:30';
+
+------------------------------------------------------------
+-- Test 2: Same day, new times (update existing attendance)
+------------------------------------------------------------
+PRINT 'Test 2: Update the same date with new times (08:30 - 16:00)';
+EXEC dbo.LogFlexibleAttendance
+     @EmployeeID = @FlexEmpID,
+     @Date       = '2024-01-10',
+     @CheckIn    = '08:30',
+     @CheckOut   = '16:00';
+
+------------------------------------------------------------
+-- Test 3: CheckOut <= CheckIn (should fail)
+------------------------------------------------------------
+PRINT 'Test 3: Invalid times (CheckOut <= CheckIn, should fail)';
+BEGIN TRY
+    EXEC dbo.LogFlexibleAttendance
+         @EmployeeID = @FlexEmpID,
+         @Date       = '2024-01-11',
+         @CheckIn    = '10:00',
+         @CheckOut   = '09:00';
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+------------------------------------------------------------
+-- Test 4: Non-existing employee (should fail)
+------------------------------------------------------------
+PRINT 'Test 4: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.LogFlexibleAttendance
+         @EmployeeID = 999999,
+         @Date       = '2024-01-12',
+         @CheckIn    = '09:00',
+         @CheckOut   = '17:00';
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+------------------------------------------------------------
+-- Test 5: NULL Date (should fail)
+------------------------------------------------------------
+PRINT 'Test 5: NULL date (should fail)';
+BEGIN TRY
+    EXEC dbo.LogFlexibleAttendance
+         @EmployeeID = @FlexEmpID,
+         @Date       = NULL,
+         @CheckIn    = '09:00',
+         @CheckOut   = '17:00';
+    PRINT 'Test 5 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 5 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+
+/***** 18) NotifyMissedPunch tests *****/
+
+PRINT '--- NotifyMissedPunch tests ---';
+
+DECLARE @MissedEmpID   INT  = 2101;
+DECLARE @MissedDate    DATE = '2025-01-15';
+DECLARE @MissedExID    INT  = 91001;
+DECLARE @MissedAttID   INT;
+
+/* Ensure a test employee exists (no FK issues: leave dept/position/paygrade NULL) */
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @MissedEmpID)
+BEGIN
+    INSERT INTO dbo.Employee
+    (
+        EmployeeID,
+        first_name,
+        last_name,
+        hire_date,
+        is_active
+    )
+    VALUES
+    (
+        @MissedEmpID,
+        'Missed',
+        'Punch',
+        GETDATE(),
+        1
+    );
+END;
+
+/* Ensure an ATTENDANCE exception exists for that date (FLAGGED/OPEN/PENDING) */
+IF NOT EXISTS (SELECT 1 FROM dbo.Exception WHERE ExceptionID = @MissedExID)
+BEGIN
+    INSERT INTO dbo.Exception
+    (
+        ExceptionID,
+        name,
+        category,
+        date,
+        status
+    )
+    VALUES
+    (
+        @MissedExID,
+        'MISSED_PUNCH',
+        'ATTENDANCE',
+        @MissedDate,
+        'FLAGGED'
+    );
+END;
+
+/* Create an Attendance row linked to that exception for the employee */
+SELECT @MissedAttID = ISNULL(MAX(AttendanceID), 0) + 1
+FROM dbo.Attendance;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Attendance WHERE AttendanceID = @MissedAttID)
+BEGIN
+    INSERT INTO dbo.Attendance
+    (
+        AttendanceID,
+        employee_id,
+        entry_time,
+        exit_time,
+        duration,
+        login_method,
+        logout_method,
+        exception_id
+    )
+    VALUES
+    (
+        @MissedAttID,
+        @MissedEmpID,
+        NULL,
+        NULL,
+        0,
+        'AUTO',
+        'AUTO',
+        @MissedExID
+    );
+END;
+
+------------------------------------------------------------
+PRINT 'Test 1: Employee with flagged ATTENDANCE exception on given date';
+EXEC dbo.NotifyMissedPunch
+     @EmployeeID = @MissedEmpID,
+     @Date       = @MissedDate;
+
+------------------------------------------------------------
+PRINT 'Test 2: Same employee on a date with NO missed punch (should say "No missed punch detected...")';
+EXEC dbo.NotifyMissedPunch
+     @EmployeeID = @MissedEmpID,
+     @Date       = '2025-01-16';
+
+------------------------------------------------------------
+PRINT 'Test 3: Non-existing employee (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyMissedPunch
+         @EmployeeID = 999999,
+         @Date       = @MissedDate;
+    PRINT 'Test 3 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 3 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+------------------------------------------------------------
+PRINT 'Test 4: NULL date (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyMissedPunch
+         @EmployeeID = @MissedEmpID,
+         @Date       = NULL;
+    PRINT 'Test 4 UNEXPECTED: no error raised';
+END TRY
+BEGIN CATCH
+    PRINT 'Test 4 expected failure caught: ' + ERROR_MESSAGE();
+END CATCH;
+
+GO
+
+
+
+--OTHER TESTS GO HERE
+-------------------------------------------------
+
+/***** 19) Test RecordMultiplePunches *****/
+PRINT '========================================';
+PRINT 'TEST 19: RecordMultiplePunches';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 190)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (190, 'Multi', 'Punch', 'multipunch@test.com', GETDATE(), 1, 1, 1);
+GO
+
+-- Test 1: Valid clock IN (first punch of the day)
+DECLARE @TestDate DATETIME = '2025-01-25 09:00:00';
+PRINT 'Test 1: First clock IN of the day';
+BEGIN TRY
+    EXEC dbo.RecordMultiplePunches 
+        @EmployeeID = 190,
+        @ClockInOutTime = @TestDate,
+        @Type = 'IN';
+    SELECT entry_time, exit_time FROM dbo.Attendance 
+    WHERE employee_id = 190 AND CAST(DATEADD(HOUR, 0, @TestDate) AS DATE) = CAST(@TestDate AS DATE);
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid clock OUT (lunch break start)
+PRINT 'Test 2: Clock OUT for lunch break';
+BEGIN TRY
+    EXEC dbo.RecordMultiplePunches 
+        @EmployeeID = 190,
+        @ClockInOutTime = '2025-01-25 12:00:00',
+        @Type = 'OUT';
+    SELECT entry_time, exit_time, duration FROM dbo.Attendance 
+    WHERE employee_id = 190 AND CAST(DATEADD(HOUR, 0, '2025-01-25') AS DATE) = '2025-01-25';
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Invalid type (should fail)
+PRINT 'Test 3: Invalid punch type (should fail)';
+BEGIN TRY
+    EXEC dbo.RecordMultiplePunches 
+        @EmployeeID = 190,
+        @ClockInOutTime = '2025-01-25 13:00:00',
+        @Type = 'BREAK';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 19 complete.';
+PRINT '';
+GO
+
+/***** 20) Test SubmitCorrectionRequest *****/
+PRINT '========================================';
+PRINT 'TEST 20: SubmitCorrectionRequest';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 200)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
+    VALUES (200, 'Correction', 'Requester', 'correction@test.com', GETDATE(), 1, 1, 1, 2);
+GO
+
+-- Test 1: Valid correction request for missed punch
+PRINT 'Test 1: Valid missed punch correction';
+BEGIN TRY
+    EXEC dbo.SubmitCorrectionRequest 
+        @EmployeeID = 200,
+        @Date = '2025-01-20',
+        @CorrectionType = 'Missed Punch',
+        @Reason = 'Forgot to clock in due to emergency meeting';
+    SELECT TOP 1 * FROM dbo.AttendanceCorrectionRequest WHERE employee_id = 200 ORDER BY RequestID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid incorrect time correction
+PRINT 'Test 2: Valid incorrect time correction';
+BEGIN TRY
+    EXEC dbo.SubmitCorrectionRequest 
+        @EmployeeID = 200,
+        @Date = '2025-01-21',
+        @CorrectionType = 'Incorrect Time',
+        @Reason = 'System recorded wrong time, actual entry was 9:00 AM';
+    SELECT TOP 2 * FROM dbo.AttendanceCorrectionRequest WHERE employee_id = 200 ORDER BY RequestID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Future date (should fail)
+PRINT 'Test 3: Future date correction (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitCorrectionRequest 
+        @EmployeeID = 200,
+        @Date = '2025-12-31',
+        @CorrectionType = 'Missed Punch',
+        @Reason = 'Future correction attempt';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Empty reason (should fail)
+PRINT 'Test 4: Empty reason (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitCorrectionRequest 
+        @EmployeeID = 200,
+        @Date = '2025-01-22',
+        @CorrectionType = 'Missed Punch',
+        @Reason = '   ';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 20 complete.';
+PRINT '';
+GO
+
+/***** 21) Test ViewRequestStatus *****/
+PRINT '========================================';
+PRINT 'TEST 21: ViewRequestStatus';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup: Create employee with various requests
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 210)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (210, 'Status', 'Viewer', 'status@test.com', GETDATE(), 1, 1, 1);
+GO
+
+-- Create sample leave request
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2101)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2101, 'Vacation', 'Test leave type');
+GO
+
+DELETE FROM dbo.LeaveRequest WHERE employee_id = 210;
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (21001, 210, 2101, 'Test leave', 5, 'PENDING');
+GO
+
+-- Create correction request
+DELETE FROM dbo.AttendanceCorrectionRequest WHERE employee_id = 210;
+INSERT INTO dbo.AttendanceCorrectionRequest (RequestID, employee_id, date, correction_type, reason, status, recommended_by)
+VALUES (21002, 210, '2025-01-15', 'Missed Punch', 'Test correction', 'PENDING', NULL);
+GO
+
+-- Test 1: View all request statuses
+PRINT 'Test 1: View all request statuses for employee';
+BEGIN TRY
+    EXEC dbo.ViewRequestStatus @EmployeeID = 210;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Invalid employee (should fail)
+PRINT 'Test 2: Invalid employee (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewRequestStatus @EmployeeID = 999999;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 21 complete.';
+PRINT '';
+GO
+
+/***** 22) Test AttachLeaveDocuments *****/
+PRINT '========================================';
+PRINT 'TEST 22: AttachLeaveDocuments';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 220)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (220, 'Document', 'Attacher', 'docattach@test.com', GETDATE(), 1, 1, 1);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2201)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2201, 'Sick', 'Sick leave type');
+GO
+
+DELETE FROM dbo.LeaveDocument WHERE leave_request_id IN (22001, 22002);
+DELETE FROM dbo.LeaveRequest WHERE RequestID IN (22001, 22002);
+GO
+
+-- Create pending leave request
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (22001, 220, 2201, 'Medical leave', 3, 'PENDING');
+GO
+
+-- Create approved leave request for negative test
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status, approval_timing)
+VALUES (22002, 220, 2201, 'Already approved', 2, 'APPROVED', GETDATE());
+GO
+
+-- Test 1: Valid document attachment to pending request
+PRINT 'Test 1: Attach document to pending leave request';
+BEGIN TRY
+    EXEC dbo.AttachLeaveDocuments 
+        @LeaveRequestID = 22001,
+        @FilePath = '/documents/medical_cert_22001.pdf';
+    SELECT * FROM dbo.LeaveDocument WHERE leave_request_id = 22001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Attach multiple documents
+PRINT 'Test 2: Attach additional document';
+BEGIN TRY
+    EXEC dbo.AttachLeaveDocuments 
+        @LeaveRequestID = 22001,
+        @FilePath = '/documents/doctor_note_22001.pdf';
+    SELECT * FROM dbo.LeaveDocument WHERE leave_request_id = 22001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Attach to approved request (should fail)
+PRINT 'Test 3: Attach to approved request (should fail)';
+BEGIN TRY
+    EXEC dbo.AttachLeaveDocuments 
+        @LeaveRequestID = 22002,
+        @FilePath = '/documents/should_fail.pdf';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Empty file path (should fail)
+PRINT 'Test 4: Empty file path (should fail)';
+BEGIN TRY
+    EXEC dbo.AttachLeaveDocuments 
+        @LeaveRequestID = 22001,
+        @FilePath = '   ';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 22 complete.';
+PRINT '';
+GO
+
+/***** 24) Test ModifyLeaveRequest *****/
+PRINT '========================================';
+PRINT 'TEST 24: ModifyLeaveRequest';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 240)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (240, 'Leave', 'Modifier', 'modifier@test.com', GETDATE(), 1, 1, 1);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2401)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2401, 'Vacation', 'Vacation leave');
+GO
+
+DELETE FROM dbo.LeaveRequest WHERE RequestID IN (24001, 24002);
+GO
+
+-- Create pending leave request
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (24001, 240, 2401, 'Original vacation plan', 7, 'PENDING');
+GO
+
+-- Create approved leave request for negative test
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status, approval_timing)
+VALUES (24002, 240, 2401, 'Approved leave', 5, 'APPROVED', GETDATE());
+GO
+
+-- Test 1: Valid modification of pending request
+PRINT 'Test 1: Modify pending leave request dates and reason';
+BEGIN TRY
+    EXEC dbo.ModifyLeaveRequest 
+        @LeaveRequestID = 24001,
+        @StartDate = '2025-07-01',
+        @EndDate = '2025-07-10',
+        @Reason = 'Extended vacation to include family event';
+    SELECT RequestID, justification, duration, status FROM dbo.LeaveRequest WHERE RequestID = 24001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Modify only dates (keep original reason)
+PRINT 'Test 2: Modify only dates';
+BEGIN TRY
+    EXEC dbo.ModifyLeaveRequest 
+        @LeaveRequestID = 24001,
+        @StartDate = '2025-07-05',
+        @EndDate = '2025-07-10',
+        @Reason = '';
+    SELECT RequestID, justification, duration FROM dbo.LeaveRequest WHERE RequestID = 24001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Invalid dates (start after end) - should fail
+PRINT 'Test 3: Invalid dates (should fail)';
+BEGIN TRY
+    EXEC dbo.ModifyLeaveRequest 
+        @LeaveRequestID = 24001,
+        @StartDate = '2025-07-15',
+        @EndDate = '2025-07-10',
+        @Reason = 'Invalid modification';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Modify approved request (should fail)
+PRINT 'Test 4: Modify approved request (should fail)';
+BEGIN TRY
+    EXEC dbo.ModifyLeaveRequest 
+        @LeaveRequestID = 24002,
+        @StartDate = '2025-08-01',
+        @EndDate = '2025-08-05',
+        @Reason = 'Should not work';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 24 complete.';
+PRINT '';
+GO
+
+/***** 25) Test CancelLeaveRequest *****/
+PRINT '========================================';
+PRINT 'TEST 25: CancelLeaveRequest';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 250)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (250, 'Leave', 'Canceller', 'canceller@test.com', GETDATE(), 1, 1, 1);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2501)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2501, 'Personal', 'Personal leave');
+GO
+
+DELETE FROM dbo.LeaveRequest WHERE RequestID IN (25001, 25002, 25003);
+GO
+
+-- Create pending request
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (25001, 250, 2501, 'Personal matters', 3, 'PENDING');
+GO
+
+-- Create approved request for negative test
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status, approval_timing)
+VALUES (25002, 250, 2501, 'Approved leave', 2, 'APPROVED', GETDATE());
+GO
+
+-- Create already cancelled request
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (25003, 250, 2501, 'Already cancelled', 1, 'CANCELLED');
+GO
+
+-- Test 1: Valid cancellation of pending request
+PRINT 'Test 1: Cancel pending leave request';
+BEGIN TRY
+    EXEC dbo.CancelLeaveRequest @LeaveRequestID = 25001;
+    SELECT RequestID, status FROM dbo.LeaveRequest WHERE RequestID = 25001;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Cancel approved request (should fail)
+PRINT 'Test 2: Cancel approved request (should fail)';
+BEGIN TRY
+    EXEC dbo.CancelLeaveRequest @LeaveRequestID = 25002;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Cancel already cancelled request (should fail)
+PRINT 'Test 3: Cancel already cancelled request (should fail)';
+BEGIN TRY
+    EXEC dbo.CancelLeaveRequest @LeaveRequestID = 25003;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Non-existent request (should fail)
+PRINT 'Test 4: Non-existent request (should fail)';
+BEGIN TRY
+    EXEC dbo.CancelLeaveRequest @LeaveRequestID = 999999;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 25 complete.';
+PRINT '';
+GO
+
+/***** 26) Test ViewLeaveBalance *****/
+PRINT '========================================';
+PRINT 'TEST 26: ViewLeaveBalance';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 260)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (260, 'Balance', 'Viewer', 'balance@test.com', GETDATE(), 1, 1, 1);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2601)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2601, 'Annual', 'Annual leave');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2602)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2602, 'Sick', 'Sick leave');
+GO
+
+DELETE FROM dbo.LeaveEntitlement WHERE employee_id = 260;
+DELETE FROM dbo.LeaveRequest WHERE employee_id = 260;
+GO
+
+-- Setup entitlements
+INSERT INTO dbo.LeaveEntitlement (employee_id, leave_type_id, entitlement)
+VALUES 
+    (260, 2601, 20),
+    (260, 2602, 10);
+GO
+
+-- Add some approved leave
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status, approval_timing)
+VALUES 
+    (26001, 260, 2601, 'Summer vacation', 5, 'APPROVED', GETDATE()),
+    (26002, 260, 2602, 'Flu', 2, 'APPROVED', GETDATE());
+GO
+
+-- Test 1: View leave balance with some usage
+PRINT 'Test 1: View leave balance';
+BEGIN TRY
+    EXEC dbo.ViewLeaveBalance @EmployeeID = 260;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Invalid employee (should fail)
+PRINT 'Test 2: Invalid employee (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewLeaveBalance @EmployeeID = 999999;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 26 complete.';
+PRINT '';
+GO
+
+/***** 27) Test ViewLeaveHistory *****/
+PRINT '========================================';
+PRINT 'TEST 27: ViewLeaveHistory';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup (using data from previous test)
+-- Test 1: View leave history
+PRINT 'Test 1: View leave history';
+BEGIN TRY
+    EXEC dbo.ViewLeaveHistory @EmployeeID = 260;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Invalid employee (should fail)
+PRINT 'Test 2: Invalid employee (should fail)';
+BEGIN TRY
+    EXEC dbo.ViewLeaveHistory @EmployeeID = 999999;
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 27 complete.';
+PRINT '';
+GO
+
+/***** 28) Test SubmitLeaveAfterAbsence *****/
+PRINT '========================================';
+PRINT 'TEST 28: SubmitLeaveAfterAbsence';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 280)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id, manager_id)
+    VALUES (280, 'Retro', 'Leave', 'retroleave@test.com', GETDATE(), 1, 1, 1, 2);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2801)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2801, 'Emergency', 'Emergency leave');
+GO
+
+-- Test 1: Valid retroactive leave (within 30 days)
+PRINT 'Test 1: Valid retroactive leave request';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveAfterAbsence 
+        @EmployeeID = 280,
+        @LeaveTypeID = 2801,
+        @StartDate = '2025-11-29',
+        @EndDate = '2025-12-22',
+        @Reason = 'Family emergency, could not submit in advance';
+    SELECT TOP 1 * FROM dbo.LeaveRequest WHERE employee_id = 280 ORDER BY RequestID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Valid single day retroactive leave
+PRINT 'Test 2: Valid single day retroactive leave';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveAfterAbsence 
+        @EmployeeID = 280,
+        @LeaveTypeID = 2801,
+        @StartDate = '2025-11-30',
+        @EndDate = '2025-11-30',
+        @Reason = 'Sudden illness';
+    SELECT TOP 1 * FROM dbo.LeaveRequest WHERE employee_id = 280 ORDER BY RequestID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Too old (should fail)
+PRINT 'Test 3: Retroactive leave too old (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveAfterAbsence 
+        @EmployeeID = 280,
+        @LeaveTypeID = 2801,
+        @StartDate = '2024-01-01',
+        @EndDate = '2024-01-02',
+        @Reason = 'Too old';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Future date (should fail)
+PRINT 'Test 4: Future date for retroactive leave (should fail)';
+BEGIN TRY
+    EXEC dbo.SubmitLeaveAfterAbsence 
+        @EmployeeID = 280,
+        @LeaveTypeID = 2801,
+        @StartDate = '2025-12-01',
+        @EndDate = '2025-12-05',
+        @Reason = 'Future leave';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 28 complete.';
+PRINT '';
+GO
+
+/***** 29) Test NotifyLeaveStatusChange *****/
+PRINT '========================================';
+PRINT 'TEST 29: NotifyLeaveStatusChange';
+PRINT '========================================';
+
+USE MILESTONE2;
+GO
+
+-- Setup
+IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = 290)
+    INSERT INTO dbo.Employee (EmployeeID, first_name, last_name, email, hire_date, is_active, department_id, position_id)
+    VALUES (290, 'Notif', 'Receiver', 'notif@test.com', GETDATE(), 1, 1, 1);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Leave WHERE LeaveID = 2901)
+    INSERT INTO dbo.Leave (LeaveID, leave_type, leave_description)
+    VALUES (2901, 'Vacation', 'Vacation leave');
+GO
+
+DELETE FROM dbo.LeaveRequest WHERE RequestID = 29001;
+INSERT INTO dbo.LeaveRequest (RequestID, employee_id, leave_id, justification, duration, status)
+VALUES (29001, 290, 2901, 'Test notification', 5, 'PENDING');
+GO
+
+-- Test 1: Notify APPROVED status
+PRINT 'Test 1: Notify leave approved';
+BEGIN TRY
+    EXEC dbo.NotifyLeaveStatusChange 
+        @EmployeeID = 290,
+        @RequestID = 29001,
+        @Status = 'APPROVED';
+    SELECT TOP 1 * FROM dbo.Notification ORDER BY NotificationID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 2: Notify REJECTED status
+PRINT 'Test 2: Notify leave rejected';
+BEGIN TRY
+    EXEC dbo.NotifyLeaveStatusChange 
+        @EmployeeID = 290,
+        @RequestID = 29001,
+        @Status = 'REJECTED';
+    SELECT TOP 1 * FROM dbo.Notification ORDER BY NotificationID DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'Error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 3: Invalid status (should fail)
+PRINT 'Test 3: Invalid status (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyLeaveStatusChange 
+        @EmployeeID = 290,
+        @RequestID = 29001,
+        @Status = 'INVALID_STATUS';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+-- Test 4: Wrong employee for request (should fail)
+PRINT 'Test 4: Wrong employee for request (should fail)';
+BEGIN TRY
+    EXEC dbo.NotifyLeaveStatusChange 
+        @EmployeeID = 999,
+        @RequestID = 29001,
+        @Status = 'APPROVED';
+END TRY
+BEGIN CATCH
+    SELECT 'Expected error' AS TestResult, ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+PRINT 'Test 29 complete.';
+PRINT '';
+GO

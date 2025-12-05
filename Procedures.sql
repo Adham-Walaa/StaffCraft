@@ -10486,7 +10486,7 @@ BEGIN
         e.hire_date,
         e.is_active,
         d.department_name,
-        p.title AS position_title
+        p.position_title
     FROM dbo.Employee e
     LEFT JOIN dbo.Department d ON e.department_id = d.DepartmentID
     LEFT JOIN dbo.Position   p ON e.position_id   = p.PositionID

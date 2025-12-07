@@ -1,0 +1,56 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "Employee Information";
+}
+
+<h1>Employee Information</h1>
+
+<div>
+    <h4>@Model.FullName</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">Employee ID</dt>
+        <dd class="col-sm-10">@Model.EmployeeId</dd>
+
+        <dt class="col-sm-2">Full Name</dt>
+        <dd class="col-sm-10">@Model.FullName</dd>
+
+        <dt class="col-sm-2">Email</dt>
+        <dd class="col-sm-10">@Model.Email</dd>
+
+        <dt class="col-sm-2">Phone</dt>
+        <dd class="col-sm-10">@Model.Phone</dd>
+
+        <dt class="col-sm-2">National ID</dt>
+        <dd class="col-sm-10">@Model.NationalId</dd>
+
+        <dt class="col-sm-2">Date of Birth</dt>
+        <dd class="col-sm-10">@Model.DateOfBirth?.ToShortDateString()</dd>
+
+        <dt class="col-sm-2">Country of Birth</dt>
+        <dd class="col-sm-10">@Model.CountryOfBirth</dd>
+
+        <dt class="col-sm-2">Address</dt>
+        <dd class="col-sm-10">@Model.Address</dd>
+
+        <dt class="col-sm-2">Employment Status</dt>
+        <dd class="col-sm-10">@Model.EmploymentStatus</dd>
+
+        <dt class="col-sm-2">Account Status</dt>
+        <dd class="col-sm-10">@Model.AccountStatus</dd>
+
+        <dt class="col-sm-2">Hire Date</dt>
+        <dd class="col-sm-10">@Model.HireDate?.ToShortDateString()</dd>
+
+        <dt class="col-sm-2">Is Active</dt>
+        <dd class="col-sm-10">@(Model.IsActive == true ? "Yes" : "No")</dd>
+
+        <dt class="col-sm-2">Profile Completion</dt>
+        <dd class="col-sm-10">@Model.ProfileCompletionPercentage%</dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.EmployeeId">Edit</a> |
+    <a asp-action="Index">Back to List</a>
+</div>

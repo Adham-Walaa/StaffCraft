@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
+using System.Data;  // Added for SqlDbType and ParameterDirection
 using WebAppSystem.Models;
 
 namespace WebAppSystem.Controllers
@@ -23,6 +25,30 @@ namespace WebAppSystem.Controllers
         {
             var milestone2Context = _context.Employees.Include(e => e.Contract).Include(e => e.Department).Include(e => e.Manager).Include(e => e.Paygrade).Include(e => e.Position).Include(e => e.SalaryType).Include(e => e.Taxform);
             return View(await milestone2Context.ToListAsync());
+        }
+
+        // GET: Employees/ViewEmployeeInfo/5
+        // Uses the ViewEmployeeInfo stored procedure
+        public async Task<IActionResult> ViewEmployeeInfo(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employees = await _context.Employees
+                .FromSqlRaw("EXEC dbo.ViewEmployeeInfo @EmployeeID", new SqlParameter("@EmployeeID", id.Value))
+                .AsNoTracking()
+                .ToListAsync();
+
+            var employee = employees.FirstOrDefault();
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
         }
 
         // GET: Employees/Details/5
@@ -68,14 +94,73 @@ namespace WebAppSystem.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,ProfileImage,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
+        public async Task<IActionResult> Create([Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
         {
             if (ModelState.IsValid)
             {
-                _context.Add(employee);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                try
+                {
+                    // Construct FullName from FirstName and LastName (required by SP)
+                    string fullName = $"{employee.FirstName ?? ""} {employee.LastName ?? ""}".Trim();
+                    if (string.IsNullOrEmpty(fullName))
+                    {
+                        ModelState.AddModelError("", "Full name is required.");
+                        return View(employee);
+                    }
+
+                    // Prepare SP parameters (map Employee model to SP inputs)
+                    var parameters = new[]
+                    {
+                        new SqlParameter("@FullName", fullName),
+                        new SqlParameter("@NationalID", employee.NationalId ?? (object)DBNull.Value),
+                        new SqlParameter("@DateOfBirth", employee.DateOfBirth ?? (object)DBNull.Value),
+                        new SqlParameter("@CountryOfBirth", employee.CountryOfBirth ?? (object)DBNull.Value),
+                        new SqlParameter("@Phone", employee.Phone ?? (object)DBNull.Value),
+                        new SqlParameter("@Email", employee.Email ?? (object)DBNull.Value),  // Required
+                        new SqlParameter("@Address", employee.Address ?? (object)DBNull.Value),
+                        new SqlParameter("@EmergencyContactName", employee.EmergencyContactName ?? (object)DBNull.Value),
+                        new SqlParameter("@EmergencyContactPhone", employee.EmergencyContactPhone ?? (object)DBNull.Value),
+                        new SqlParameter("@Relationship", employee.Relationship ?? (object)DBNull.Value),
+                        new SqlParameter("@Biography", employee.Biography ?? (object)DBNull.Value),
+                        new SqlParameter("@EmploymentProgress", employee.EmploymentProgress ?? (object)DBNull.Value),
+                        new SqlParameter("@AccountStatus", employee.AccountStatus ?? (object)DBNull.Value),
+                        new SqlParameter("@EmploymentStatus", employee.EmploymentStatus ?? (object)DBNull.Value),
+                        new SqlParameter("@HireDate", employee.HireDate ?? (object)DBNull.Value),
+                        new SqlParameter("@IsActive", employee.IsActive ?? true),  // Default to 1 if null
+                        new SqlParameter("@ProfileCompletion", employee.ProfileCompletionPercentage ?? (object)DBNull.Value),
+                        new SqlParameter("@DepartmentID", employee.DepartmentId ?? (object)DBNull.Value),
+                        new SqlParameter("@PositionID", employee.PositionId ?? (object)DBNull.Value),
+                        new SqlParameter("@ManagerID", employee.ManagerId ?? (object)DBNull.Value),
+                        new SqlParameter("@ContractID", employee.ContractId ?? (object)DBNull.Value),
+                        new SqlParameter("@TaxFormID", employee.TaxformId ?? (object)DBNull.Value),
+                        new SqlParameter("@SalaryTypeID", employee.SalaryTypeId ?? (object)DBNull.Value),
+                        new SqlParameter("@PayGrade", employee.Paygrade?.GradeName ?? (object)DBNull.Value),  // Assuming PayGrade has GradeName
+                        new SqlParameter("@NewEmployeeID", SqlDbType.Int) { Direction = ParameterDirection.Output }
+                    };
+
+                    // Execute the stored procedure
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "EXEC dbo.AddEmployee @FullName, @NationalID, @DateOfBirth, @CountryOfBirth, @Phone, @Email, @Address, " +
+                        "@EmergencyContactName, @EmergencyContactPhone, @Relationship, @Biography, @EmploymentProgress, " +
+                        "@AccountStatus, @EmploymentStatus, @HireDate, @IsActive, @ProfileCompletion, @DepartmentID, " +
+                        "@PositionID, @ManagerID, @ContractID, @TaxFormID, @SalaryTypeID, @PayGrade, @NewEmployeeID OUTPUT",
+                        parameters
+                    );
+
+                    // Retrieve the new EmployeeID from output parameter
+                    var newEmployeeId = (int)parameters[parameters.Length - 1].Value;
+
+                    // Redirect to Details view for the new employee
+                    return RedirectToAction("Details", new { id = newEmployeeId });
+                }
+                catch (System.Exception ex)
+                {
+                    // Handle SP errors (e.g., validation failures)
+                    ModelState.AddModelError("", $"Error creating employee: {ex.Message}");
+                }
             }
+
+            // Repopulate ViewData for dropdowns if validation fails
             ViewData["ContractId"] = new SelectList(_context.Contracts, "ContractId", "ContractId", employee.ContractId);
             ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentId", employee.DepartmentId);
             ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "EmployeeId", employee.ManagerId);
@@ -114,7 +199,7 @@ namespace WebAppSystem.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,ProfileImage,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
+        public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
         {
             if (id != employee.EmployeeId)
             {

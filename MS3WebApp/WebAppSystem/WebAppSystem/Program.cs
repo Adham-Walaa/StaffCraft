@@ -1,7 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using WebAppSystem.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Register DbContext with dependency injection
+builder.Services.AddDbContext<Milestone2Context>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Server=(localdb)\\MSSQLLocalDB;Database=MILESTONE2;Trusted_Connection=True;"));
 
 var app = builder.Build();
 
@@ -24,6 +32,5 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
 
 app.Run();

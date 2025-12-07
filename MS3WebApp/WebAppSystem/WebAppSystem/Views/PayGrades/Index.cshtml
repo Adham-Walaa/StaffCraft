@@ -1,0 +1,47 @@
+﻿@model IEnumerable<WebAppSystem.Models.PayGrade>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.GradeName)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.MinSalary)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.MaxSalary)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.GradeName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.MinSalary)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.MaxSalary)
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.PayGradeId">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.PayGradeId">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.PayGradeId">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

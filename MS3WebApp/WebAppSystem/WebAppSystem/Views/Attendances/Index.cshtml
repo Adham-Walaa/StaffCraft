@@ -1,0 +1,71 @@
+﻿@model IEnumerable<WebAppSystem.Models.Attendance>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.EntryTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ExitTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Duration)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.LoginMethod)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.LogoutMethod)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Employee)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Exception)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.EntryTime)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.ExitTime)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Duration)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.LoginMethod)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.LogoutMethod)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Exception.ExceptionId)
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.AttendanceId">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.AttendanceId">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.AttendanceId">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

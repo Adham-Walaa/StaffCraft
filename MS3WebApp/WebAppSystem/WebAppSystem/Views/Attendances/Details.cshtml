@@ -1,0 +1,60 @@
+﻿@model WebAppSystem.Models.Attendance
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<h1>Details</h1>
+
+<div>
+    <h4>Attendance</h4>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.EntryTime)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.EntryTime)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.ExitTime)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.ExitTime)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Duration)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Duration)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.LoginMethod)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.LoginMethod)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.LogoutMethod)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.LogoutMethod)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Employee)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Employee.EmployeeId)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Exception)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Exception.ExceptionId)
+        </dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Edit" asp-route-id="@Model?.AttendanceId">Edit</a> |
+    <a asp-action="Index">Back to List</a>
+</div>

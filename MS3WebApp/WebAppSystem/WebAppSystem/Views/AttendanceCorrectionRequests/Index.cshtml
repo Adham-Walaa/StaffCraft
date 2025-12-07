@@ -1,0 +1,65 @@
+﻿@model IEnumerable<WebAppSystem.Models.AttendanceCorrectionRequest>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Date)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.CorrectionType)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Reason)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Status)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Employee)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.RecommendedByNavigation)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Date)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.CorrectionType)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Reason)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Status)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.RecommendedByNavigation.EmployeeId)
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.RequestId">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.RequestId">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.RequestId">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

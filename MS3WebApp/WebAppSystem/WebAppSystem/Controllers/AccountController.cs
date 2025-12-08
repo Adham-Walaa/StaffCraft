@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using WebAppSystem.Models;
+using SystemException = System.Exception;
 
 namespace WebAppSystem.Controllers
 {
@@ -70,7 +71,7 @@ namespace WebAppSystem.Controllers
                         ModelState.AddModelError("", "Invalid email or account is inactive.");
                     }
                 }
-                catch (Exception ex)
+                catch (SystemException ex)
                 {
                     ModelState.AddModelError("", $"Login failed: {ex.Message}");
                 }
@@ -169,7 +170,7 @@ namespace WebAppSystem.Controllers
                     TempData["SuccessMessage"] = "Account created successfully! You can now login.";
                     return RedirectToAction("Login");
                 }
-                catch (Exception ex)
+                catch (SystemException ex)
                 {
                     ModelState.AddModelError("", $"Registration failed: {ex.Message}");
                 }
@@ -192,7 +193,7 @@ namespace WebAppSystem.Controllers
 
             ViewBag.Roles = GetRolesSelectList();
             ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName");
-            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionName");
+            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionTitle");
             ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "FullName");
 
             return View();
@@ -282,7 +283,7 @@ namespace WebAppSystem.Controllers
                     TempData["SuccessMessage"] = "Employee account created successfully!";
                     return RedirectToAction("Details", "Employees", new { id = newEmployeeId });
                 }
-                catch (Exception ex)
+                catch (SystemException ex)
                 {
                     ModelState.AddModelError("", $"Employee creation failed: {ex.Message}");
                 }
@@ -315,7 +316,7 @@ namespace WebAppSystem.Controllers
         {
             ViewBag.Roles = GetRolesSelectList();
             ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", departmentId);
-            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionName", positionId);
+            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionTitle", positionId);
             ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", managerId);
         }
     }

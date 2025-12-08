@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using System.Data;  // Added for SqlDbType and ParameterDirection
 using WebAppSystem.Models;
+using SystemException = System.Exception;
 
 namespace WebAppSystem.Controllers
 {
@@ -370,7 +371,7 @@ namespace WebAppSystem.Controllers
                 TempData["SuccessMessage"] = "Profile updated successfully!";
                 return RedirectToAction(nameof(MyProfile));
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 ModelState.AddModelError("", $"Error updating profile: {ex.Message}");
             }
@@ -408,7 +409,7 @@ namespace WebAppSystem.Controllers
                 ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
                 return View(teamMembers);
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error retrieving team: {ex.Message}";
                 return RedirectToAction("Index", "Home");
@@ -492,7 +493,7 @@ namespace WebAppSystem.Controllers
 
                 TempData["SuccessMessage"] = $"Role {action.ToLower()}ed successfully!";
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error managing role: {ex.Message}";
             }
@@ -554,7 +555,7 @@ namespace WebAppSystem.Controllers
                     TempData["ErrorMessage"] = "Employee not found.";
                 }
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error updating profile completion: {ex.Message}";
             }

@@ -19,11 +19,11 @@
                         </div>
                         <div class="col-auto">
                             <select id="daysBefore" name="daysBefore" class="form-select">
-                                <option value="7" @(ViewBag.DaysBefore == 7 ? "selected" : "")>7 days</option>
-                                <option value="14" @(ViewBag.DaysBefore == 14 ? "selected" : "")>14 days</option>
-                                <option value="30" @(ViewBag.DaysBefore == 30 ? "selected" : "")>30 days</option>
-                                <option value="60" @(ViewBag.DaysBefore == 60 ? "selected" : "")>60 days</option>
-                                <option value="90" @(ViewBag.DaysBefore == 90 ? "selected" : "")>90 days</option>
+                                <option value="7" selected="@(ViewBag.DaysBefore == 7)">7 days</option>
+                                <option value="14" selected="@(ViewBag.DaysBefore == 14)">14 days</option>
+                                <option value="30" selected="@(ViewBag.DaysBefore == 30)">30 days</option>
+                                <option value="60" selected="@(ViewBag.DaysBefore == 60)">60 days</option>
+                                <option value="90" selected="@(ViewBag.DaysBefore == 90)">90 days</option>
                             </select>
                         </div>
                         <div class="col-auto">

@@ -2,7 +2,151 @@
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container mt-5">
+    @if (Context.Session.GetInt32("UserId") != null)
+    {
+        <div class="text-center mb-5">
+            <h1 class="display-4">Welcome, @Context.Session.GetString("UserName")!</h1>
+            <p class="lead">HR Management System - Component 1: Employee Profiles & Contracts Management</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Employee Management Card -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-people text-primary"></i> Employee Management
+                        </h5>
+                        <p class="card-text">View, manage, and update employee profiles and information.</p>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> View all employees</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Update personal details</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Manage emergency contacts</li>
+                        </ul>
+                        <a asp-controller="Employees" asp-action="Index" class="btn btn-primary">
+                            <i class="bi bi-arrow-right"></i> Go to Employees
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contract Management Card -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-file-earmark-text text-success"></i> Contract Management
+                        </h5>
+                        <p class="card-text">Create, renew, and manage employment contracts.</p>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> View active contracts</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Track expiring contracts</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Renew contracts</li>
+                        </ul>
+                        <a asp-controller="Contracts" asp-action="Index" class="btn btn-success">
+                            <i class="bi bi-arrow-right"></i> Go to Contracts
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+            {
+                <!-- My Team Card -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-info">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill text-info"></i> My Team
+                            </h5>
+                            <p class="card-text">View and manage your direct reports.</p>
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
+                                <i class="bi bi-arrow-right"></i> View My Team
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+            {
+                <!-- HR Quick Actions Card -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-lightning text-warning"></i> HR Quick Actions
+                            </h5>
+                            <p class="card-text">Common HR administrative tasks.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Contracts" asp-action="Create" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus-circle"></i> Create Contract
+                                </a>
+                                <a asp-controller="Contracts" asp-action="ExpiringContracts" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-exclamation-triangle"></i> Expiring Contracts
+                                </a>
+                                <a asp-controller="Contracts" asp-action="ActiveContracts" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-check-circle"></i> Active Contracts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+            {
+                <!-- System Admin Card -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-danger">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-shield-check text-danger"></i> System Administration
+                            </h5>
+                            <p class="card-text">Manage system roles and employee accounts.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Account" asp-action="CreateEmployee" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-person-plus"></i> Create Employee Account
+                                </a>
+                                <a asp-controller="Employees" asp-action="Index" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-people"></i> View All Employees
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- My Profile Card -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-person-circle text-secondary"></i> My Profile
+                        </h5>
+                        <p class="card-text">View and update your personal information.</p>
+                        <a asp-controller="Employees" asp-action="MyProfile" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> View Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <h1 class="display-4">Welcome to HR Management System</h1>
+            <p class="lead">Employee Profiles & Contracts Management</p>
+            <hr class="my-4" />
+            <p>Please login to access the system.</p>
+            <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg">
+                <i class="bi bi-box-arrow-in-right"></i> Login
+            </a>
+            <a asp-controller="Account" asp-action="Register" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-person-plus"></i> Register
+            </a>
+        </div>
+    }
 </div>

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using WebAppSystem.Models;
+using SystemException = System.Exception;
 
 namespace WebAppSystem.Controllers
 {
@@ -95,7 +96,7 @@ namespace WebAppSystem.Controllers
                 TempData["SuccessMessage"] = "Contract created successfully!";
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 ModelState.AddModelError("", $"Error creating contract: {ex.Message}");
             }
@@ -255,7 +256,7 @@ namespace WebAppSystem.Controllers
                 TempData["SuccessMessage"] = "Contract renewed successfully!";
                 return RedirectToAction(nameof(Details), new { id });
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error renewing contract: {ex.Message}";
                 return RedirectToAction(nameof(RenewContract), new { id });
@@ -283,7 +284,7 @@ namespace WebAppSystem.Controllers
 
                 return View(activeContracts);
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error retrieving active contracts: {ex.Message}";
                 return RedirectToAction(nameof(Index));
@@ -313,7 +314,7 @@ namespace WebAppSystem.Controllers
                 ViewBag.DaysBefore = daysBefore;
                 return View(expiringContracts);
             }
-            catch (Exception ex)
+            catch (SystemException ex)
             {
                 TempData["ErrorMessage"] = $"Error retrieving expiring contracts: {ex.Message}";
                 return RedirectToAction(nameof(Index));

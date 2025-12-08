@@ -38,7 +38,7 @@
                                         <td>@employee.Email</td>
                                         <td>@employee.Phone</td>
                                         <td>@(employee.Department?.DepartmentName ?? "N/A")</td>
-                                        <td>@(employee.Position?.PositionName ?? "N/A")</td>
+                                        <td>@(employee.Position?.PositionTitle ?? "N/A")</td>
                                         <td>@(employee.HireDate?.ToString("yyyy-MM-dd") ?? "N/A")</td>
                                         <td>
                                             @if (employee.EmploymentStatus == "Active")

@@ -174,7 +174,15 @@
         </dd>
     </dl>
 </div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.EmployeeId">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+<div class="mt-4">
+    <a asp-action="Edit" asp-route-id="@Model?.EmployeeId" class="btn btn-warning">Edit</a>
+    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+    {
+        <a asp-action="ManageRoles" asp-route-id="@Model?.EmployeeId" class="btn btn-info text-white">Manage Roles</a>
+    }
+    @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+    {
+        <a asp-action="UpdateProfileCompletion" asp-route-id="@Model?.EmployeeId" class="btn btn-primary">Update Profile Completion</a>
+    }
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
 </div>

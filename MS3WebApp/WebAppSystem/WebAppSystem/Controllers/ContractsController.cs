@@ -183,13 +183,39 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var contract = await _context.Contracts.FindAsync(id);
-            if (contract != null)
+            try
             {
-                _context.Contracts.Remove(contract);
+                var contract = await _context.Contracts.FindAsync(id);
+                if (contract != null)
+                {
+                    // First, remove the foreign key reference from employees
+                    var employeesWithContract = await _context.Employees
+                        .Where(e => e.ContractId == id)
+                        .ToListAsync();
+
+                    foreach (var employee in employeesWithContract)
+                    {
+                        employee.ContractId = null;
+                    }
+
+                    // Now we can safely delete the contract
+                    _context.Contracts.Remove(contract);
+                    
+                    // Save all changes in a single transaction
+                    await _context.SaveChangesAsync();
+
+                    TempData["SuccessMessage"] = "Contract deleted successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Contract not found.";
+                }
+            }
+            catch (SystemException ex)
+            {
+                TempData["ErrorMessage"] = $"Error deleting contract: {ex.Message}";
             }
 
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 

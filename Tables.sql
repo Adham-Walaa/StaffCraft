@@ -40,7 +40,8 @@ CREATE TABLE Employee
     manager_id int,
     salary_type_id int,
     contract_id int,
-    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
+    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100),
+    password_hash varchar(255) NULL
 );
 
 CREATE TABLE HRAdministrator

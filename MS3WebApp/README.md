@@ -3,6 +3,8 @@
 ## Overview
 This ASP.NET Core MVC web application implements **Component 1 (Employee Profiles & Contracts Management)** and the **General Component (Bonus)** as specified in Milestone 3 requirements.
 
+> ⚠️ **IMPORTANT**: This is an educational prototype. See [SECURITY_NOTES.md](SECURITY_NOTES.md) for security limitations and production requirements.
+
 ## Features Implemented
 
 ### General Component (Bonus)

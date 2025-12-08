@@ -40,8 +40,15 @@ namespace WebAppSystem.Controllers
 
                     if (employee != null && employee.IsActive == true)
                     {
-                        // In a real application, you would verify password hash here
-                        // For now, we'll use a simple check (this should be improved with proper password hashing)
+                        // IMPORTANT SECURITY NOTE (Educational Prototype):
+                        // This implementation does NOT include password verification for simplicity
+                        // In a production application, you MUST:
+                        // 1. Store hashed passwords (using bcrypt, PBKDF2, or Argon2)
+                        // 2. Verify password hash matches input
+                        // 3. Implement account lockout after failed attempts
+                        // 4. Use ASP.NET Core Identity or similar security framework
+                        // For this educational project demonstrating stored procedures and UI,
+                        // password verification is simplified
                         
                         // Store user information in session
                         HttpContext.Session.SetInt32("UserId", employee.EmployeeId);

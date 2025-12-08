@@ -1,0 +1,97 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "Edit Profile";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-10">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h2 class="mb-0"><i class="bi bi-pencil-square"></i> Edit My Profile</h2>
+            </div>
+            <div class="card-body">
+                <form asp-action="EditProfile" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="EmployeeId" />
+
+                    <h5 class="mb-3 text-primary">Contact Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Email" class="form-label"></label>
+                                <input asp-for="Email" class="form-control" placeholder="Enter your email" />
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Phone" class="form-label"></label>
+                                <input asp-for="Phone" class="form-control" placeholder="Enter your phone number" />
+                                <span asp-validation-for="Phone" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label asp-for="Address" class="form-label"></label>
+                        <textarea asp-for="Address" class="form-control" rows="2" placeholder="Enter your address"></textarea>
+                        <span asp-validation-for="Address" class="text-danger"></span>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <h5 class="mb-3 text-primary">Emergency Contact</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label asp-for="EmergencyContactName" class="form-label"></label>
+                                <input asp-for="EmergencyContactName" class="form-control" placeholder="Contact name" />
+                                <span asp-validation-for="EmergencyContactName" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label asp-for="EmergencyContactPhone" class="form-label"></label>
+                                <input asp-for="EmergencyContactPhone" class="form-control" placeholder="Contact phone" />
+                                <span asp-validation-for="EmergencyContactPhone" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label asp-for="Relationship" class="form-label"></label>
+                                <input asp-for="Relationship" class="form-control" placeholder="Relationship" />
+                                <span asp-validation-for="Relationship" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <h5 class="mb-3 text-primary">Additional Information</h5>
+                    <div class="form-group mb-3">
+                        <label asp-for="Biography" class="form-label"></label>
+                        <textarea asp-for="Biography" class="form-control" rows="4" placeholder="Tell us about yourself..."></textarea>
+                        <span asp-validation-for="Biography" class="text-danger"></span>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-warning text-dark btn-lg">
+                            <i class="bi bi-check-circle"></i> Save Changes
+                        </button>
+                        <a asp-action="MyProfile" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

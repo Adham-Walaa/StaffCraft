@@ -1,0 +1,77 @@
+@model WebAppSystem.Models.Contract
+
+@{
+    ViewData["Title"] = "Renew Contract";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h2 class="mb-0"><i class="bi bi-arrow-repeat"></i> Renew Contract</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5 class="text-primary">Current Contract Details</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4">Contract ID:</dt>
+                        <dd class="col-sm-8">@Model.ContractId</dd>
+
+                        <dt class="col-sm-4">Contract Type:</dt>
+                        <dd class="col-sm-8">@Model.Type</dd>
+
+                        <dt class="col-sm-4">Current Start Date:</dt>
+                        <dd class="col-sm-8">@(Model.StartDate?.ToString("yyyy-MM-dd") ?? "N/A")</dd>
+
+                        <dt class="col-sm-4">Current End Date:</dt>
+                        <dd class="col-sm-8">
+                            <strong class="text-danger">@(Model.EndDate?.ToString("yyyy-MM-dd") ?? "N/A")</strong>
+                        </dd>
+
+                        <dt class="col-sm-4">Contract Status:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-info">@Model.CurrentState</span>
+                        </dd>
+
+                        @if (Model.Employees.Any())
+                        {
+                            <dt class="col-sm-4">Employee:</dt>
+                            <dd class="col-sm-8">@Model.Employees.First().FullName</dd>
+                        }
+                    </dl>
+                </div>
+
+                <hr class="my-4" />
+
+                <form asp-action="RenewContract" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <input type="hidden" name="id" value="@Model.ContractId" />
+
+                    <div class="form-group mb-3">
+                        <label for="newEndDate" class="form-label">New End Date</label>
+                        <input type="date" id="newEndDate" name="newEndDate" class="form-control" 
+                               value="@DateTime.Now.AddYears(1).ToString("yyyy-MM-dd")" required />
+                        <small class="form-text text-muted">Select the new expiration date for this contract</small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> This will extend the contract end date. Make sure the new date is later than the current end date.
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-warning text-dark btn-lg">
+                            <i class="bi bi-check-circle"></i> Renew Contract
+                        </button>
+                        <a asp-action="Details" asp-route-id="@Model.ContractId" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

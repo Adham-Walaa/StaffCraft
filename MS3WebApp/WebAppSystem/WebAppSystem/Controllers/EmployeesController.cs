@@ -332,7 +332,7 @@ namespace WebAppSystem.Controllers
         // POST: Employees/EditProfile
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography")] Employee employee)
+        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography")] Employee employee, IFormFile ProfileImageFile)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null || userId.Value != employee.EmployeeId)
@@ -357,7 +357,7 @@ namespace WebAppSystem.Controllers
                     parameters
                 );
 
-                // Update emergency contact information directly
+                // Update emergency contact information, biography, and profile image directly
                 var existingEmployee = await _context.Employees.FindAsync(employee.EmployeeId);
                 if (existingEmployee != null)
                 {
@@ -365,6 +365,49 @@ namespace WebAppSystem.Controllers
                     existingEmployee.EmergencyContactPhone = employee.EmergencyContactPhone;
                     existingEmployee.Relationship = employee.Relationship;
                     existingEmployee.Biography = employee.Biography;
+                    
+                    // Handle profile image upload
+                    if (ProfileImageFile != null && ProfileImageFile.Length > 0)
+                    {
+                        // Validate file size (2MB max)
+                        if (ProfileImageFile.Length > 2 * 1024 * 1024)
+                        {
+                            ModelState.AddModelError("", "Profile image must be less than 2MB.");
+                            return View(employee);
+                        }
+
+                        // Validate file type
+                        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+                        var extension = Path.GetExtension(ProfileImageFile.FileName).ToLowerInvariant();
+                        if (!allowedExtensions.Contains(extension))
+                        {
+                            ModelState.AddModelError("", "Only JPG, PNG, and GIF images are allowed.");
+                            return View(employee);
+                        }
+
+                        // Convert file to byte array
+                        using (var memoryStream = new MemoryStream())
+                        {
+                            await ProfileImageFile.CopyToAsync(memoryStream);
+                            existingEmployee.ProfileImage = memoryStream.ToArray();
+                        }
+                    }
+                    
+                    // Calculate profile completion percentage
+                    int completedFields = 0;
+                    int totalFields = 8;
+                    
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.Email)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.Phone)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.Address)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.EmergencyContactName)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.EmergencyContactPhone)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.Relationship)) completedFields++;
+                    if (!string.IsNullOrWhiteSpace(existingEmployee.Biography)) completedFields++;
+                    if (existingEmployee.ProfileImage != null && existingEmployee.ProfileImage.Length > 0) completedFields++;
+                    
+                    existingEmployee.ProfileCompletionPercentage = (int)Math.Round((completedFields / (double)totalFields) * 100);
+                    
                     await _context.SaveChangesAsync();
                 }
 
@@ -402,9 +445,38 @@ namespace WebAppSystem.Controllers
                 // Use GetTeamByManager stored procedure
                 var teamMembers = await _context.Employees
                     .FromSqlRaw("EXEC dbo.GetTeamByManager @ManagerID", new SqlParameter("@ManagerID", userId.Value))
-                    .Include(e => e.Department)
-                    .Include(e => e.Position)
                     .ToListAsync();
+
+                // Load related data separately to avoid composability issues
+                var departmentIds = teamMembers.Where(e => e.DepartmentId.HasValue).Select(e => e.DepartmentId.Value).Distinct().ToList();
+                var positionIds = teamMembers.Where(e => e.PositionId.HasValue).Select(e => e.PositionId.Value).Distinct().ToList();
+                
+                // Load all required departments in a single query
+                var departments = await _context.Departments
+                    .Where(d => departmentIds.Contains(d.DepartmentId))
+                    .ToListAsync();
+                
+                // Load all required positions in a single query
+                var positions = await _context.Positions
+                    .Where(p => positionIds.Contains(p.PositionId))
+                    .ToListAsync();
+
+                // Create lookup dictionaries for efficient matching
+                var departmentLookup = departments.ToDictionary(d => d.DepartmentId);
+                var positionLookup = positions.ToDictionary(p => p.PositionId);
+
+                // Manually set navigation properties
+                foreach (var employee in teamMembers)
+                {
+                    if (employee.DepartmentId.HasValue && departmentLookup.ContainsKey(employee.DepartmentId.Value))
+                    {
+                        employee.Department = departmentLookup[employee.DepartmentId.Value];
+                    }
+                    if (employee.PositionId.HasValue && positionLookup.ContainsKey(employee.PositionId.Value))
+                    {
+                        employee.Position = positionLookup[employee.PositionId.Value];
+                    }
+                }
 
                 ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
                 return View(teamMembers);

@@ -229,6 +229,22 @@ body {
 .table {
   color: var(--dark-text-primary);
   border-color: var(--dark-border);
+  background-color: var(--dark-bg-secondary);
+  width: 100%;
+}
+
+.table thead th {
+  border-bottom: 2px solid var(--dark-border);
+  background-color: var(--dark-bg-tertiary);
+}
+
+.table tbody td {
+  border-color: var(--dark-border);
+}
+
+.table th,
+.table td {
+  border-color: var(--dark-border);
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) > * {
@@ -470,6 +486,10 @@ hr {
 .table-responsive {
   border: 1px solid var(--dark-border);
   border-radius: 6px;
+  background-color: var(--dark-bg-secondary);
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Form validation */

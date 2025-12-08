@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using WebAppSystem.Models;
 using SystemException = System.Exception;
 
@@ -15,6 +17,28 @@ namespace WebAppSystem.Controllers
         public AccountController(Milestone2Context context)
         {
             _context = context;
+        }
+
+        // Hash password using SHA256
+        private string HashPassword(string password)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                StringBuilder builder = new StringBuilder();
+                foreach (byte b in bytes)
+                {
+                    builder.Append(b.ToString("x2"));
+                }
+                return builder.ToString();
+            }
+        }
+
+        // Verify password
+        private bool VerifyPassword(string password, string hash)
+        {
+            string hashOfInput = HashPassword(password);
+            return StringComparer.OrdinalIgnoreCase.Compare(hashOfInput, hash) == 0;
         }
 
         // GET: Account/Login
@@ -40,15 +64,12 @@ namespace WebAppSystem.Controllers
 
                     if (employee != null && employee.IsActive == true)
                     {
-                        // IMPORTANT SECURITY NOTE (Educational Prototype):
-                        // This implementation does NOT include password verification for simplicity
-                        // In a production application, you MUST:
-                        // 1. Store hashed passwords (using bcrypt, PBKDF2, or Argon2)
-                        // 2. Verify password hash matches input
-                        // 3. Implement account lockout after failed attempts
-                        // 4. Use ASP.NET Core Identity or similar security framework
-                        // For this educational project demonstrating stored procedures and UI,
-                        // password verification is simplified
+                        // Verify password
+                        if (string.IsNullOrEmpty(employee.PasswordHash) || !VerifyPassword(model.Password, employee.PasswordHash))
+                        {
+                            ModelState.AddModelError("", "Invalid email or password.");
+                            return View(model);
+                        }
                         
                         // Store user information in session
                         HttpContext.Session.SetInt32("UserId", employee.EmployeeId);
@@ -160,6 +181,14 @@ namespace WebAppSystem.Controllers
                     );
 
                     var newEmployeeId = (int)parameters[parameters.Length - 1].Value;
+
+                    // Set the password hash
+                    var employee = await _context.Employees.FindAsync(newEmployeeId);
+                    if (employee != null)
+                    {
+                        employee.PasswordHash = HashPassword(model.Password);
+                        await _context.SaveChangesAsync();
+                    }
 
                     // Assign role using ManageUserAccounts stored procedure
                     var roleParams = new[]
@@ -273,6 +302,14 @@ namespace WebAppSystem.Controllers
                     );
 
                     var newEmployeeId = (int)parameters[parameters.Length - 1].Value;
+
+                    // Set the password hash
+                    var employee = await _context.Employees.FindAsync(newEmployeeId);
+                    if (employee != null)
+                    {
+                        employee.PasswordHash = HashPassword(model.Password);
+                        await _context.SaveChangesAsync();
+                    }
 
                     // Assign role
                     var roleParams = new[]

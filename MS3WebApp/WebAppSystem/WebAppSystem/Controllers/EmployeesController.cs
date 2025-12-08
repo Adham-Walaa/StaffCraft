@@ -448,28 +448,33 @@ namespace WebAppSystem.Controllers
                     .ToListAsync();
 
                 // Load related data separately to avoid composability issues
-                var employeeIds = teamMembers.Select(e => e.EmployeeId).ToList();
+                var departmentIds = teamMembers.Where(e => e.DepartmentId.HasValue).Select(e => e.DepartmentId.Value).Distinct().ToList();
+                var positionIds = teamMembers.Where(e => e.PositionId.HasValue).Select(e => e.PositionId.Value).Distinct().ToList();
                 
-                // Load departments
+                // Load all required departments in a single query
                 var departments = await _context.Departments
-                    .Where(d => employeeIds.Contains(d.Employees.Select(e => e.EmployeeId).FirstOrDefault()))
+                    .Where(d => departmentIds.Contains(d.DepartmentId))
                     .ToListAsync();
                 
-                // Load positions
+                // Load all required positions in a single query
                 var positions = await _context.Positions
-                    .Where(p => employeeIds.Contains(p.Employees.Select(e => e.EmployeeId).FirstOrDefault()))
+                    .Where(p => positionIds.Contains(p.PositionId))
                     .ToListAsync();
+
+                // Create lookup dictionaries for efficient matching
+                var departmentLookup = departments.ToDictionary(d => d.DepartmentId);
+                var positionLookup = positions.ToDictionary(p => p.PositionId);
 
                 // Manually set navigation properties
                 foreach (var employee in teamMembers)
                 {
-                    if (employee.DepartmentId.HasValue)
+                    if (employee.DepartmentId.HasValue && departmentLookup.ContainsKey(employee.DepartmentId.Value))
                     {
-                        employee.Department = await _context.Departments.FindAsync(employee.DepartmentId.Value);
+                        employee.Department = departmentLookup[employee.DepartmentId.Value];
                     }
-                    if (employee.PositionId.HasValue)
+                    if (employee.PositionId.HasValue && positionLookup.ContainsKey(employee.PositionId.Value))
                     {
-                        employee.Position = await _context.Positions.FindAsync(employee.PositionId.Value);
+                        employee.Position = positionLookup[employee.PositionId.Value];
                     }
                 }
 

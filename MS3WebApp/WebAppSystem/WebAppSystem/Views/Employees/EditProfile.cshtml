@@ -60,7 +60,8 @@
                                      aria-valuenow="@(Model.ProfileCompletionPercentage ?? 0)" 
                                      aria-valuemin="0" 
                                      aria-valuemax="100"
-                                     id="profileCompletionBar">
+                                     id="profileCompletionBar"
+                                     data-has-image="@((Model.ProfileImage != null && Model.ProfileImage.Length > 0).ToString().ToLower())">
                                     <span id="profileCompletionText">@(Model.ProfileCompletionPercentage ?? 0)%</span>
                                 </div>
                             </div>
@@ -151,6 +152,19 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     
     <script>
+        // Constants for profile completion calculation
+        const PROFILE_FIELDS = {
+            'Email': 'Email',
+            'Phone': 'Phone', 
+            'Address': 'Address',
+            'EmergencyContactName': 'EmergencyContactName',
+            'EmergencyContactPhone': 'EmergencyContactPhone',
+            'Relationship': 'Relationship',
+            'Biography': 'Biography',
+            'ProfileImage': 'ProfileImageFile'
+        };
+        const TOTAL_FIELDS = Object.keys(PROFILE_FIELDS).length;
+
         // Profile image preview
         function previewImage(input) {
             if (input.files && input.files[0]) {
@@ -167,30 +181,31 @@
 
         // Calculate profile completion percentage
         function updateProfileCompletion() {
-            var totalFields = 8; // Total number of fields we're tracking
             var completedFields = 0;
             
-            // Check each field
-            if (document.getElementById('Email').value.trim() !== '') completedFields++;
-            if (document.getElementById('Phone').value.trim() !== '') completedFields++;
-            if (document.getElementById('Address').value.trim() !== '') completedFields++;
-            if (document.getElementById('EmergencyContactName').value.trim() !== '') completedFields++;
-            if (document.getElementById('EmergencyContactPhone').value.trim() !== '') completedFields++;
-            if (document.getElementById('Relationship').value.trim() !== '') completedFields++;
-            if (document.getElementById('Biography').value.trim() !== '') completedFields++;
+            // Check text fields
+            for (var fieldName in PROFILE_FIELDS) {
+                if (fieldName === 'ProfileImage') continue;
+                
+                var fieldId = PROFILE_FIELDS[fieldName];
+                var element = document.getElementById(fieldId);
+                if (element && element.value.trim() !== '') {
+                    completedFields++;
+                }
+            }
             
             // Check if profile image exists or is being uploaded
+            var progressBar = document.getElementById('profileCompletionBar');
+            var hasImage = progressBar.getAttribute('data-has-image') === 'true';
             var profileImageFile = document.getElementById('ProfileImageFile');
-            var hasImage = @((Model.ProfileImage != null && Model.ProfileImage.Length > 0) ? "true" : "false");
             if (hasImage || (profileImageFile && profileImageFile.files.length > 0)) {
                 completedFields++;
             }
             
             // Calculate percentage
-            var percentage = Math.round((completedFields / totalFields) * 100);
+            var percentage = Math.round((completedFields / TOTAL_FIELDS) * 100);
             
             // Update progress bar
-            var progressBar = document.getElementById('profileCompletionBar');
             var progressText = document.getElementById('profileCompletionText');
             
             progressBar.style.width = percentage + '%';

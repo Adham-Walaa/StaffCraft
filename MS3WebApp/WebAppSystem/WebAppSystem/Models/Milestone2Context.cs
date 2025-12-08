@@ -643,6 +643,10 @@ public partial class Milestone2Context : DbContext
             entity.Property(e => e.PositionId).HasColumnName("position_id");
             entity.Property(e => e.ProfileCompletionPercentage).HasColumnName("profile_completion_percentage");
             entity.Property(e => e.ProfileImage).HasColumnName("profile_image");
+            entity.Property(e => e.PasswordHash)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("password_hash");
             entity.Property(e => e.Relationship)
                 .HasMaxLength(50)
                 .IsUnicode(false)

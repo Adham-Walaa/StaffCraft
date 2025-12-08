@@ -1,51 +1,69 @@
-﻿@model WebAppSystem.Models.Contract
-
-@{
-    ViewData["Title"] = "Create";
+﻿@{
+    ViewData["Title"] = "Create Contract";
 }
 
-<h1>Create</h1>
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-file-earmark-text"></i> Create Employment Contract</h2>
+                <p class="mb-0 small">HR Administrator - Create new employment contract</p>
+            </div>
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="employeeId" class="form-label">Employee</label>
+                        <select id="employeeId" name="employeeId" class="form-select" asp-items="ViewBag.EmployeeId" required>
+                            <option value="">-- Select Employee --</option>
+                        </select>
+                        <small class="form-text text-muted">Select an employee without an active contract</small>
+                    </div>
 
-<h4>Contract</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Create">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="ContractId" class="control-label"></label>
-                <input asp-for="ContractId" class="form-control" />
-                <span asp-validation-for="ContractId" class="text-danger"></span>
+                    <div class="form-group mb-3">
+                        <label for="type" class="form-label">Contract Type</label>
+                        <select id="type" name="type" class="form-select" required>
+                            <option value="">-- Select Contract Type --</option>
+                            <option value="Full-Time">Full-Time</option>
+                            <option value="Part-Time">Part-Time</option>
+                            <option value="Consultant">Consultant</option>
+                            <option value="Internship">Internship</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="startDate" class="form-label">Start Date</label>
+                                <input type="date" id="startDate" name="startDate" class="form-control" required />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="endDate" class="form-label">End Date</label>
+                                <input type="date" id="endDate" name="endDate" class="form-control" required />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> The contract will be automatically set to "Active" status upon creation.
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle"></i> Create Contract
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Contracts List
+                        </a>
+                    </div>
+                </form>
             </div>
-            <div class="form-group">
-                <label asp-for="Type" class="control-label"></label>
-                <input asp-for="Type" class="form-control" />
-                <span asp-validation-for="Type" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="StartDate" class="control-label"></label>
-                <input asp-for="StartDate" class="form-control" />
-                <span asp-validation-for="StartDate" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="EndDate" class="control-label"></label>
-                <input asp-for="EndDate" class="form-control" />
-                <span asp-validation-for="EndDate" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="CurrentState" class="control-label"></label>
-                <input asp-for="CurrentState" class="form-control" />
-                <span asp-validation-for="CurrentState" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="Create" class="btn btn-primary" />
-            </div>
-        </form>
+        </div>
     </div>
-</div>
-
-<div>
-    <a asp-action="Index">Back to List</a>
 </div>
 
 @section Scripts {

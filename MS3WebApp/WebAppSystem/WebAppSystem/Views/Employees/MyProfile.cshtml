@@ -1,0 +1,113 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-person-circle"></i> My Profile</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="text-primary mb-3">Personal Information</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Full Name:</dt>
+                            <dd class="col-sm-8">@Model.FullName</dd>
+
+                            <dt class="col-sm-4">Email:</dt>
+                            <dd class="col-sm-8">@Model.Email</dd>
+
+                            <dt class="col-sm-4">Phone:</dt>
+                            <dd class="col-sm-8">@Model.Phone</dd>
+
+                            <dt class="col-sm-4">Address:</dt>
+                            <dd class="col-sm-8">@Model.Address</dd>
+
+                            <dt class="col-sm-4">Date of Birth:</dt>
+                            <dd class="col-sm-8">@(Model.DateOfBirth?.ToString("yyyy-MM-dd") ?? "N/A")</dd>
+
+                            <dt class="col-sm-4">Country of Birth:</dt>
+                            <dd class="col-sm-8">@Model.CountryOfBirth</dd>
+                        </dl>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h5 class="text-primary mb-3">Employment Information</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Employee ID:</dt>
+                            <dd class="col-sm-8">@Model.EmployeeId</dd>
+
+                            <dt class="col-sm-4">Department:</dt>
+                            <dd class="col-sm-8">@(Model.Department?.DepartmentName ?? "N/A")</dd>
+
+                            <dt class="col-sm-4">Position:</dt>
+                            <dd class="col-sm-8">@(Model.Position?.PositionName ?? "N/A")</dd>
+
+                            <dt class="col-sm-4">Hire Date:</dt>
+                            <dd class="col-sm-8">@(Model.HireDate?.ToString("yyyy-MM-dd") ?? "N/A")</dd>
+
+                            <dt class="col-sm-4">Employment Status:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-success">@Model.EmploymentStatus</span>
+                            </dd>
+
+                            <dt class="col-sm-4">Profile Completion:</dt>
+                            <dd class="col-sm-8">
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style="width: @(Model.ProfileCompletionPercentage ?? 0)%" 
+                                         aria-valuenow="@(Model.ProfileCompletionPercentage ?? 0)" aria-valuemin="0" aria-valuemax="100">
+                                        @(Model.ProfileCompletionPercentage ?? 0)%
+                                    </div>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <h5 class="text-primary mb-3">Emergency Contact</h5>
+                        <dl class="row">
+                            <dt class="col-sm-2">Contact Name:</dt>
+                            <dd class="col-sm-4">@Model.EmergencyContactName</dd>
+
+                            <dt class="col-sm-2">Contact Phone:</dt>
+                            <dd class="col-sm-4">@Model.EmergencyContactPhone</dd>
+
+                            <dt class="col-sm-2">Relationship:</dt>
+                            <dd class="col-sm-4">@Model.Relationship</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.Biography))
+                {
+                    <hr class="my-4" />
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h5 class="text-primary mb-3">Biography</h5>
+                            <p>@Model.Biography</p>
+                        </div>
+                    </div>
+                }
+
+                <hr class="my-4" />
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a asp-action="EditProfile" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </a>
+                    <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary">
+                        <i class="bi bi-house"></i> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

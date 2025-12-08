@@ -280,5 +280,286 @@ namespace WebAppSystem.Controllers
         {
             return _context.Employees.Any(e => e.EmployeeId == id);
         }
+
+        // GET: Employees/MyProfile
+        public async Task<IActionResult> MyProfile()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view your profile.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Contract)
+                .Include(e => e.Department)
+                .Include(e => e.Manager)
+                .Include(e => e.Paygrade)
+                .Include(e => e.Position)
+                .Include(e => e.SalaryType)
+                .Include(e => e.Taxform)
+                .FirstOrDefaultAsync(m => m.EmployeeId == userId.Value);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
+        }
+
+        // GET: Employees/EditProfile
+        public async Task<IActionResult> EditProfile()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to edit your profile.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            var employee = await _context.Employees.FindAsync(userId.Value);
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
+        }
+
+        // POST: Employees/EditProfile
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography")] Employee employee)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null || userId.Value != employee.EmployeeId)
+            {
+                TempData["ErrorMessage"] = "You can only edit your own profile.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            try
+            {
+                // Use UpdateEmployeeInfo stored procedure
+                var parameters = new[]
+                {
+                    new SqlParameter("@EmployeeID", employee.EmployeeId),
+                    new SqlParameter("@Email", employee.Email ?? (object)DBNull.Value),
+                    new SqlParameter("@Phone", employee.Phone ?? (object)DBNull.Value),
+                    new SqlParameter("@Address", employee.Address ?? (object)DBNull.Value)
+                };
+
+                await _context.Database.ExecuteSqlRawAsync(
+                    "EXEC dbo.UpdateEmployeeInfo @EmployeeID, NULL, @Email, @Phone, @Address",
+                    parameters
+                );
+
+                // Update emergency contact information directly
+                var existingEmployee = await _context.Employees.FindAsync(employee.EmployeeId);
+                if (existingEmployee != null)
+                {
+                    existingEmployee.EmergencyContactName = employee.EmergencyContactName;
+                    existingEmployee.EmergencyContactPhone = employee.EmergencyContactPhone;
+                    existingEmployee.Relationship = employee.Relationship;
+                    existingEmployee.Biography = employee.Biography;
+                    await _context.SaveChangesAsync();
+                }
+
+                TempData["SuccessMessage"] = "Profile updated successfully!";
+                return RedirectToAction(nameof(MyProfile));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Error updating profile: {ex.Message}");
+            }
+
+            return View(employee);
+        }
+
+        // GET: Employees/MyTeam (For Line Managers)
+        public async Task<IActionResult> MyTeam()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view your team.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only Line Managers can view team details.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                // Use GetTeamByManager stored procedure
+                var teamMembers = await _context.Employees
+                    .FromSqlRaw("EXEC dbo.GetTeamByManager @ManagerID", new SqlParameter("@ManagerID", userId.Value))
+                    .Include(e => e.Department)
+                    .Include(e => e.Position)
+                    .ToListAsync();
+
+                ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
+                return View(teamMembers);
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error retrieving team: {ex.Message}";
+                return RedirectToAction("Index", "Home");
+            }
+        }
+
+        // GET: Employees/ManageRoles (For System Administrators)
+        public async Task<IActionResult> ManageRoles(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage roles.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            // Get current roles
+            var currentRoles = await _context.Database
+                .SqlQueryRaw<string>(
+                    @"SELECT r.role_name 
+                    FROM EmployeeRole er 
+                    JOIN Role r ON er.role_id = r.RoleID 
+                    WHERE er.employee_id = @p0",
+                    id.Value)
+                .ToListAsync();
+
+            ViewBag.CurrentRoles = currentRoles;
+            ViewBag.AvailableRoles = new SelectList(new[]
+            {
+                "System Administrator",
+                "HR Administrator",
+                "Line Manager",
+                "Payroll Officer",
+                "Payroll Specialist",
+                "Employee"
+            });
+
+            return View(employee);
+        }
+
+        // POST: Employees/AssignRole
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignRole(int employeeId, string role, string action)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage roles.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var parameters = new[]
+                {
+                    new SqlParameter("@UserID", employeeId),
+                    new SqlParameter("@Role", role),
+                    new SqlParameter("@Action", action)
+                };
+
+                await _context.Database.ExecuteSqlRawAsync(
+                    "EXEC dbo.ManageUserAccounts @UserID, @Role, @Action",
+                    parameters
+                );
+
+                TempData["SuccessMessage"] = $"Role {action.ToLower()}ed successfully!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error managing role: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(ManageRoles), new { id = employeeId });
+        }
+
+        // GET: Employees/UpdateProfileCompletion (For HR Admins)
+        public async Task<IActionResult> UpdateProfileCompletion(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can manage profile completion.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
+        }
+
+        // POST: Employees/UpdateProfileCompletion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProfileCompletion(int id, int profileCompletionPercentage)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can manage profile completion.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee != null)
+                {
+                    employee.ProfileCompletionPercentage = profileCompletionPercentage;
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Profile completion updated successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating profile completion: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
     }
 }

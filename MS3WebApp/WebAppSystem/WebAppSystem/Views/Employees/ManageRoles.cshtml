@@ -1,0 +1,107 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "Manage Roles";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-10">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h2 class="mb-0"><i class="bi bi-shield-check"></i> Manage System Roles</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5 class="text-primary">Employee Information</h5>
+                    <dl class="row">
+                        <dt class="col-sm-3">Employee ID:</dt>
+                        <dd class="col-sm-9">@Model.EmployeeId</dd>
+
+                        <dt class="col-sm-3">Full Name:</dt>
+                        <dd class="col-sm-9">@Model.FullName</dd>
+
+                        <dt class="col-sm-3">Email:</dt>
+                        <dd class="col-sm-9">@Model.Email</dd>
+
+                        <dt class="col-sm-3">Department:</dt>
+                        <dd class="col-sm-9">@(Model.Department?.DepartmentName ?? "N/A")</dd>
+
+                        <dt class="col-sm-3">Position:</dt>
+                        <dd class="col-sm-9">@(Model.Position?.PositionName ?? "N/A")</dd>
+                    </dl>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="mb-4">
+                    <h5 class="text-primary">Current Roles</h5>
+                    @if (ViewBag.CurrentRoles != null && ViewBag.CurrentRoles.Count > 0)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            @foreach (var role in ViewBag.CurrentRoles)
+                            {
+                                <div class="badge bg-success fs-6 p-2">
+                                    <i class="bi bi-check-circle"></i> @role
+                                    <form asp-action="AssignRole" method="post" style="display:inline;">
+                                        <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+                                        <input type="hidden" name="role" value="@role" />
+                                        <input type="hidden" name="action" value="REMOVE" />
+                                        <button type="submit" class="btn btn-sm btn-link text-white p-0 ms-2" 
+                                                onclick="return confirm('Are you sure you want to remove this role?');">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No roles assigned yet.
+                        </div>
+                    }
+                </div>
+
+                <hr class="my-4" />
+
+                <div>
+                    <h5 class="text-primary">Assign New Role</h5>
+                    <form asp-action="AssignRole" method="post" class="row g-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+                        <input type="hidden" name="action" value="ADD" />
+
+                        <div class="col-md-8">
+                            <label for="role" class="form-label">Select Role</label>
+                            <select id="role" name="role" class="form-select" required>
+                                <option value="">-- Select a Role --</option>
+                                @foreach (var item in (SelectList)ViewBag.AvailableRoles)
+                                {
+                                    <option value="@item.Text">@item.Text</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-plus-circle"></i> Assign Role
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i> View Full Profile
+                    </a>
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Employee List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -241,6 +241,8 @@ body {
 .table thead th {
   border-bottom: 2px solid var(--dark-border);
   background-color: var(--dark-bg-tertiary);
+  color: #ffffff !important;
+  font-weight: 600;           
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) > * {

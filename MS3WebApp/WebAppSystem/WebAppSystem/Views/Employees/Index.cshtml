@@ -1,192 +1,82 @@
 ﻿@model IEnumerable<WebAppSystem.Models.Employee>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Employees";
 }
 
-<h1>Index</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-people"></i> Employees</h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New
+        </a>
+    </div>
+    <hr />
+</div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.FirstName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.LastName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FullName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.NationalId)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.DateOfBirth)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.CountryOfBirth)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Phone)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Email)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Address)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EmergencyContactName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EmergencyContactPhone)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Relationship)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Biography)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ProfileImage)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EmploymentProgress)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.AccountStatus)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EmploymentStatus)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.HireDate)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.IsActive)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ProfileCompletionPercentage)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Contract)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Department)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Manager)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Paygrade)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Position)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.SalaryType)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Taxform)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead>
+            <tr>
+                <th>@Html.DisplayNameFor(model => model.FirstName)</th>
+                <th>@Html.DisplayNameFor(model => model.LastName)</th>
+                <th>@Html.DisplayNameFor(model => model.Email)</th>
+                <th>@Html.DisplayNameFor(model => model.Phone)</th>
+                <th>@Html.DisplayNameFor(model => model.Department)</th>
+                <th>@Html.DisplayNameFor(model => model.Position)</th>
+                <th>@Html.DisplayNameFor(model => model.EmploymentStatus)</th>
+                <th>@Html.DisplayNameFor(model => model.HireDate)</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
 @foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.FirstName)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.LastName)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.FullName)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.NationalId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.DateOfBirth)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.CountryOfBirth)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Phone)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Email)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Address)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EmergencyContactName)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EmergencyContactPhone)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Relationship)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Biography)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.ProfileImage)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EmploymentProgress)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.AccountStatus)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EmploymentStatus)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.HireDate)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.IsActive)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.ProfileCompletionPercentage)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Contract.ContractId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Department.DepartmentId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Manager.EmployeeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Paygrade.PayGradeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Position.PositionId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.SalaryType.SalaryTypeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Taxform.TaxFormId)
-            </td>
-            <td>
-                <a asp-action="ViewEmployeeInfo" asp-route-id="@item.EmployeeId">View Info (SP)</a> |
-                <a asp-action="Edit" asp-route-id="@item.EmployeeId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.EmployeeId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.EmployeeId">Delete</a>
-            </td>
-        </tr>
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.FirstName)</td>
+                <td>@Html.DisplayFor(modelItem => item.LastName)</td>
+                <td>@Html.DisplayFor(modelItem => item.Email)</td>
+                <td>@Html.DisplayFor(modelItem => item.Phone)</td>
+                <td>@(item.Department?.DepartmentId.ToString() ?? "N/A")</td>
+                <td>@(item.Position?.PositionId.ToString() ?? "N/A")</td>
+                <td>@Html.DisplayFor(modelItem => item.EmploymentStatus)</td>
+                <td>@(item.HireDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                <td>
+                    @if (item.IsActive == true)
+                    {
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Active
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger">
+                            <i class="bi bi-x-circle"></i> Inactive
+                        </span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.EmployeeId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@item.EmployeeId" class="btn btn-warning" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@item.EmployeeId" class="btn btn-danger" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No employees found. <a asp-action="Create" class="alert-link">Create the first employee</a>
+    </div>
+}

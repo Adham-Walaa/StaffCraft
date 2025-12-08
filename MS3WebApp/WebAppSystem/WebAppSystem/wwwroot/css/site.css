@@ -233,18 +233,14 @@ body {
   width: 100%;
 }
 
-.table thead th {
-  border-bottom: 2px solid var(--dark-border);
-  background-color: var(--dark-bg-tertiary);
-}
-
-.table tbody td {
-  border-color: var(--dark-border);
-}
-
 .table th,
 .table td {
   border-color: var(--dark-border);
+}
+
+.table thead th {
+  border-bottom: 2px solid var(--dark-border);
+  background-color: var(--dark-bg-tertiary);
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) > * {

@@ -198,10 +198,10 @@ namespace WebAppSystem.Controllers
                         employee.ContractId = null;
                     }
 
-                    await _context.SaveChangesAsync();
-
                     // Now we can safely delete the contract
                     _context.Contracts.Remove(contract);
+                    
+                    // Save all changes in a single transaction
                     await _context.SaveChangesAsync();
 
                     TempData["SuccessMessage"] = "Contract deleted successfully!";

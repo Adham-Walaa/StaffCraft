@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using System.Security.Cryptography;
-using System.Text;
 using WebAppSystem.Models;
 using SystemException = System.Exception;
 
@@ -19,26 +17,34 @@ namespace WebAppSystem.Controllers
             _context = context;
         }
 
-        // Hash password using SHA256
+        // Hash password using BCrypt
         private string HashPassword(string password)
         {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                StringBuilder builder = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    builder.Append(b.ToString("x2"));
-                }
-                return builder.ToString();
-            }
+            return BCrypt.Net.BCrypt.HashPassword(password);
         }
 
         // Verify password
         private bool VerifyPassword(string password, string hash)
         {
-            string hashOfInput = HashPassword(password);
-            return StringComparer.OrdinalIgnoreCase.Compare(hashOfInput, hash) == 0;
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hash);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Set password hash for an employee (extracted method to avoid duplication)
+        private async Task SetEmployeePasswordAsync(int employeeId, string password)
+        {
+            var employee = await _context.Employees.FindAsync(employeeId);
+            if (employee != null)
+            {
+                employee.PasswordHash = HashPassword(password);
+                await _context.SaveChangesAsync();
+            }
         }
 
         // GET: Account/Login
@@ -183,12 +189,7 @@ namespace WebAppSystem.Controllers
                     var newEmployeeId = (int)parameters[parameters.Length - 1].Value;
 
                     // Set the password hash
-                    var employee = await _context.Employees.FindAsync(newEmployeeId);
-                    if (employee != null)
-                    {
-                        employee.PasswordHash = HashPassword(model.Password);
-                        await _context.SaveChangesAsync();
-                    }
+                    await SetEmployeePasswordAsync(newEmployeeId, model.Password);
 
                     // Assign role using ManageUserAccounts stored procedure
                     var roleParams = new[]
@@ -304,12 +305,7 @@ namespace WebAppSystem.Controllers
                     var newEmployeeId = (int)parameters[parameters.Length - 1].Value;
 
                     // Set the password hash
-                    var employee = await _context.Employees.FindAsync(newEmployeeId);
-                    if (employee != null)
-                    {
-                        employee.PasswordHash = HashPassword(model.Password);
-                        await _context.SaveChangesAsync();
-                    }
+                    await SetEmployeePasswordAsync(newEmployeeId, model.Password);
 
                     // Assign role
                     var roleParams = new[]

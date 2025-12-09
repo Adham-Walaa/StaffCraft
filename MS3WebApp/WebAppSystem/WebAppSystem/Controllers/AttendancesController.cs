@@ -378,10 +378,16 @@ namespace WebAppSystem.Controllers
                     
                     syncedCount++;
                 }
-                catch (System.Exception ex)
+                catch (DbUpdateException ex)
                 {
                     record.SyncStatus = "Failed";
-                    record.ErrorMessage = ex.Message;
+                    record.ErrorMessage = $"Database error: {ex.InnerException?.Message ?? ex.Message}";
+                    _context.OfflineAttendanceQueues.Update(record);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    record.SyncStatus = "Failed";
+                    record.ErrorMessage = $"Operation error: {ex.Message}";
                     _context.OfflineAttendanceQueues.Update(record);
                 }
             }

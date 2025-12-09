@@ -79,13 +79,13 @@ namespace WebAppSystem.Controllers
                 return Forbid();
             }
 
-            // Calculate total hours
-            var firstSlotMinutes = (splitShiftConfiguration.FirstSlotEnd.Hour * 60 + splitShiftConfiguration.FirstSlotEnd.Minute) - 
-                                  (splitShiftConfiguration.FirstSlotStart.Hour * 60 + splitShiftConfiguration.FirstSlotStart.Minute);
-            var secondSlotMinutes = (splitShiftConfiguration.SecondSlotEnd.Hour * 60 + splitShiftConfiguration.SecondSlotEnd.Minute) - 
-                                   (splitShiftConfiguration.SecondSlotStart.Hour * 60 + splitShiftConfiguration.SecondSlotStart.Minute);
-            
-            splitShiftConfiguration.TotalHours = (firstSlotMinutes + secondSlotMinutes) / 60.0m;
+            // Calculate total hours using helper method
+            splitShiftConfiguration.TotalHours = CalculateTotalHours(
+                splitShiftConfiguration.FirstSlotStart,
+                splitShiftConfiguration.FirstSlotEnd,
+                splitShiftConfiguration.SecondSlotStart,
+                splitShiftConfiguration.SecondSlotEnd
+            );
             splitShiftConfiguration.CreatedDate = DateTime.Now;
 
             if (ModelState.IsValid)
@@ -136,13 +136,13 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            // Recalculate total hours
-            var firstSlotMinutes = (splitShiftConfiguration.FirstSlotEnd.Hour * 60 + splitShiftConfiguration.FirstSlotEnd.Minute) - 
-                                  (splitShiftConfiguration.FirstSlotStart.Hour * 60 + splitShiftConfiguration.FirstSlotStart.Minute);
-            var secondSlotMinutes = (splitShiftConfiguration.SecondSlotEnd.Hour * 60 + splitShiftConfiguration.SecondSlotEnd.Minute) - 
-                                   (splitShiftConfiguration.SecondSlotStart.Hour * 60 + splitShiftConfiguration.SecondSlotStart.Minute);
-            
-            splitShiftConfiguration.TotalHours = (firstSlotMinutes + secondSlotMinutes) / 60.0m;
+            // Recalculate total hours using helper method
+            splitShiftConfiguration.TotalHours = CalculateTotalHours(
+                splitShiftConfiguration.FirstSlotStart,
+                splitShiftConfiguration.FirstSlotEnd,
+                splitShiftConfiguration.SecondSlotStart,
+                splitShiftConfiguration.SecondSlotEnd
+            );
 
             if (ModelState.IsValid)
             {
@@ -217,6 +217,20 @@ namespace WebAppSystem.Controllers
         private bool SplitShiftConfigurationExists(int id)
         {
             return _context.SplitShiftConfigurations.Any(e => e.ConfigId == id);
+        }
+
+        // Helper method to calculate duration in minutes between two times
+        private int CalculateDurationInMinutes(TimeOnly start, TimeOnly end)
+        {
+            return (end.Hour * 60 + end.Minute) - (start.Hour * 60 + start.Minute);
+        }
+
+        // Helper method to calculate total hours for split shift
+        private decimal CalculateTotalHours(TimeOnly firstStart, TimeOnly firstEnd, TimeOnly secondStart, TimeOnly secondEnd)
+        {
+            var firstSlotMinutes = CalculateDurationInMinutes(firstStart, firstEnd);
+            var secondSlotMinutes = CalculateDurationInMinutes(secondStart, secondEnd);
+            return (firstSlotMinutes + secondSlotMinutes) / 60.0m;
         }
     }
 }

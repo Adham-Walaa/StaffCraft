@@ -159,5 +159,273 @@ namespace WebAppSystem.Controllers
         {
             return _context.ShiftSchedules.Any(e => e.ShiftId == id);
         }
+
+        // GET: ShiftSchedules/CreateShiftType
+        // System Admin creates shift types
+        public IActionResult CreateShiftType()
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+            
+            return View();
+        }
+
+        // POST: ShiftSchedules/CreateShiftType
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateShiftType([Bind("ShiftType,ShiftName,StartTime,EndTime,Description")] ShiftTypeViewModel model)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
+            if (ModelState.IsValid)
+            {
+                // Create a template shift schedule (not assigned to any employee yet)
+                var shiftSchedule = new ShiftSchedule
+                {
+                    ShiftName = model.ShiftName,
+                    ShiftType = model.ShiftType,
+                    StartTime = model.StartTime,
+                    EndTime = model.EndTime,
+                    Status = "Template"
+                };
+
+                _context.Add(shiftSchedule);
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Shift type created successfully!";
+                return RedirectToAction(nameof(Index));
+            }
+            
+            return View(model);
+        }
+
+        // GET: ShiftSchedules/AssignToEmployee
+        // System Admin or Manager assigns shift to employee
+        public IActionResult AssignToEmployee()
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+            {
+                return Forbid();
+            }
+
+            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName");
+            ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                .ToList();
+            
+            return View();
+        }
+
+        // POST: ShiftSchedules/AssignToEmployee
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignToEmployee([Bind("ShiftId,EmployeeId,StartDate,EndDate,ShiftName,ShiftType,StartTime,EndTime")] ShiftAssignmentViewModel model)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+            {
+                return Forbid();
+            }
+
+            if (ModelState.IsValid && model.EmployeeId.HasValue)
+            {
+                // Get template shift if ShiftId is provided
+                ShiftSchedule? template = null;
+                if (model.ShiftId > 0)
+                {
+                    template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
+                }
+
+                var shiftSchedule = new ShiftSchedule
+                {
+                    EmployeeId = model.EmployeeId.Value,
+                    ShiftName = template?.ShiftName ?? model.ShiftName,
+                    ShiftType = template?.ShiftType ?? model.ShiftType,
+                    StartTime = template?.StartTime ?? model.StartTime,
+                    EndTime = template?.EndTime ?? model.EndTime,
+                    StartDate = model.StartDate,
+                    EndDate = model.EndDate,
+                    Status = "Active"
+                };
+
+                _context.Add(shiftSchedule);
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Shift assigned to employee successfully!";
+                return RedirectToAction(nameof(Index));
+            }
+
+            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", model.EmployeeId);
+            ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                .ToList();
+            
+            return View(model);
+        }
+
+        // GET: ShiftSchedules/AssignToDepartment
+        // System Admin or Manager assigns shift to department
+        public IActionResult AssignToDepartment()
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+            {
+                return Forbid();
+            }
+
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName");
+            ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                .ToList();
+            
+            return View();
+        }
+
+        // POST: ShiftSchedules/AssignToDepartment
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignToDepartment([Bind("ShiftId,DepartmentId,StartDate,EndDate")] ShiftAssignmentViewModel model)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+            {
+                return Forbid();
+            }
+
+            if (ModelState.IsValid && model.DepartmentId.HasValue && model.ShiftId > 0)
+            {
+                // Get template shift
+                var template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
+                if (template == null)
+                {
+                    ModelState.AddModelError("", "Invalid shift template selected.");
+                    ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", model.DepartmentId);
+                    ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                        .Where(s => s.Status == "Template")
+                        .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                        .ToList();
+                    return View(model);
+                }
+
+                // Get all employees in the department
+                var employees = await _context.Employees
+                    .Where(e => e.DepartmentId == model.DepartmentId.Value)
+                    .ToListAsync();
+
+                int assignedCount = 0;
+                foreach (var employee in employees)
+                {
+                    var shiftSchedule = new ShiftSchedule
+                    {
+                        EmployeeId = employee.EmployeeId,
+                        ShiftName = template.ShiftName,
+                        ShiftType = template.ShiftType,
+                        StartTime = template.StartTime,
+                        EndTime = template.EndTime,
+                        StartDate = model.StartDate,
+                        EndDate = model.EndDate,
+                        Status = "Active"
+                    };
+
+                    _context.Add(shiftSchedule);
+                    assignedCount++;
+                }
+
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = $"Shift assigned to {assignedCount} employees in the department successfully!";
+                return RedirectToAction(nameof(Index));
+            }
+
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", model.DepartmentId);
+            ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                .ToList();
+            
+            return View(model);
+        }
+
+        // GET: ShiftSchedules/UpdateShiftAssignment/5
+        // System Admin updates shift assignment
+        public async Task<IActionResult> UpdateShiftAssignment(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var shiftSchedule = await _context.ShiftSchedules.FindAsync(id);
+            if (shiftSchedule == null)
+            {
+                return NotFound();
+            }
+
+            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", shiftSchedule.EmployeeId);
+            return View(shiftSchedule);
+        }
+
+        // POST: ShiftSchedules/UpdateShiftAssignment/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateShiftAssignment(int id, [Bind("ShiftId,EmployeeId,StartDate,EndDate,Status,ShiftName,ShiftType,StartTime,EndTime")] ShiftSchedule shiftSchedule)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
+            if (id != shiftSchedule.ShiftId)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    _context.Update(shiftSchedule);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Shift assignment updated successfully!";
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!ShiftScheduleExists(shiftSchedule.ShiftId))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            
+            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", shiftSchedule.EmployeeId);
+            return View(shiftSchedule);
+        }
     }
 }

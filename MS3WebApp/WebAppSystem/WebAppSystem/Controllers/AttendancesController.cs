@@ -273,6 +273,37 @@ namespace WebAppSystem.Controllers
             return View(summary);
         }
 
+        // GET: Attendances/SyncLeaves
+        // System Admin syncs approved leaves with attendance
+        public IActionResult SyncLeaves()
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
+            return View();
+        }
+
+        // POST: Attendances/SyncLeaves
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SyncLeaves(DateTime startDate, DateTime endDate)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
+            var leaveSyncService = new Services.LeaveSyncService(_context);
+            var syncedCount = await leaveSyncService.SyncApprovedLeaves(startDate, endDate);
+
+            TempData["SuccessMessage"] = $"Successfully synced {syncedCount} leave records with attendance system.";
+            return RedirectToAction(nameof(Index));
+        }
+
         // GET: Attendances/SyncOfflineAttendance
         // Sync offline attendance logs
         public async Task<IActionResult> SyncOfflineAttendance()

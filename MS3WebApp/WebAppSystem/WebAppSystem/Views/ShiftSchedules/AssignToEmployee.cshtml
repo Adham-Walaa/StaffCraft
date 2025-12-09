@@ -1,0 +1,90 @@
+@model WebAppSystem.Models.ShiftAssignmentViewModel
+
+@{
+    ViewData["Title"] = "Assign Shift to Employee";
+    var shiftTemplates = ViewData["ShiftTemplates"] as IEnumerable<dynamic>;
+}
+
+<h1>Assign Shift to Employee</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="AssignToEmployee">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EmployeeId" class="control-label">Employee</label>
+                <select asp-for="EmployeeId" class="form-control" asp-items="ViewBag.EmployeeId">
+                    <option value="">-- Select Employee --</option>
+                </select>
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftId" class="control-label">Shift Template (Optional)</label>
+                <select asp-for="ShiftId" class="form-control" id="shiftTemplate">
+                    <option value="0">-- Select Template or Enter Custom Details --</option>
+                    @if (shiftTemplates != null)
+                    {
+                        foreach (var template in shiftTemplates)
+                        {
+                            <option value="@template.ShiftId">@template.Display</option>
+                        }
+                    }
+                </select>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftName" class="control-label">Shift Name</label>
+                <input asp-for="ShiftName" class="form-control" />
+                <span asp-validation-for="ShiftName" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftType" class="control-label">Shift Type</label>
+                <select asp-for="ShiftType" class="form-control">
+                    <option value="">-- Select Type --</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Rotational">Rotational</option>
+                    <option value="Custom">Custom</option>
+                    <option value="Special">Special</option>
+                </select>
+                <span asp-validation-for="ShiftType" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="StartTime" class="control-label">Start Time</label>
+                <input asp-for="StartTime" class="form-control" type="time" />
+                <span asp-validation-for="StartTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EndTime" class="control-label">End Time</label>
+                <input asp-for="EndTime" class="form-control" type="time" />
+                <span asp-validation-for="EndTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="StartDate" class="control-label">Start Date</label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EndDate" class="control-label">End Date</label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Assign Shift" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

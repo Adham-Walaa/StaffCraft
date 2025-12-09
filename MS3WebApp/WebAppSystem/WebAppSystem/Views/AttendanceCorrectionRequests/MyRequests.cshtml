@@ -1,0 +1,59 @@
+@model IEnumerable<WebAppSystem.Models.AttendanceCorrectionRequest>
+
+@{
+    ViewData["Title"] = "My Correction Requests";
+}
+
+<h1>My Attendance Correction Requests</h1>
+
+<p>
+    <a asp-action="SubmitRequest" class="btn btn-primary">Submit New Request</a>
+</p>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Correction Type</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Recommended By</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>@Html.DisplayFor(modelItem => item.Date)</td>
+            <td>@Html.DisplayFor(modelItem => item.CorrectionType)</td>
+            <td>@Html.DisplayFor(modelItem => item.Reason)</td>
+            <td>
+                @if (item.Status == "Pending")
+                {
+                    <span class="badge bg-warning">@item.Status</span>
+                }
+                else if (item.Status == "Approved")
+                {
+                    <span class="badge bg-success">@item.Status</span>
+                }
+                else
+                {
+                    <span class="badge bg-danger">@item.Status</span>
+                }
+            </td>
+            <td>@(item.RecommendedByNavigation?.FullName ?? "N/A")</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@item.RequestId" class="btn btn-sm btn-info">Details</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

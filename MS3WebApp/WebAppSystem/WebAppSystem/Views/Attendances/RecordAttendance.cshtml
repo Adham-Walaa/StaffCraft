@@ -1,0 +1,61 @@
+@model WebAppSystem.Models.Attendance
+
+@{
+    ViewData["Title"] = "Record Attendance";
+}
+
+<h1>Record Attendance</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="RecordAttendance">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EntryTime" class="control-label">Entry Time</label>
+                <input asp-for="EntryTime" class="form-control" type="time" />
+                <span asp-validation-for="EntryTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ExitTime" class="control-label">Exit Time</label>
+                <input asp-for="ExitTime" class="form-control" type="time" />
+                <span asp-validation-for="ExitTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="LoginMethod" class="control-label">Login Method</label>
+                <select asp-for="LoginMethod" class="form-control">
+                    <option value="">-- Select Method --</option>
+                    <option value="Web Portal">Web Portal</option>
+                    <option value="Mobile App">Mobile App</option>
+                    <option value="Biometric">Biometric</option>
+                    <option value="Manual Entry">Manual Entry</option>
+                </select>
+                <span asp-validation-for="LoginMethod" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="LogoutMethod" class="control-label">Logout Method</label>
+                <select asp-for="LogoutMethod" class="form-control">
+                    <option value="">-- Select Method --</option>
+                    <option value="Web Portal">Web Portal</option>
+                    <option value="Mobile App">Mobile App</option>
+                    <option value="Biometric">Biometric</option>
+                    <option value="Manual Entry">Manual Entry</option>
+                </select>
+                <span asp-validation-for="LogoutMethod" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Record Attendance" class="btn btn-primary" />
+                <a asp-action="MyAttendance" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

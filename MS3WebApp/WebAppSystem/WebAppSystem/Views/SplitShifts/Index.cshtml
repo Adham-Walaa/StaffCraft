@@ -1,0 +1,59 @@
+@model IEnumerable<WebAppSystem.Models.SplitShiftConfiguration>
+
+@{
+    ViewData["Title"] = "Split Shift Configurations";
+}
+
+<h1>Split Shift Configurations</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Create New Split Shift</a>
+</p>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Shift Name</th>
+            <th>First Slot</th>
+            <th>Second Slot</th>
+            <th>Total Hours</th>
+            <th>Break Duration</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>@Html.DisplayFor(modelItem => item.ShiftName)</td>
+            <td>@item.FirstSlotStart - @item.FirstSlotEnd</td>
+            <td>@item.SecondSlotStart - @item.SecondSlotEnd</td>
+            <td>@Html.DisplayFor(modelItem => item.TotalHours) hrs</td>
+            <td>@Html.DisplayFor(modelItem => item.BreakDurationMinutes) min</td>
+            <td>
+                @if (item.IsActive == true)
+                {
+                    <span class="badge bg-success">Active</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Inactive</span>
+                }
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.ConfigId" class="btn btn-sm btn-warning">Edit</a>
+                <a asp-action="Details" asp-route-id="@item.ConfigId" class="btn btn-sm btn-info">Details</a>
+                <a asp-action="Delete" asp-route-id="@item.ConfigId" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

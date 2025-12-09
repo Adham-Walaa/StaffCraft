@@ -1,0 +1,87 @@
+@model WebAppSystem.Models.ShiftSchedule
+
+@{
+    ViewData["Title"] = "Update Shift Assignment";
+}
+
+<h1>Update Shift Assignment</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="UpdateShiftAssignment">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="ShiftId" />
+            
+            <div class="form-group mb-3">
+                <label asp-for="EmployeeId" class="control-label">Employee</label>
+                <select asp-for="EmployeeId" class="form-control" asp-items="ViewBag.EmployeeId">
+                    <option value="">-- Select Employee --</option>
+                </select>
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftName" class="control-label">Shift Name</label>
+                <input asp-for="ShiftName" class="form-control" />
+                <span asp-validation-for="ShiftName" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftType" class="control-label">Shift Type</label>
+                <select asp-for="ShiftType" class="form-control">
+                    <option value="">-- Select Type --</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Rotational">Rotational</option>
+                    <option value="Custom">Custom</option>
+                    <option value="Special">Special</option>
+                </select>
+                <span asp-validation-for="ShiftType" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="StartTime" class="control-label">Start Time</label>
+                <input asp-for="StartTime" class="form-control" type="time" />
+                <span asp-validation-for="StartTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EndTime" class="control-label">End Time</label>
+                <input asp-for="EndTime" class="form-control" type="time" />
+                <span asp-validation-for="EndTime" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="StartDate" class="control-label">Start Date</label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="EndDate" class="control-label">End Date</label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Status" class="control-label">Status</label>
+                <select asp-for="Status" class="form-control">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Template">Template</option>
+                    <option value="Expired">Expired</option>
+                </select>
+                <span asp-validation-for="Status" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Update Assignment" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

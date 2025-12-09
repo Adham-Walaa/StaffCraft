@@ -1,0 +1,44 @@
+@model IEnumerable<WebAppSystem.Models.ShiftCycle>
+
+@{
+    ViewData["Title"] = "Rotational Shifts";
+}
+
+<h1>Rotational Shift Cycles</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Create New Rotational Shift</a>
+</p>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Cycle ID</th>
+            <th>Cycle Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>@Html.DisplayFor(modelItem => item.CycleId)</td>
+            <td>@Html.DisplayFor(modelItem => item.CycleName)</td>
+            <td>@Html.DisplayFor(modelItem => item.Description)</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.CycleId" class="btn btn-sm btn-warning">Edit</a>
+                <a asp-action="Details" asp-route-id="@item.CycleId" class="btn btn-sm btn-info">Details</a>
+                <a asp-action="Delete" asp-route-id="@item.CycleId" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

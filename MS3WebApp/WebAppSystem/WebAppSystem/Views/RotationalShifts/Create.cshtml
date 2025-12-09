@@ -1,0 +1,39 @@
+@model WebAppSystem.Models.ShiftCycle
+
+@{
+    ViewData["Title"] = "Create Rotational Shift";
+}
+
+<h1>Create Rotational Shift Cycle</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="CycleName" class="control-label">Cycle Name</label>
+                <input asp-for="CycleName" class="form-control" />
+                <span asp-validation-for="CycleName" class="text-danger"></span>
+                <small class="form-text text-muted">e.g., "3-Day Rotation", "Weekly Rotation"</small>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Description" class="control-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+                <small class="form-text text-muted">Describe the rotation pattern and schedule</small>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

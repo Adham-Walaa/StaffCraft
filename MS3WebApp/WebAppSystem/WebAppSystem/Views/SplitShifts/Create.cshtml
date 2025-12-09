@@ -1,0 +1,74 @@
+@model WebAppSystem.Models.SplitShiftConfiguration
+
+@{
+    ViewData["Title"] = "Create Split Shift";
+}
+
+<h1>Create Split Shift Configuration</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="ShiftName" class="control-label">Shift Name</label>
+                <input asp-for="ShiftName" class="form-control" />
+                <span asp-validation-for="ShiftName" class="text-danger"></span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>First Slot</h5>
+                    <div class="form-group mb-3">
+                        <label asp-for="FirstSlotStart" class="control-label">Start Time</label>
+                        <input asp-for="FirstSlotStart" class="form-control" type="time" />
+                        <span asp-validation-for="FirstSlotStart" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="FirstSlotEnd" class="control-label">End Time</label>
+                        <input asp-for="FirstSlotEnd" class="form-control" type="time" />
+                        <span asp-validation-for="FirstSlotEnd" class="text-danger"></span>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5>Second Slot</h5>
+                    <div class="form-group mb-3">
+                        <label asp-for="SecondSlotStart" class="control-label">Start Time</label>
+                        <input asp-for="SecondSlotStart" class="form-control" type="time" />
+                        <span asp-validation-for="SecondSlotStart" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="SecondSlotEnd" class="control-label">End Time</label>
+                        <input asp-for="SecondSlotEnd" class="form-control" type="time" />
+                        <span asp-validation-for="SecondSlotEnd" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="BreakDurationMinutes" class="control-label">Break Duration (minutes)</label>
+                <input asp-for="BreakDurationMinutes" class="form-control" type="number" />
+                <span asp-validation-for="BreakDurationMinutes" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group form-check mb-3">
+                <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+                <label asp-for="IsActive" class="form-check-label">Active</label>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

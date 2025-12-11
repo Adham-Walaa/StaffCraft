@@ -24,7 +24,21 @@ namespace WebAppSystem.Controllers
         // GET: Contracts
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Contracts.ToListAsync());
+            try
+            {
+                // Update expired contracts automatically
+                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+            }
+            catch (SystemException)
+            {
+                // Continue even if update fails
+            }
+
+            var contracts = await _context.Contracts
+                .Include(c => c.Employees)
+                .ToListAsync();
+            
+            return View(contracts);
         }
 
         // GET: Contracts/Details/5
@@ -333,10 +347,13 @@ namespace WebAppSystem.Controllers
 
             try
             {
+                // Update expired contracts first
+                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+                
                 // Use getActiveContracts stored procedure
                 var activeContracts = await _context.Contracts
                     .FromSqlRaw("EXEC dbo.getActiveContracts")
-                    .Include(c => c.Employees)
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(activeContracts);
@@ -361,6 +378,9 @@ namespace WebAppSystem.Controllers
 
             try
             {
+                // Update expired contracts first
+                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+                
                 // Use GetExpiringContracts stored procedure
                 var expiringContracts = await _context.Database
                     .SqlQueryRaw<ExpiringContractViewModel>(

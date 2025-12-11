@@ -40,7 +40,7 @@ body {
 
 /* Navigation */
 .navbar {
-  background-color: var(--dark-bg-secondary) !important;
+  background-color: #001f3f !important;
   border-bottom: 1px solid var(--dark-border) !important;
 }
 

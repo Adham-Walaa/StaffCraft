@@ -2,6 +2,21 @@
 
 @{
     ViewData["Title"] = "Contracts";
+    var userRoles = Context.Session.GetString("UserRoles");
+    var isHR = !string.IsNullOrEmpty(userRoles) && userRoles.Contains("HR Administrator");
+    
+    // Check if any contract is expired or terminated for non-HR users
+    var hasExpiredOrTerminatedContract = !isHR && Model.Any(c => c.CurrentState == "Expired" || c.CurrentState == "Terminated");
+}
+
+@if (hasExpiredOrTerminatedContract)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>Contract Renewal Required!</strong>
+        <p class="mb-0 mt-2">Your employment contract has expired or been terminated. Please contact the HR Administrator immediately to renew your contract.</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
 }
 
 <div class="mb-4">

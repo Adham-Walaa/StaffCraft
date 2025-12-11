@@ -402,7 +402,7 @@ namespace WebAppSystem.Controllers
         // POST: Employees/EditProfile
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography")] Employee employee, IFormFile ProfileImageFile)
+        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,CountryOfBirth,NationalId")] Employee employee, IFormFile ProfileImageFile)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null || userId.Value != employee.EmployeeId)
@@ -435,6 +435,8 @@ namespace WebAppSystem.Controllers
                     existingEmployee.EmergencyContactPhone = employee.EmergencyContactPhone;
                     existingEmployee.Relationship = employee.Relationship;
                     existingEmployee.Biography = employee.Biography;
+                    existingEmployee.CountryOfBirth = employee.CountryOfBirth;
+                    existingEmployee.NationalId = employee.NationalId;
                     
                     // Handle profile image upload
                     if (ProfileImageFile != null && ProfileImageFile.Length > 0)

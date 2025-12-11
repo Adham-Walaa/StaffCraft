@@ -98,6 +98,26 @@
 
                     <hr class="my-4" />
 
+                    <h5 class="mb-3 text-primary">Personal Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="CountryOfBirth" class="form-label"></label>
+                                <input asp-for="CountryOfBirth" class="form-control" placeholder="Enter your country of birth" />
+                                <span asp-validation-for="CountryOfBirth" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="NationalId" class="form-label"></label>
+                                <input asp-for="NationalId" class="form-control" placeholder="Enter your national ID" />
+                                <span asp-validation-for="NationalId" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4" />
+
                     <h5 class="mb-3 text-primary">Emergency Contact</h5>
                     <div class="row">
                         <div class="col-md-4">

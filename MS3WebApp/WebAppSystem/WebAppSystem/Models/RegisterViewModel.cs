@@ -39,6 +39,7 @@ namespace WebAppSystem.Models
 
         [Display(Name = "Date of Birth")]
         [DataType(DataType.Date)]
+        [PastDate(ErrorMessage = "Date of Birth must be in the past")]
         public DateTime? DateOfBirth { get; set; }
     }
 }

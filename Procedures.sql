@@ -2457,20 +2457,20 @@ BEGIN
         RETURN;
     END
     
-    -- Return employees under this manager with all required columns
+    -- Return employees under this manager with all required columns using aliases that match the C# model
     SELECT 
         EmployeeID,
-        first_name,
-        last_name,
-        full_name,
-        email,
-        phone,
-        account_status,
-        employment_status,
-        hire_date,
-        department_id,
-        position_id,
-        is_active
+        first_name AS FirstName,
+        last_name AS LastName,
+        full_name AS FullName,
+        email AS Email,
+        phone AS Phone,
+        account_status AS AccountStatus,
+        employment_status AS EmploymentStatus,
+        hire_date AS HireDate,
+        department_id AS DepartmentId,
+        position_id AS PositionId,
+        is_active AS IsActive
     FROM Employee
     WHERE manager_id = @ManagerID
     ORDER BY last_name, first_name;

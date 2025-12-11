@@ -26,8 +26,20 @@ namespace WebAppSystem.Controllers
         {
             try
             {
-                // Update expired contracts automatically
-                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
+                
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
             }
             catch (SystemException)
             {
@@ -50,6 +62,7 @@ namespace WebAppSystem.Controllers
             }
 
             var contract = await _context.Contracts
+                .Include(c => c.Employees)
                 .FirstOrDefaultAsync(m => m.ContractId == id);
             if (contract == null)
             {
@@ -347,12 +360,24 @@ namespace WebAppSystem.Controllers
 
             try
             {
-                // Update expired contracts first
-                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
                 
-                // Use getActiveContracts stored procedure
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+                
+                // Get active contracts
                 var activeContracts = await _context.Contracts
-                    .FromSqlRaw("EXEC dbo.getActiveContracts")
+                    .Where(c => c.CurrentState == "Active")
                     .AsNoTracking()
                     .ToListAsync();
 
@@ -378,14 +403,28 @@ namespace WebAppSystem.Controllers
 
             try
             {
-                // Update expired contracts first
-                await _context.Database.ExecuteSqlRawAsync("EXEC dbo.UpdateExpiredContracts");
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
                 
-                // Use GetExpiringContracts stored procedure
-                var expiringContracts = await _context.Database
-                    .SqlQueryRaw<ExpiringContractViewModel>(
-                        "EXEC dbo.GetExpiringContracts @DaysBefore",
-                        new SqlParameter("@DaysBefore", daysBefore))
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+                
+                // Get expiring contracts
+                var targetDate = DateTime.Today.AddDays(daysBefore);
+                var expiringContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && 
+                               c.EndDate >= DateTime.Today && 
+                               c.EndDate <= targetDate)
+                    .Include(c => c.Employees)
                     .ToListAsync();
 
                 ViewBag.DaysBefore = daysBefore;

@@ -1,42 +1,78 @@
-﻿@model WebAppSystem.Models.Contract
+@model WebAppSystem.Models.Contract
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Contract Details";
 }
 
-<h1>Details</h1>
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h2 class="mb-0"><i class="bi bi-file-earmark-text"></i> Contract Details</h2>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Contract ID</dt>
+                    <dd class="col-sm-8">@Model.ContractId</dd>
 
-<div>
-    <h4>Contract</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Type)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Type)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.StartDate)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.StartDate)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.EndDate)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.EndDate)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.CurrentState)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.CurrentState)
-        </dd>
-    </dl>
-</div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.ContractId">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+                    @if (Model.Employees != null && Model.Employees.Any())
+                    {
+                        <dt class="col-sm-4">Employee</dt>
+                        <dd class="col-sm-8">
+                            @foreach (var employee in Model.Employees)
+                            {
+                                <div>@employee.FullName (@employee.FirstName @employee.LastName)</div>
+                            }
+                        </dd>
+                    }
+
+                    <dt class="col-sm-4">Contract Type</dt>
+                    <dd class="col-sm-8">@Model.Type</dd>
+
+                    <dt class="col-sm-4">Start Date</dt>
+                    <dd class="col-sm-8">@(Model.StartDate?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
+
+                    <dt class="col-sm-4">End Date</dt>
+                    <dd class="col-sm-8">@(Model.EndDate?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
+
+                    <dt class="col-sm-4">Current State</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.CurrentState == "Active")
+                        {
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Active</span>
+                        }
+                        else if (Model.CurrentState == "Terminated")
+                        {
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Terminated</span>
+                        }
+                        else if (Model.CurrentState == "Expired")
+                        {
+                            <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Expired</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">@Model.CurrentState</span>
+                        }
+                    </dd>
+                </dl>
+
+                <hr class="my-4" />
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a asp-action="RenewContract" asp-route-id="@Model.ContractId" class="btn btn-success">
+                            <i class="bi bi-arrow-repeat"></i> Renew
+                        </a>
+                    }
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

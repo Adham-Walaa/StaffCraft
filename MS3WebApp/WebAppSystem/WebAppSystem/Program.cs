@@ -18,7 +18,11 @@ builder.Services.AddSession(options =>
 // Register DbContext with dependency injection
 builder.Services.AddDbContext<Milestone2Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Server=(localdb)\\MSSQLLocalDB;Database=MILESTONE2;Trusted_Connection=True;"));
+        ?? "Server=(localdb)\\MSSQLLocalDB;Database=MILESTONE2;Trusted_Connection=True;",
+        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 var app = builder.Build();
 

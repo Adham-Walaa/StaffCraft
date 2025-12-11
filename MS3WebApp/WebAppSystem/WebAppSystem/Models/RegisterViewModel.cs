@@ -4,9 +4,13 @@ namespace WebAppSystem.Models
 {
     public class RegisterViewModel
     {
-        [Required(ErrorMessage = "Full Name is required")]
-        [Display(Name = "Full Name")]
-        public string FullName { get; set; } = string.Empty;
+        [Required(ErrorMessage = "First Name is required")]
+        [Display(Name = "First Name")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last Name is required")]
+        [Display(Name = "Last Name")]
+        public string LastName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Email is required")]
         [EmailAddress(ErrorMessage = "Invalid email address")]
@@ -35,6 +39,7 @@ namespace WebAppSystem.Models
 
         [Display(Name = "Date of Birth")]
         [DataType(DataType.Date)]
+        [PastDate(ErrorMessage = "Date of Birth must be in the past")]
         public DateTime? DateOfBirth { get; set; }
     }
 }

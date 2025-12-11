@@ -2457,16 +2457,20 @@ BEGIN
         RETURN;
     END
     
-    -- Return employees under this manager
+    -- Return employees under this manager with all required columns using aliases that match the C# model
     SELECT 
         EmployeeID,
-        first_name,
-        last_name,
-        full_name,
-        email,
-        phone,
-        employment_status,
-        hire_date
+        first_name AS FirstName,
+        last_name AS LastName,
+        full_name AS FullName,
+        email AS Email,
+        phone AS Phone,
+        account_status AS AccountStatus,
+        employment_status AS EmploymentStatus,
+        hire_date AS HireDate,
+        department_id AS DepartmentId,
+        position_id AS PositionId,
+        is_active AS IsActive
     FROM Employee
     WHERE manager_id = @ManagerID
     ORDER BY last_name, first_name;
@@ -11849,5 +11853,22 @@ BEGIN
     VALUES (@EmployeeID, @NotifID, 'DELIVERED', GETDATE());
 
     SELECT @Message AS NotificationMessage;
+END;
+GO
+--------------------------------------------------------------
+-- Update Expired Contracts
+-- Automatically set contracts to 'Expired' if end_date has passed
+--------------------------------------------------------------
+CREATE OR ALTER PROCEDURE UpdateExpiredContracts
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    UPDATE Contract
+    SET current_state = 'Expired'
+    WHERE current_state = 'Active' 
+    AND end_date < CAST(GETDATE() AS DATE);
+    
+    SELECT @@ROWCOUNT AS UpdatedCount;
 END;
 GO

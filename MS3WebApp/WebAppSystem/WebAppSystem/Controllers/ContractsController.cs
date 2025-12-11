@@ -24,7 +24,66 @@ namespace WebAppSystem.Controllers
         // GET: Contracts
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Contracts.ToListAsync());
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view contracts.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            try
+            {
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
+                
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (SystemException)
+            {
+                // Continue even if update fails
+            }
+
+            // If user is HR Administrator, show all contracts
+            if (!string.IsNullOrEmpty(userRoles) && userRoles.Contains("HR Administrator"))
+            {
+                var contracts = await _context.Contracts
+                    .Include(c => c.Employees)
+                    .ToListAsync();
+                
+                return View(contracts);
+            }
+            else
+            {
+                // For non-HR users, show only their own contract
+                var employee = await _context.Employees
+                    .Include(e => e.Contract)
+                    .ThenInclude(c => c.Employees)
+                    .FirstOrDefaultAsync(e => e.EmployeeId == userId.Value);
+
+                if (employee?.Contract != null)
+                {
+                    // Return a list with only their contract
+                    return View(new List<Contract> { employee.Contract });
+                }
+                else
+                {
+                    // No contract exists - return empty list and show message in view
+                    ViewBag.NoContract = true;
+                    return View(new List<Contract>());
+                }
+            }
         }
 
         // GET: Contracts/Details/5
@@ -35,11 +94,35 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view contract details.";
+                return RedirectToAction("Login", "Account");
+            }
+
             var contract = await _context.Contracts
+                .Include(c => c.Employees)
                 .FirstOrDefaultAsync(m => m.ContractId == id);
+            
             if (contract == null)
             {
                 return NotFound();
+            }
+
+            // If not HR Administrator, ensure user can only view their own contract
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                var employee = await _context.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == userId.Value);
+                
+                if (employee == null || employee.ContractId != id)
+                {
+                    TempData["ErrorMessage"] = "Access denied. You can only view your own contract.";
+                    return RedirectToAction(nameof(Index));
+                }
             }
 
             return View(contract);
@@ -112,6 +195,14 @@ namespace WebAppSystem.Controllers
         // GET: Contracts/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -132,6 +223,14 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("ContractId,Type,StartDate,EndDate,CurrentState")] Contract contract)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id != contract.ContractId)
             {
                 return NotFound();
@@ -143,6 +242,7 @@ namespace WebAppSystem.Controllers
                 {
                     _context.Update(contract);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Contract updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -163,6 +263,14 @@ namespace WebAppSystem.Controllers
         // GET: Contracts/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -183,12 +291,23 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             try
             {
                 var contract = await _context.Contracts.FindAsync(id);
                 if (contract != null)
                 {
-                    // First, remove the foreign key reference from employees
+                    // Instead of deleting, terminate the contract to avoid foreign key constraint issues
+                    contract.CurrentState = "Terminated";
+                    
+                    // Also nullify employee references if needed
                     var employeesWithContract = await _context.Employees
                         .Where(e => e.ContractId == id)
                         .ToListAsync();
@@ -198,13 +317,8 @@ namespace WebAppSystem.Controllers
                         employee.ContractId = null;
                     }
 
-                    // Now we can safely delete the contract
-                    _context.Contracts.Remove(contract);
-                    
-                    // Save all changes in a single transaction
                     await _context.SaveChangesAsync();
-
-                    TempData["SuccessMessage"] = "Contract deleted successfully!";
+                    TempData["SuccessMessage"] = "Contract terminated successfully!";
                 }
                 else
                 {
@@ -213,7 +327,7 @@ namespace WebAppSystem.Controllers
             }
             catch (SystemException ex)
             {
-                TempData["ErrorMessage"] = $"Error deleting contract: {ex.Message}";
+                TempData["ErrorMessage"] = $"Error terminating contract: {ex.Message}";
             }
 
             return RedirectToAction(nameof(Index));
@@ -302,10 +416,25 @@ namespace WebAppSystem.Controllers
 
             try
             {
-                // Use getActiveContracts stored procedure
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
+                
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+                
+                // Get active contracts
                 var activeContracts = await _context.Contracts
-                    .FromSqlRaw("EXEC dbo.getActiveContracts")
-                    .Include(c => c.Employees)
+                    .Where(c => c.CurrentState == "Active")
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(activeContracts);
@@ -330,11 +459,28 @@ namespace WebAppSystem.Controllers
 
             try
             {
-                // Use GetExpiringContracts stored procedure
-                var expiringContracts = await _context.Database
-                    .SqlQueryRaw<ExpiringContractViewModel>(
-                        "EXEC dbo.GetExpiringContracts @DaysBefore",
-                        new SqlParameter("@DaysBefore", daysBefore))
+                // Update expired contracts directly
+                var expiredContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && c.EndDate < DateTime.Today)
+                    .ToListAsync();
+                
+                foreach (var contract in expiredContracts)
+                {
+                    contract.CurrentState = "Expired";
+                }
+                
+                if (expiredContracts.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+                
+                // Get expiring contracts
+                var targetDate = DateTime.Today.AddDays(daysBefore);
+                var expiringContracts = await _context.Contracts
+                    .Where(c => c.CurrentState == "Active" && 
+                               c.EndDate >= DateTime.Today && 
+                               c.EndDate <= targetDate)
+                    .Include(c => c.Employees)
                     .ToListAsync();
 
                 ViewBag.DaysBefore = daysBefore;

@@ -148,10 +148,13 @@ namespace WebAppSystem.Controllers
                         return View(model);
                     }
 
+                    // Construct full name from first and last name
+                    string fullName = $"{model.FirstName} {model.LastName}".Trim();
+
                     // Create employee using AddEmployee stored procedure
                     var parameters = new[]
                     {
-                        new SqlParameter("@FullName", model.FullName),
+                        new SqlParameter("@FullName", fullName),
                         new SqlParameter("@NationalID", DBNull.Value),
                         new SqlParameter("@DateOfBirth", model.DateOfBirth ?? (object)DBNull.Value),
                         new SqlParameter("@CountryOfBirth", DBNull.Value),
@@ -264,10 +267,13 @@ namespace WebAppSystem.Controllers
                         return View(model);
                     }
 
+                    // Construct full name from first and last name
+                    string fullName = $"{model.FirstName} {model.LastName}".Trim();
+
                     // Create employee using AddEmployee stored procedure
                     var parameters = new[]
                     {
-                        new SqlParameter("@FullName", model.FullName),
+                        new SqlParameter("@FullName", fullName),
                         new SqlParameter("@NationalID", DBNull.Value),
                         new SqlParameter("@DateOfBirth", model.DateOfBirth ?? (object)DBNull.Value),
                         new SqlParameter("@CountryOfBirth", DBNull.Value),

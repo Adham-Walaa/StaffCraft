@@ -807,7 +807,7 @@ namespace WebAppSystem.Controllers
             return RedirectToAction(nameof(AssignTeamMember));
         }
 
-        // GET: Employees/RemoveTeamMember (For Line Managers)
+        // POST: Employees/RemoveTeamMember (For Line Managers)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RemoveTeamMember(int employeeId)

@@ -58,8 +58,9 @@
                                                 <form asp-action="RemoveTeamMember" method="post" style="display:inline;">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
+                                                    <input type="hidden" name="employeeName" value="@employee.FullName" />
                                                     <button type="submit" class="btn btn-danger btn-sm" title="Remove from Team"
-                                                            onclick="return confirm('Are you sure you want to remove @employee.FullName from your team?');">
+                                                            onclick="return confirm('Are you sure you want to remove this employee from your team?');">
                                                         <i class="bi bi-person-dash"></i>
                                                     </button>
                                                 </form>

@@ -32,7 +32,8 @@ html {
 
 body {
   margin-bottom: 60px;
-  background-color: var(--dark-bg-primary) !important;
+  background: linear-gradient(to top, #000000, #001f3f) !important;
+  background-attachment: fixed;
   color: var(--dark-text-primary) !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 }

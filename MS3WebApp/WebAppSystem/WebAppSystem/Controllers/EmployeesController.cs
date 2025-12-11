@@ -55,6 +55,29 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Details/5
         public async Task<IActionResult> Details(int? id)
         {
+            // Check if user is authorized to view full employee details (System Admin, HR Admin, or Line Manager)
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userId = HttpContext.Session.GetInt32("UserId");
+            
+            if (string.IsNullOrEmpty(userRoles) || userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view employee details.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            // Allow System Admin, HR Admin, and Line Manager to view any employee
+            // Allow employees to view their own profile
+            bool isAuthorized = userRoles.Contains("System Administrator") || 
+                              userRoles.Contains("HR Administrator") || 
+                              userRoles.Contains("Line Manager") ||
+                              (id.HasValue && id.Value == userId.Value);
+
+            if (!isAuthorized)
+            {
+                TempData["ErrorMessage"] = "Access denied. Only administrators and managers can view full employee details.";
+                return RedirectToAction("MyProfile");
+            }
+
             if (id == null)
             {
                 return NotFound();

@@ -112,6 +112,14 @@ namespace WebAppSystem.Controllers
         // GET: Contracts/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -132,6 +140,14 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("ContractId,Type,StartDate,EndDate,CurrentState")] Contract contract)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id != contract.ContractId)
             {
                 return NotFound();
@@ -143,6 +159,7 @@ namespace WebAppSystem.Controllers
                 {
                     _context.Update(contract);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Contract updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -163,6 +180,14 @@ namespace WebAppSystem.Controllers
         // GET: Contracts/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -183,12 +208,23 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete contracts.";
+                return RedirectToAction("Index", "Home");
+            }
+
             try
             {
                 var contract = await _context.Contracts.FindAsync(id);
                 if (contract != null)
                 {
-                    // First, remove the foreign key reference from employees
+                    // Instead of deleting, terminate the contract to avoid foreign key constraint issues
+                    contract.CurrentState = "Terminated";
+                    
+                    // Also nullify employee references if needed
                     var employeesWithContract = await _context.Employees
                         .Where(e => e.ContractId == id)
                         .ToListAsync();
@@ -198,13 +234,8 @@ namespace WebAppSystem.Controllers
                         employee.ContractId = null;
                     }
 
-                    // Now we can safely delete the contract
-                    _context.Contracts.Remove(contract);
-                    
-                    // Save all changes in a single transaction
                     await _context.SaveChangesAsync();
-
-                    TempData["SuccessMessage"] = "Contract deleted successfully!";
+                    TempData["SuccessMessage"] = "Contract terminated successfully!";
                 }
                 else
                 {
@@ -213,7 +244,7 @@ namespace WebAppSystem.Controllers
             }
             catch (SystemException ex)
             {
-                TempData["ErrorMessage"] = $"Error deleting contract: {ex.Message}";
+                TempData["ErrorMessage"] = $"Error terminating contract: {ex.Message}";
             }
 
             return RedirectToAction(nameof(Index));

@@ -175,6 +175,14 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit employee details.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -202,6 +210,14 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit employee details.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id != employee.EmployeeId)
             {
                 return NotFound();
@@ -240,6 +256,14 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete employees.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -267,13 +291,36 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var employee = await _context.Employees.FindAsync(id);
-            if (employee != null)
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                _context.Employees.Remove(employee);
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete employees.";
+                return RedirectToAction("Index", "Home");
             }
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee != null)
+                {
+                    // Instead of deleting, deactivate the employee to avoid foreign key constraint issues
+                    employee.IsActive = false;
+                    employee.AccountStatus = "INACTIVE";
+                    employee.EmploymentStatus = "Terminated";
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Employee deactivated successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                }
+            }
+            catch (SystemException ex)
+            {
+                TempData["ErrorMessage"] = $"Error deactivating employee: {ex.Message}";
+            }
+
             return RedirectToAction(nameof(Index));
         }
 

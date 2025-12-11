@@ -98,11 +98,22 @@
 
 @if (!Model.Any())
 {
-    <div class="alert alert-info text-center" role="alert">
-        <i class="bi bi-info-circle"></i> No contracts found. 
-        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
-        {
-            <a asp-action="Create" class="alert-link">Create the first contract</a>
-        }
-    </div>
+    @if (ViewBag.NoContract == true)
+    {
+        <div class="alert alert-warning text-center" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> 
+            <strong>No Contract Found</strong>
+            <p class="mb-0 mt-2">Your employment contract has not been created yet. Please contact the HR Administrator to set up your contract.</p>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info text-center" role="alert">
+            <i class="bi bi-info-circle"></i> No contracts found. 
+            @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+            {
+                <a asp-action="Create" class="alert-link">Create the first contract</a>
+            }
+        </div>
+    }
 }

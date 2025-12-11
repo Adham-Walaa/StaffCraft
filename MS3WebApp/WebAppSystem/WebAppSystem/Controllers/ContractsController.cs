@@ -24,6 +24,15 @@ namespace WebAppSystem.Controllers
         // GET: Contracts
         public async Task<IActionResult> Index()
         {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view contracts.";
+                return RedirectToAction("Login", "Account");
+            }
+
             try
             {
                 // Update expired contracts directly
@@ -46,11 +55,35 @@ namespace WebAppSystem.Controllers
                 // Continue even if update fails
             }
 
-            var contracts = await _context.Contracts
-                .Include(c => c.Employees)
-                .ToListAsync();
-            
-            return View(contracts);
+            // If user is HR Administrator, show all contracts
+            if (!string.IsNullOrEmpty(userRoles) && userRoles.Contains("HR Administrator"))
+            {
+                var contracts = await _context.Contracts
+                    .Include(c => c.Employees)
+                    .ToListAsync();
+                
+                return View(contracts);
+            }
+            else
+            {
+                // For non-HR users, show only their own contract
+                var employee = await _context.Employees
+                    .Include(e => e.Contract)
+                    .ThenInclude(c => c.Employees)
+                    .FirstOrDefaultAsync(e => e.EmployeeId == userId.Value);
+
+                if (employee?.Contract != null)
+                {
+                    // Return a list with only their contract
+                    return View(new List<Contract> { employee.Contract });
+                }
+                else
+                {
+                    // No contract exists - return empty list and show message in view
+                    ViewBag.NoContract = true;
+                    return View(new List<Contract>());
+                }
+            }
         }
 
         // GET: Contracts/Details/5
@@ -61,12 +94,35 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view contract details.";
+                return RedirectToAction("Login", "Account");
+            }
+
             var contract = await _context.Contracts
                 .Include(c => c.Employees)
                 .FirstOrDefaultAsync(m => m.ContractId == id);
+            
             if (contract == null)
             {
                 return NotFound();
+            }
+
+            // If not HR Administrator, ensure user can only view their own contract
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                var employee = await _context.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == userId.Value);
+                
+                if (employee == null || employee.ContractId != id)
+                {
+                    TempData["ErrorMessage"] = "Access denied. You can only view your own contract.";
+                    return RedirectToAction(nameof(Index));
+                }
             }
 
             return View(contract);

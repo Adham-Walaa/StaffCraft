@@ -7,7 +7,7 @@
     {
         <div class="text-center mb-5">
             <h1 class="display-4">Welcome, @Context.Session.GetString("UserName")!</h1>
-            <p class="lead">HR Management System - @DateTime.Now.ToString("MMMM dd, yyyy")</p>
+            <p class="lead">Today's date is @DateTime.Now.ToString("MMMM dd, yyyy")</p>
         </div>
 
         <div class="row g-4">
@@ -19,22 +19,13 @@
                             <i class="bi bi-people text-primary"></i> Employee Management
                         </h5>
                         @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true || 
-                             Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true ||
-                             Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                             Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
                         {
-                            <p class="card-text">View, manage, and update employee profiles and information.</p>
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check-circle text-success"></i> View all employees</li>
-                                <li><i class="bi bi-check-circle text-success"></i> Update personal details</li>
-                                <li><i class="bi bi-check-circle text-success"></i> Manage emergency contacts</li>
-                            </ul>
+                            <p class="card-text">View all employees and update employee details.</p>
                         }
                         else
                         {
-                            <p class="card-text">View employee directory and profiles.</p>
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check-circle text-success"></i> View all employees</li>
-                            </ul>
+                            <p class="card-text">View all employees.</p>
                         }
                         <a asp-controller="Employees" asp-action="Index" class="btn btn-primary">
                             <i class="bi bi-arrow-right"></i> Go to Employees
@@ -51,24 +42,13 @@
                             <i class="bi bi-file-earmark-text text-success"></i> Contract Management
                         </h5>
                         @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true || 
-                             Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true ||
-                             Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                             Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
                         {
-                            <p class="card-text">Create, renew, and manage employment contracts.</p>
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check-circle text-success"></i> View active contracts</li>
-                                <li><i class="bi bi-check-circle text-success"></i> Track expiring contracts</li>
-                                <li><i class="bi bi-check-circle text-success"></i> Renew contracts</li>
-                            </ul>
+                            <p class="card-text">View and renew contracts.</p>
                         }
                         else
                         {
-                            <p class="card-text">View and manage your employment contract.</p>
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check-circle text-success"></i> View your contract</li>
-                                <li><i class="bi bi-check-circle text-success"></i> Track your contract status</li>
-                                <li><i class="bi bi-check-circle text-success"></i> View renewal information</li>
-                            </ul>
+                            <p class="card-text">View active contracts.</p>
                         }
                         <a asp-controller="Contracts" asp-action="Index" class="btn btn-success">
                             <i class="bi bi-arrow-right"></i> Go to Contracts
@@ -79,15 +59,32 @@
 
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
             {
-                <!-- My Team Card -->
+                <!-- My Team Card (Line Manager) -->
                 <div class="col-md-6">
                     <div class="card shadow-sm h-100 border-info">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i class="bi bi-people-fill text-info"></i> My Team
                             </h5>
-                            <p class="card-text">View and manage your direct reports.</p>
+                            <p class="card-text">View and manage your team.</p>
                             <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
+                                <i class="bi bi-arrow-right"></i> View My Team
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- My Team Card (For employees with direct reports) -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
+                            </h5>
+                            <p class="card-text">View your team.</p>
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn @(ViewBag.HasDirectReports == true ? "btn-warning" : "btn-secondary")">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
                         </div>
@@ -163,8 +160,7 @@
     else
     {
         <div class="text-center">
-            <h1 class="display-4">Welcome to HR Management System</h1>
-            <p class="lead">Employee Profiles & Contracts Management</p>
+            <h1 class="display-4">Welcome to Team Entities' © Management System</h1>
             <hr class="my-4" />
             <p>Please login to access the system.</p>
             <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg">

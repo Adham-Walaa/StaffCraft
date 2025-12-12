@@ -135,6 +135,23 @@
                                 <a asp-controller="Employees" asp-action="Index" class="btn btn-sm btn-outline-info">
                                     <i class="bi bi-people"></i> View All Employees
                                 </a>
+                                <hr class="my-2" />
+                                <small class="text-muted fw-bold">Manage Employee Attributes:</small>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Role" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-shield"></i> Manage Roles
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="PayGrade" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-cash-stack"></i> Manage Pay Grades
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Position" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-briefcase"></i> Manage Positions
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="SalaryType" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-currency-dollar"></i> Manage Salary Types
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="TaxForm" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-file-earmark-text"></i> Manage Tax Forms
+                                </a>
                             </div>
                         </div>
                     </div>

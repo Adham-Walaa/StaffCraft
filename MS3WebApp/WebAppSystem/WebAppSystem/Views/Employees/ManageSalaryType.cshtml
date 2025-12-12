@@ -1,14 +1,14 @@
 @model WebAppSystem.Models.Employee
 
 @{
-    ViewData["Title"] = "Manage Roles";
+    ViewData["Title"] = "Manage Salary Type";
 }
 
 <div class="row justify-content-center mt-4">
     <div class="col-md-10">
         <div class="card shadow">
-            <div class="card-header bg-info text-white">
-                <h2 class="mb-0"><i class="bi bi-shield-check"></i> Manage System Roles</h2>
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-currency-dollar"></i> Manage Salary Type</h2>
             </div>
             <div class="card-body">
                 <div class="mb-4">
@@ -34,31 +34,21 @@
                 <hr class="my-4" />
 
                 <div class="mb-4">
-                    <h5 class="text-primary">Current Roles</h5>
-                    @if (ViewBag.CurrentRoles != null && ViewBag.CurrentRoles.Count > 0)
+                    <h5 class="text-primary">Current Salary Type</h5>
+                    @if (ViewBag.CurrentSalaryType != null)
                     {
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            @foreach (var role in ViewBag.CurrentRoles)
-                            {
-                                <div class="badge bg-success fs-6 p-2">
-                                    <i class="bi bi-check-circle"></i> @role
-                                    <form asp-action="AssignRole" method="post" style="display:inline;">
-                                        <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
-                                        <input type="hidden" name="role" value="@role" />
-                                        <input type="hidden" name="action" value="REMOVE" />
-                                        <button type="submit" class="btn btn-sm btn-link text-white p-0 ms-2" 
-                                                onclick="return confirm('Are you sure you want to remove this role?');">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            }
+                        <div class="alert alert-info">
+                            <strong>@ViewBag.CurrentSalaryType.Type</strong><br />
+                            <small>
+                                Payment Frequency: @(ViewBag.CurrentSalaryType.PaymentFrequency ?? "N/A") | 
+                                Currency: @(ViewBag.CurrentSalaryType.Currency ?? "N/A")
+                            </small>
                         </div>
                     }
                     else
                     {
                         <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> No roles assigned yet.
+                            <i class="bi bi-exclamation-triangle"></i> No salary type assigned yet.
                         </div>
                     }
                 </div>
@@ -66,33 +56,32 @@
                 <hr class="my-4" />
 
                 <div>
-                    <h5 class="text-primary">Assign New Role</h5>
-                    <form asp-action="AssignRole" method="post" class="row g-3">
+                    <h5 class="text-primary">Assign Salary Type</h5>
+                    <form asp-action="AssignSalaryType" method="post" class="row g-3">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
-                        <input type="hidden" name="action" value="ADD" />
 
                         <div class="col-md-8">
-                            <label for="role" class="form-label">Select Role</label>
-                            <select id="role" name="role" class="form-select" required>
-                                <option value="">-- Select a Role --</option>
-                                @foreach (var item in (SelectList)ViewBag.AvailableRoles)
+                            <label for="salaryTypeId" class="form-label">Select Salary Type</label>
+                            <select id="salaryTypeId" name="salaryTypeId" class="form-select">
+                                <option value="">-- Remove Salary Type --</option>
+                                @foreach (var item in (SelectList)ViewBag.AvailableSalaryTypes)
                                 {
-                                    <option value="@item.Text">@item.Text</option>
+                                    <option value="@item.Value" selected="@item.Selected">@item.Text</option>
                                 }
                             </select>
                         </div>
 
                         <div class="col-md-4 d-flex align-items-end">
                             <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-plus-circle"></i> Assign Role
+                                <i class="bi bi-check-circle"></i> Update Salary Type
                             </button>
                         </div>
                     </form>
 
                     <div class="mt-3">
-                        <a asp-controller="Roles" asp-action="Create" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-plus-circle"></i> Create New Role
+                        <a asp-controller="SalaryTypes" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-plus-circle"></i> Create New Salary Type
                         </a>
                     </div>
                 </div>

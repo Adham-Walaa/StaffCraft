@@ -2565,7 +2565,7 @@ BEGIN
         profile_completion_percentage AS ProfileCompletionPercentage
     FROM TeamHierarchy
     ORDER BY HierarchyLevel, last_name, first_name
-    OPTION (MAXRECURSION 100);
+    OPTION (MAXRECURSION 0);  -- Allow unlimited depth for complex org structures
 END;
 GO
 

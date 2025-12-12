@@ -568,7 +568,7 @@ namespace WebAppSystem.Controllers
             }
             catch (SystemException)
             {
-                TempData["ErrorMessage"] = $"An unexpected error occurred while retrieving your team. Please try again or contact your system administrator if the problem persists.";
+                TempData["ErrorMessage"] = "An unexpected error occurred while retrieving your team. Please try again or contact your system administrator if the problem persists.";
                 return RedirectToAction("Index", "Home");
             }
         }
@@ -868,7 +868,7 @@ namespace WebAppSystem.Controllers
             }
             catch (SystemException)
             {
-                TempData["ErrorMessage"] = $"An unexpected error occurred while assigning the team member. Please try again or contact support if the problem persists.";
+                TempData["ErrorMessage"] = "An unexpected error occurred while assigning the team member. Please try again or contact support if the problem persists.";
                 return RedirectToAction(nameof(AssignTeamMember));
             }
         }

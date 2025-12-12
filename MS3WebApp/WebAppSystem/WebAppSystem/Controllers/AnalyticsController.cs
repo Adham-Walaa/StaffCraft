@@ -104,13 +104,14 @@ namespace WebAppSystem.Controllers
                 .Include(e => e.Position)
                 .Include(e => e.Taxform);
 
-            // Apply search filter
+            // Apply search filter (case-insensitive)
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
+                var searchLower = searchTerm.ToLower();
                 query = query.Where(e => 
-                    e.FullName.Contains(searchTerm) ||
-                    e.Email.Contains(searchTerm) ||
-                    e.NationalId.Contains(searchTerm));
+                    (e.FullName != null && e.FullName.ToLower().Contains(searchLower)) ||
+                    (e.Email != null && e.Email.ToLower().Contains(searchLower)) ||
+                    (e.NationalId != null && e.NationalId.ToLower().Contains(searchLower)));
             }
 
             // Apply filter type

@@ -105,17 +105,19 @@
             // Load hierarchy data
             $.getJSON('@Url.Action("GetHierarchyData", "Hierarchy")', function(data) {
                 if (data.error) {
-                    $('#hierarchy-tree').html('<div class="alert alert-danger">Error loading hierarchy: ' + data.error + '</div>');
+                    $('#hierarchy-tree').html('<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> <strong>Error loading hierarchy:</strong> ' + data.error + '<br/><small>Please try refreshing the page or contact your system administrator if the problem persists.</small></div>');
                     return;
                 }
                 
                 if (data && data.length > 0) {
                     renderTree(data);
                 } else {
-                    $('#hierarchy-tree').html('<div class="alert alert-info">No hierarchy data available.</div>');
+                    $('#hierarchy-tree').html('<div class="alert alert-info"><i class="bi bi-info-circle"></i> No hierarchy data available. This may indicate that no employees are configured in the system.</div>');
                 }
-            }).fail(function() {
-                $('#hierarchy-tree').html('<div class="alert alert-danger">Failed to load hierarchy data.</div>');
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                $('#hierarchy-tree').html('<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> <strong>Failed to load hierarchy data.</strong><br/>' +
+                    'Error: ' + textStatus + (errorThrown ? ' - ' + errorThrown : '') + '<br/>' +
+                    '<small>Please check your connection and try again, or contact your system administrator if the problem persists.</small></div>');
             });
             
             function renderTree(nodes) {

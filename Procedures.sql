@@ -2540,7 +2540,7 @@ BEGIN
     
     -- Return all team members with hierarchy information and all required columns
     SELECT 
-        EmployeeID,
+        EmployeeID AS EmployeeId,
         first_name AS FirstName,
         last_name AS LastName,
         full_name AS FullName,

@@ -494,11 +494,10 @@ namespace WebAppSystem.Controllers
             return View(employee);
         }
 
-        // GET: Employees/MyTeam (For Line Managers)
+        // GET: Employees/MyTeam (For anyone with team members)
         public async Task<IActionResult> MyTeam()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            var userRoles = HttpContext.Session.GetString("UserRoles");
 
             if (userId == null)
             {
@@ -506,65 +505,21 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
-            {
-                TempData["ErrorMessage"] = "Access denied. Only Line Managers can view team details.";
-                return RedirectToAction("Index", "Home");
-            }
-
             try
             {
-                // Use GetTeamByManager stored procedure to get team hierarchy
+                // Get direct reports only (not using stored procedure to avoid complexity)
                 var teamMembers = await _context.Employees
-                    .FromSqlRaw("EXEC dbo.GetTeamByManager @ManagerID", new SqlParameter("@ManagerID", userId.Value))
+                    .Where(e => e.ManagerId == userId.Value)
+                    .Include(e => e.Department)
+                    .Include(e => e.Position)
+                    .OrderBy(e => e.LastName)
+                    .ThenBy(e => e.FirstName)
                     .ToListAsync();
-
-                // Load related data separately to avoid composability issues
-                var departmentIds = teamMembers.Where(e => e.DepartmentId.HasValue).Select(e => e.DepartmentId.Value).Distinct().ToList();
-                var positionIds = teamMembers.Where(e => e.PositionId.HasValue).Select(e => e.PositionId.Value).Distinct().ToList();
-                
-                // Load all required departments in a single query
-                var departments = await _context.Departments
-                    .Where(d => departmentIds.Contains(d.DepartmentId))
-                    .ToListAsync();
-                
-                // Load all required positions in a single query
-                var positions = await _context.Positions
-                    .Where(p => positionIds.Contains(p.PositionId))
-                    .ToListAsync();
-
-                // Create lookup dictionaries for efficient matching
-                var departmentLookup = departments.ToDictionary(d => d.DepartmentId);
-                var positionLookup = positions.ToDictionary(p => p.PositionId);
-
-                // Manually set navigation properties
-                foreach (var employee in teamMembers)
-                {
-                    if (employee.DepartmentId.HasValue && departmentLookup.ContainsKey(employee.DepartmentId.Value))
-                    {
-                        employee.Department = departmentLookup[employee.DepartmentId.Value];
-                    }
-                    if (employee.PositionId.HasValue && positionLookup.ContainsKey(employee.PositionId.Value))
-                    {
-                        employee.Position = positionLookup[employee.PositionId.Value];
-                    }
-                }
 
                 ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
+                ViewBag.IsLineManager = HttpContext.Session.GetString("UserRoles")?.Contains("Line Manager") == true;
+                
                 return View(teamMembers);
-            }
-            catch (SqlException sqlEx)
-            {
-                // Handle SQL-specific errors with better messages
-                if (sqlEx.Message.Contains("Manager not found") || sqlEx.Message.Contains("does not exist"))
-                {
-                    TempData["ErrorMessage"] = "Unable to retrieve your team. Your manager profile may not be set up correctly. Please contact your system administrator.";
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = $"A database error occurred while retrieving your team. Please try again later or contact support if the problem persists.";
-                }
-                return RedirectToAction("Index", "Home");
             }
             catch (SystemException)
             {
@@ -747,17 +702,18 @@ namespace WebAppSystem.Controllers
                 "EmployeeId", 
                 "DisplayText");
 
-            // Get list of all line managers for reassignment
-            var managers = await _context.Database
-                .SqlQueryRaw<ManagerViewModel>(
-                    @"SELECT DISTINCT e.EmployeeID, e.full_name as FullName
-                    FROM Employee e
-                    INNER JOIN EmployeeRole er ON e.EmployeeID = er.employee_id
-                    INNER JOIN Role r ON er.role_id = r.RoleID
-                    WHERE r.role_name = 'Line Manager' AND e.is_active = 1")
+            // Get list of ALL active employees as potential managers (not just Line Managers)
+            var managers = await _context.Employees
+                .Where(e => e.IsActive == true)
+                .Select(e => new { e.EmployeeId, e.FullName })
+                .OrderBy(e => e.FullName)
                 .ToListAsync();
 
-            ViewData["ManagerId"] = new SelectList(managers, "EmployeeID", "FullName", userId.Value);
+            ViewData["ManagerId"] = new SelectList(
+                managers.Select(m => new { m.EmployeeId, DisplayText = $"{m.FullName} (ID: {m.EmployeeId})" }),
+                "EmployeeId",
+                "DisplayText",
+                userId.Value);
 
             return View();
         }
@@ -791,34 +747,24 @@ namespace WebAppSystem.Controllers
                     return RedirectToAction(nameof(AssignTeamMember));
                 }
 
-                // Validate target manager exists
+                // Validate target manager exists and is active
                 var targetManager = await _context.Employees.FindAsync(managerId);
                 if (targetManager == null)
                 {
-                    TempData["ErrorMessage"] = "The selected manager does not exist in the system.";
+                    TempData["ErrorMessage"] = "The selected supervisor does not exist in the system.";
                     return RedirectToAction(nameof(AssignTeamMember));
                 }
 
-                // Check if target manager has Line Manager role
-                var managerRoles = await _context.Database
-                    .SqlQueryRaw<string>(
-                        @"SELECT r.role_name 
-                        FROM EmployeeRole er 
-                        JOIN Role r ON er.role_id = r.RoleID 
-                        WHERE er.employee_id = @p0",
-                        managerId)
-                    .ToListAsync();
-
-                if (!managerRoles.Any(r => r == "Line Manager"))
+                if (targetManager.IsActive != true)
                 {
-                    TempData["ErrorMessage"] = "The selected user is not a Line Manager. Only Line Managers can have team members assigned to them.";
+                    TempData["ErrorMessage"] = "The selected supervisor is not active and cannot be assigned team members.";
                     return RedirectToAction(nameof(AssignTeamMember));
                 }
 
                 // Prevent self-assignment
                 if (employeeId == managerId)
                 {
-                    TempData["ErrorMessage"] = "An employee cannot be their own manager.";
+                    TempData["ErrorMessage"] = "An employee cannot be their own supervisor.";
                     return RedirectToAction(nameof(AssignTeamMember));
                 }
 
@@ -831,7 +777,7 @@ namespace WebAppSystem.Controllers
                 {
                     if (currentManagerId.Value == employeeId)
                     {
-                        TempData["ErrorMessage"] = "Cannot assign this employee to the selected manager because it would create a circular reporting structure.";
+                        TempData["ErrorMessage"] = "Cannot assign this employee to the selected supervisor because it would create a circular reporting structure.";
                         return RedirectToAction(nameof(AssignTeamMember));
                     }
                     
@@ -847,7 +793,7 @@ namespace WebAppSystem.Controllers
                 if (previousManagerId.HasValue)
                 {
                     var previousManager = await _context.Employees.FindAsync(previousManagerId.Value);
-                    assignmentMessage = $"{employee.FullName} has been reassigned from {previousManager?.FullName ?? "previous manager"} to {targetManager.FullName}.";
+                    assignmentMessage = $"{employee.FullName} has been reassigned from {previousManager?.FullName ?? "previous supervisor"} to {targetManager.FullName}.";
                 }
                 else
                 {
@@ -899,17 +845,7 @@ namespace WebAppSystem.Controllers
                 // Check if employee is directly managed by current user
                 if (employee.ManagerId != userId.Value)
                 {
-                    // Check if employee is in the team hierarchy (indirect report)
-                    var isInTeamHierarchy = await IsEmployeeInManagerTeam(employeeId, userId.Value);
-                    
-                    if (!isInTeamHierarchy)
-                    {
-                        TempData["ErrorMessage"] = "You can only remove employees who are in your team hierarchy.";
-                        return RedirectToAction(nameof(MyTeam));
-                    }
-                    
-                    // It's an indirect report
-                    TempData["ErrorMessage"] = $"{employee.FullName} is not your direct report. They report to another manager in your team. Please have their direct manager remove them, or reassign them first.";
+                    TempData["ErrorMessage"] = $"You can only remove employees who are your direct reports. {employee.FullName} is not directly assigned to you.";
                     return RedirectToAction(nameof(MyTeam));
                 }
 
@@ -928,24 +864,6 @@ namespace WebAppSystem.Controllers
             }
 
             return RedirectToAction(nameof(MyTeam));
-        }
-
-        // Helper method to check if an employee is in a manager's team hierarchy
-        private async Task<bool> IsEmployeeInManagerTeam(int employeeId, int managerId)
-        {
-            try
-            {
-                var teamMembers = await _context.Employees
-                    .FromSqlRaw("EXEC dbo.GetTeamByManager @ManagerID", new SqlParameter("@ManagerID", managerId))
-                    .Select(e => e.EmployeeId)
-                    .ToListAsync();
-                
-                return teamMembers.Contains(employeeId);
-            }
-            catch
-            {
-                return false;
-            }
         }
     }
 }

@@ -502,26 +502,29 @@ namespace WebAppSystem.Controllers
 
             if (userId == null)
             {
-                TempData["ErrorMessage"] = "Please login to view your team.";
+                TempData["ErrorMessage"] = "You must be logged in to view your team. Please log in and try again.";
                 return RedirectToAction("Login", "Account");
             }
 
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
             {
-                TempData["ErrorMessage"] = "Access denied. Only Line Managers can view team details.";
+                TempData["ErrorMessage"] = "Access denied. Only users with the Line Manager role can view team details. If you believe you should have access, please contact your system administrator.";
                 return RedirectToAction("Index", "Home");
             }
 
             try
             {
-                // Use GetTeamByManager stored procedure
-                var teamMembers = await _context.Employees
-                    .FromSqlRaw("EXEC dbo.GetTeamByManager @ManagerID", new SqlParameter("@ManagerID", userId.Value))
+                // Use GetTeamByManager stored procedure to get hierarchical team structure
+                var teamMembers = await _context.Database
+                    .SqlQueryRaw<TeamMemberViewModel>(
+                        "EXEC dbo.GetTeamByManager @ManagerID",
+                        new SqlParameter("@ManagerID", userId.Value))
                     .ToListAsync();
 
                 // Load related data separately to avoid composability issues
                 var departmentIds = teamMembers.Where(e => e.DepartmentId.HasValue).Select(e => e.DepartmentId.Value).Distinct().ToList();
                 var positionIds = teamMembers.Where(e => e.PositionId.HasValue).Select(e => e.PositionId.Value).Distinct().ToList();
+                var managerIds = teamMembers.Where(e => e.ManagerId.HasValue).Select(e => e.ManagerId.Value).Distinct().ToList();
                 
                 // Load all required departments in a single query
                 var departments = await _context.Departments
@@ -532,10 +535,16 @@ namespace WebAppSystem.Controllers
                 var positions = await _context.Positions
                     .Where(p => positionIds.Contains(p.PositionId))
                     .ToListAsync();
+                
+                // Load all required managers in a single query
+                var managers = await _context.Employees
+                    .Where(m => managerIds.Contains(m.EmployeeId))
+                    .ToListAsync();
 
                 // Create lookup dictionaries for efficient matching
                 var departmentLookup = departments.ToDictionary(d => d.DepartmentId);
                 var positionLookup = positions.ToDictionary(p => p.PositionId);
+                var managerLookup = managers.ToDictionary(m => m.EmployeeId);
 
                 // Manually set navigation properties
                 foreach (var employee in teamMembers)
@@ -548,14 +557,23 @@ namespace WebAppSystem.Controllers
                     {
                         employee.Position = positionLookup[employee.PositionId.Value];
                     }
+                    if (employee.ManagerId.HasValue && managerLookup.ContainsKey(employee.ManagerId.Value))
+                    {
+                        employee.Manager = managerLookup[employee.ManagerId.Value];
+                    }
                 }
 
                 ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
                 return View(teamMembers);
             }
+            catch (Microsoft.Data.SqlClient.SqlException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error while retrieving team information: {ex.Message}. Please contact your system administrator if this problem persists.";
+                return RedirectToAction("Index", "Home");
+            }
             catch (SystemException ex)
             {
-                TempData["ErrorMessage"] = $"Error retrieving team: {ex.Message}";
+                TempData["ErrorMessage"] = $"An unexpected error occurred while retrieving your team: {ex.Message}. Please try again or contact your system administrator if the problem persists.";
                 return RedirectToAction("Index", "Home");
             }
         }
@@ -712,31 +730,34 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
             {
-                TempData["ErrorMessage"] = "Access denied. Only Line Managers can assign team members.";
+                TempData["ErrorMessage"] = "Access denied. Only users with the Line Manager role can assign team members. If you believe you should have access, please contact your system administrator.";
                 return RedirectToAction("Index", "Home");
             }
 
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null)
             {
-                TempData["ErrorMessage"] = "Please login to assign team members.";
+                TempData["ErrorMessage"] = "You must be logged in to assign team members. Please log in and try again.";
                 return RedirectToAction("Login", "Account");
             }
 
-            // Get list of employees not currently assigned to any manager or assigned to this manager
+            // Get list of ALL active employees (including the current user for self-assignment)
             var availableEmployees = await _context.Employees
-                .Where(e => e.IsActive == true && e.EmployeeId != userId.Value)
+                .Where(e => e.IsActive == true)
                 .Select(e => new { e.EmployeeId, e.FullName, e.ManagerId })
                 .ToListAsync();
 
             ViewData["EmployeeId"] = new SelectList(
-                availableEmployees.Select(e => new { e.EmployeeId, DisplayText = $"{e.FullName} (ID: {e.EmployeeId})" + (e.ManagerId.HasValue ? " - Already assigned" : " - Unassigned") }),
+                availableEmployees.Select(e => new { 
+                    e.EmployeeId, 
+                    DisplayText = $"{e.FullName} (ID: {e.EmployeeId})" + 
+                                  (e.EmployeeId == userId.Value ? " - ME" : "") +
+                                  (e.ManagerId.HasValue ? " - Already assigned" : " - Unassigned") 
+                }),
                 "EmployeeId", 
                 "DisplayText");
 
             // Get list of all active employees who can be managers
-            // Note: We cannot exclude the selected employee here since it's not chosen yet
-            // Self-assignment prevention is handled in the POST action
             var managers = await _context.Employees
                 .Where(e => e.IsActive == true)
                 .OrderBy(e => e.FullName)
@@ -745,7 +766,10 @@ namespace WebAppSystem.Controllers
 
             // Default selection is the current user (most common use case for line managers)
             ViewData["ManagerId"] = new SelectList(
-                managers.Select(m => new { m.EmployeeId, DisplayText = $"{m.FullName} (ID: {m.EmployeeId})" }),
+                managers.Select(m => new { 
+                    m.EmployeeId, 
+                    DisplayText = $"{m.FullName} (ID: {m.EmployeeId})" + (m.EmployeeId == userId.Value ? " - ME" : "") 
+                }),
                 "EmployeeId", 
                 "DisplayText", 
                 userId.Value);
@@ -761,55 +785,137 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
             {
-                TempData["ErrorMessage"] = "Access denied. Only Line Managers can assign team members.";
+                TempData["ErrorMessage"] = "Access denied. Only users with the Line Manager role can assign team members. If you believe you should have access, please contact your system administrator.";
                 return RedirectToAction("Index", "Home");
             }
 
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null)
             {
-                TempData["ErrorMessage"] = "Please login to assign team members.";
+                TempData["ErrorMessage"] = "You must be logged in to assign team members. Please log in and try again.";
                 return RedirectToAction("Login", "Account");
             }
 
             try
             {
                 var employee = await _context.Employees.FindAsync(employeeId);
-                if (employee != null)
+                if (employee == null)
                 {
-                    // Verify the manager exists and is active
-                    var manager = await _context.Employees.FindAsync(managerId);
-                    if (manager == null || manager.IsActive != true)
-                    {
-                        TempData["ErrorMessage"] = "The selected manager does not exist or is not active.";
-                        return RedirectToAction(nameof(AssignTeamMember));
-                    }
+                    TempData["ErrorMessage"] = $"The employee with ID {employeeId} does not exist in the system. Please select a valid employee and try again.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
 
-                    // Prevent self-assignment
-                    if (employeeId == managerId)
-                    {
-                        TempData["ErrorMessage"] = "An employee cannot be assigned to themselves as their own manager.";
-                        return RedirectToAction(nameof(AssignTeamMember));
-                    }
+                if (!employee.IsActive.HasValue || !employee.IsActive.Value)
+                {
+                    TempData["ErrorMessage"] = $"Cannot assign {employee.FullName} because they are not an active employee. Only active employees can be assigned to managers.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
 
-                    // Update the employee's manager
-                    employee.ManagerId = managerId;
-                    await _context.SaveChangesAsync();
+                // Verify the manager exists and is active
+                var manager = await _context.Employees.FindAsync(managerId);
+                if (manager == null)
+                {
+                    TempData["ErrorMessage"] = $"The selected manager with ID {managerId} does not exist in the system. Please select a valid manager and try again.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
 
-                    TempData["SuccessMessage"] = $"Success! Employee {employee.FullName} has been assigned to the selected manager.";
-                    return RedirectToAction(nameof(MyTeam));
+                if (!manager.IsActive.HasValue || !manager.IsActive.Value)
+                {
+                    TempData["ErrorMessage"] = $"Cannot assign to {manager.FullName} because they are not an active employee. Only active employees can be managers.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
+
+                // Prevent circular reference (employee assigns themselves to themselves)
+                if (employeeId == managerId)
+                {
+                    TempData["ErrorMessage"] = $"Invalid assignment: {employee.FullName} cannot be assigned to themselves as their own manager. Please select a different manager.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
+
+                // Check for circular management hierarchy (prevent A -> B -> A scenarios)
+                var potentialCircularRef = await CheckCircularHierarchy(employeeId, managerId);
+                if (potentialCircularRef)
+                {
+                    TempData["ErrorMessage"] = $"Cannot assign {employee.FullName} to {manager.FullName} because it would create a circular management hierarchy (where {employee.FullName} is already in {manager.FullName}'s reporting chain). Please choose a different manager.";
+                    return RedirectToAction(nameof(AssignTeamMember));
+                }
+
+                // Store old manager info for message
+                var oldManagerId = employee.ManagerId;
+                Employee? oldManager = null;
+                if (oldManagerId.HasValue)
+                {
+                    oldManager = await _context.Employees.FindAsync(oldManagerId.Value);
+                }
+
+                // Update the employee's manager
+                employee.ManagerId = managerId;
+                await _context.SaveChangesAsync();
+
+                // Provide context-specific success message
+                string successMessage;
+                if (employeeId == userId.Value)
+                {
+                    successMessage = $"Success! You have been assigned to {manager.FullName} as your new manager.";
+                }
+                else if (oldManager != null)
+                {
+                    successMessage = $"Success! {employee.FullName} has been reassigned from {oldManager.FullName} to {manager.FullName}.";
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "Employee not found.";
+                    successMessage = $"Success! {employee.FullName} has been assigned to {manager.FullName}.";
                 }
+
+                TempData["SuccessMessage"] = successMessage;
+                return RedirectToAction(nameof(MyTeam));
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error while assigning team member: {ex.Message}. Please contact your system administrator if this problem persists.";
             }
             catch (SystemException ex)
             {
-                TempData["ErrorMessage"] = $"Error assigning team member: {ex.Message}";
+                TempData["ErrorMessage"] = $"An unexpected error occurred while assigning the team member: {ex.Message}. Please try again or contact your system administrator if the problem persists.";
             }
 
             return RedirectToAction(nameof(AssignTeamMember));
+        }
+
+        // Helper method to check for circular hierarchy
+        private async Task<bool> CheckCircularHierarchy(int employeeId, int newManagerId)
+        {
+            // If the new manager is in the reporting chain of the employee being assigned,
+            // this would create a circular reference
+            var currentManagerId = newManagerId;
+            var visitedManagers = new HashSet<int>();
+
+            while (currentManagerId != 0)
+            {
+                if (currentManagerId == employeeId)
+                {
+                    // Found a circular reference
+                    return true;
+                }
+
+                if (visitedManagers.Contains(currentManagerId))
+                {
+                    // Already visited this manager, prevent infinite loop
+                    break;
+                }
+
+                visitedManagers.Add(currentManagerId);
+
+                var manager = await _context.Employees.FindAsync(currentManagerId);
+                if (manager?.ManagerId == null)
+                {
+                    break;
+                }
+
+                currentManagerId = manager.ManagerId.Value;
+            }
+
+            return false;
         }
 
         // POST: Employees/RemoveTeamMember (For Line Managers)
@@ -822,35 +928,51 @@ namespace WebAppSystem.Controllers
 
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager") || userId == null)
             {
-                TempData["ErrorMessage"] = "Access denied. Only Line Managers can remove team members.";
+                TempData["ErrorMessage"] = "Access denied. Only users with the Line Manager role can remove team members. If you believe you should have access, please contact your system administrator.";
                 return RedirectToAction("Index", "Home");
             }
 
             try
             {
                 var employee = await _context.Employees.FindAsync(employeeId);
-                if (employee != null)
+                if (employee == null)
                 {
-                    // Verify that this employee is under the current manager
-                    if (employee.ManagerId == userId.Value)
-                    {
-                        employee.ManagerId = null;
-                        await _context.SaveChangesAsync();
-                        TempData["SuccessMessage"] = $"Employee {employee.FullName} has been removed from your team.";
-                    }
-                    else
-                    {
-                        TempData["ErrorMessage"] = "You can only remove employees from your own team.";
-                    }
+                    TempData["ErrorMessage"] = $"The employee with ID {employeeId} does not exist in the system. They may have been deleted or the ID is incorrect.";
+                    return RedirectToAction(nameof(MyTeam));
+                }
+
+                // Verify that this employee is a direct report of the current manager
+                if (employee.ManagerId != userId.Value)
+                {
+                    TempData["ErrorMessage"] = $"Cannot remove {employee.FullName} because they are not your direct report. You can only remove employees who directly report to you (not indirect reports).";
+                    return RedirectToAction(nameof(MyTeam));
+                }
+
+                // Check if this employee has subordinates
+                var subordinateCount = await _context.Employees.CountAsync(e => e.ManagerId == employeeId);
+                
+                employee.ManagerId = null;
+                await _context.SaveChangesAsync();
+                
+                string successMessage;
+                if (subordinateCount > 0)
+                {
+                    successMessage = $"Success! {employee.FullName} has been removed from your team. Note: They had {subordinateCount} subordinate(s) who are now part of your extended team hierarchy.";
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "Employee not found.";
+                    successMessage = $"Success! {employee.FullName} has been removed from your team.";
                 }
+                
+                TempData["SuccessMessage"] = successMessage;
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error while removing team member: {ex.Message}. Please contact your system administrator if this problem persists.";
             }
             catch (SystemException ex)
             {
-                TempData["ErrorMessage"] = $"Error removing team member: {ex.Message}";
+                TempData["ErrorMessage"] = $"An unexpected error occurred while removing the team member: {ex.Message}. Please try again or contact your system administrator if the problem persists.";
             }
 
             return RedirectToAction(nameof(MyTeam));

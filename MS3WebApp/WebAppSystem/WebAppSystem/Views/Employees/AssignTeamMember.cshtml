@@ -10,14 +10,23 @@
             </div>
             <div class="card-body">
                 <p class="text-muted">
-                    As a Line Manager, you can assign employees to your team or to other managers' teams.
+                    As a Line Manager, you can assign any employee (including yourself) to any other active employee's team.
                 </p>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> <strong>Tips:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>You can assign <strong>yourself</strong> to another manager's team</li>
+                        <li>You can reassign employees who are already assigned to other managers</li>
+                        <li>The system will prevent circular assignments (e.g., A → B → A)</li>
+                    </ul>
+                </div>
 
                 <form asp-action="AssignTeamMember" method="post" class="mt-4">
                     @Html.AntiForgeryToken()
 
                     <div class="mb-3">
-                        <label for="employeeId" class="form-label">Select Employee</label>
+                        <label for="employeeId" class="form-label">Select Employee to Assign</label>
                         <select id="employeeId" name="employeeId" class="form-select" required>
                             <option value="">-- Select an Employee --</option>
                             @foreach (var item in (SelectList)ViewData["EmployeeId"])
@@ -26,7 +35,7 @@
                             }
                         </select>
                         <div class="form-text">
-                            Select an employee to assign to a team. Employees marked as "Already assigned" can be reassigned to a different manager.
+                            Choose the employee you want to assign to a manager. You can select yourself (marked with "- ME") or any other employee.
                         </div>
                     </div>
 
@@ -39,7 +48,7 @@
                             }
                         </select>
                         <div class="form-text">
-                            Select the manager to whom this employee should report.
+                            Select the manager to whom this employee should report. Any active employee can be a manager.
                         </div>
                     </div>
 

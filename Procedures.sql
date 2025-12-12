@@ -2453,11 +2453,89 @@ BEGIN
     -- Validate manager exists
     IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @ManagerID)
     BEGIN
-        RAISERROR('Manager not found.', 16, 1);
+        RAISERROR('The specified manager does not exist in the system. Please verify the manager ID and try again.', 16, 1);
         RETURN;
     END
     
-    -- Return employees under this manager with all required columns using aliases that match the C# model
+    -- Recursive CTE to get all employees in the hierarchy (direct and indirect reports)
+    WITH TeamHierarchy AS (
+        -- Anchor: Direct reports of the manager
+        SELECT 
+            EmployeeID,
+            first_name,
+            last_name,
+            full_name,
+            national_id,
+            date_of_birth,
+            country_of_birth,
+            phone,
+            email,
+            password_hash,
+            address,
+            emergency_contact_name,
+            emergency_contact_phone,
+            relationship,
+            biography,
+            profile_image,
+            employment_progress,
+            account_status,
+            employment_status,
+            hire_date,
+            is_active,
+            department_id,
+            position_id,
+            paygrade_id,
+            taxform_id,
+            manager_id,
+            salary_type_id,
+            contract_id,
+            profile_completion_percentage,
+            1 AS HierarchyLevel,
+            CAST(full_name AS VARCHAR(500)) AS HierarchyPath
+        FROM Employee
+        WHERE manager_id = @ManagerID
+        
+        UNION ALL
+        
+        -- Recursive: Get reports of reports
+        SELECT 
+            e.EmployeeID,
+            e.first_name,
+            e.last_name,
+            e.full_name,
+            e.national_id,
+            e.date_of_birth,
+            e.country_of_birth,
+            e.phone,
+            e.email,
+            e.password_hash,
+            e.address,
+            e.emergency_contact_name,
+            e.emergency_contact_phone,
+            e.relationship,
+            e.biography,
+            e.profile_image,
+            e.employment_progress,
+            e.account_status,
+            e.employment_status,
+            e.hire_date,
+            e.is_active,
+            e.department_id,
+            e.position_id,
+            e.paygrade_id,
+            e.taxform_id,
+            e.manager_id,
+            e.salary_type_id,
+            e.contract_id,
+            e.profile_completion_percentage,
+            th.HierarchyLevel + 1,
+            CAST(th.HierarchyPath + ' > ' + e.full_name AS VARCHAR(500))
+        FROM Employee e
+        INNER JOIN TeamHierarchy th ON e.manager_id = th.EmployeeID
+        WHERE th.HierarchyLevel < 10  -- Prevent infinite loops
+    )
+    
+    -- Return all team members with hierarchy information and all required columns
     SELECT 
         EmployeeID,
         first_name AS FirstName,
@@ -2487,16 +2565,17 @@ BEGIN
         manager_id AS ManagerId,
         salary_type_id AS SalaryTypeId,
         contract_id AS ContractId,
-        profile_completion_percentage AS ProfileCompletionPercentage
-    FROM Employee
-    WHERE manager_id = @ManagerID
-    ORDER BY last_name, first_name;
+        profile_completion_percentage AS ProfileCompletionPercentage,
+        HierarchyLevel,
+        HierarchyPath
+    FROM TeamHierarchy
+    ORDER BY HierarchyLevel, last_name, first_name;
     
     -- Return count message
     DECLARE @TeamCount INT;
-    SELECT @TeamCount = COUNT(*) FROM Employee WHERE manager_id = @ManagerID;
+    SELECT @TeamCount = COUNT(*) FROM TeamHierarchy;
     
-    PRINT 'Found ' + CAST(@TeamCount AS VARCHAR(10)) + ' team members under Manager ID: ' + CAST(@ManagerID AS VARCHAR(10));
+    PRINT 'Found ' + CAST(@TeamCount AS VARCHAR(10)) + ' team members (including indirect reports) under Manager ID: ' + CAST(@ManagerID AS VARCHAR(10));
 END;
 GO
 

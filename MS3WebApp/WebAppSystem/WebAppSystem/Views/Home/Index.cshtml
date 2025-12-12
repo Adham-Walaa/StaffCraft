@@ -158,6 +158,66 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Notifications Card -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100 border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-bell text-primary"></i> Notifications
+                        </h5>
+                        <p class="card-text">View your notifications and stay updated.</p>
+                        <a asp-controller="Notifications" asp-action="Index" class="btn btn-primary">
+                            <i class="bi bi-arrow-right"></i> View Notifications
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true || 
+                 Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+            {
+                <!-- Analytics Card -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-success">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-graph-up text-success"></i> Analytics
+                            </h5>
+                            <p class="card-text">Access analytics reports and insights.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Analytics" asp-action="DepartmentStatistics" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-building"></i> Department Statistics
+                                </a>
+                                <a asp-controller="Analytics" asp-action="ComplianceReport" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-shield-check"></i> Compliance Report
+                                </a>
+                                <a asp-controller="Analytics" asp-action="DiversityReport" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-globe"></i> Diversity Report
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+            {
+                <!-- Hierarchy Card -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-info">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-diagram-3 text-info"></i> Organizational Hierarchy
+                            </h5>
+                            <p class="card-text">View and manage the organizational structure.</p>
+                            <a asp-controller="Hierarchy" asp-action="Index" class="btn btn-info text-white">
+                                <i class="bi bi-arrow-right"></i> View Hierarchy
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     }
     else

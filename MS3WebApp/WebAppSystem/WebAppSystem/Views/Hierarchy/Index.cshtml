@@ -1,0 +1,220 @@
+@model IEnumerable<WebAppSystem.Models.EmployeeHierarchy>
+
+@{
+    ViewData["Title"] = "Organizational Hierarchy";
+}
+
+<div class="mb-4">
+    <h1><i class="bi bi-diagram-3"></i> Organizational Hierarchy</h1>
+    <hr />
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-tree"></i> Organization Tree View</h5>
+                    <div>
+                        <button id="expandAll" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrows-expand"></i> Expand All
+                        </button>
+                        <button id="collapseAll" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrows-collapse"></i> Collapse All
+                        </button>
+                    </div>
+                </div>
+                <div id="hierarchy-tree" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-table"></i> Hierarchy Table View</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Level</th>
+                                <th>Employee Name</th>
+                                <th>Department ID</th>
+                                <th>Position ID</th>
+                                <th>Manager ID</th>
+                                @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                                {
+                                    <th>Actions</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model != null && Model.Any())
+                            {
+                                @foreach (var item in Model.OrderBy(x => x.HierarchyLevel).ThenBy(x => x.EmployeeName))
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary">Level @item.HierarchyLevel</span>
+                                        </td>
+                                        <td>
+                                            @for (int i = 0; i < item.HierarchyLevel; i++)
+                                            {
+                                                <span style="margin-left: 20px;"></span>
+                                            }
+                                            @if (item.HierarchyLevel > 0)
+                                            {
+                                                <i class="bi bi-arrow-return-right text-muted"></i>
+                                            }
+                                            <strong>@item.EmployeeName</strong>
+                                        </td>
+                                        <td>@(item.DepartmentId?.ToString() ?? "N/A")</td>
+                                        <td>@(item.PositionId?.ToString() ?? "N/A")</td>
+                                        <td>@(item.ManagerId?.ToString() ?? "CEO/Top Level")</td>
+                                        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                                        {
+                                            <td>
+                                                <a asp-action="ReassignEmployee" asp-route-id="@item.EmployeeId" 
+                                                   class="btn btn-sm btn-warning">
+                                                    <i class="bi bi-arrow-left-right"></i> Reassign
+                                                </a>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center">No hierarchy data available.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Load hierarchy data
+            $.getJSON('@Url.Action("GetHierarchyData", "Hierarchy")', function(data) {
+                if (data.error) {
+                    $('#hierarchy-tree').html('<div class="alert alert-danger">Error loading hierarchy: ' + data.error + '</div>');
+                    return;
+                }
+                
+                if (data && data.length > 0) {
+                    renderTree(data);
+                } else {
+                    $('#hierarchy-tree').html('<div class="alert alert-info">No hierarchy data available.</div>');
+                }
+            }).fail(function() {
+                $('#hierarchy-tree').html('<div class="alert alert-danger">Failed to load hierarchy data.</div>');
+            });
+            
+            function renderTree(nodes) {
+                var html = '<ul class="tree">';
+                nodes.forEach(function(node) {
+                    html += renderNode(node);
+                });
+                html += '</ul>';
+                $('#hierarchy-tree').html(html);
+            }
+            
+            function renderNode(node) {
+                var hasChildren = node.children && node.children.length > 0;
+                var html = '<li>';
+                
+                if (hasChildren) {
+                    html += '<span class="tree-toggle"><i class="bi bi-chevron-down"></i></span>';
+                } else {
+                    html += '<span class="tree-empty"></span>';
+                }
+                
+                html += '<span class="tree-node">';
+                html += '<i class="bi bi-person-circle"></i> ';
+                html += '<strong>' + node.name + '</strong>';
+                html += ' <small class="text-muted">(ID: ' + node.id + ')</small>';
+                html += '</span>';
+                
+                if (hasChildren) {
+                    html += '<ul class="tree-children">';
+                    node.children.forEach(function(child) {
+                        html += renderNode(child);
+                    });
+                    html += '</ul>';
+                }
+                
+                html += '</li>';
+                return html;
+            }
+            
+            // Toggle functionality
+            $(document).on('click', '.tree-toggle', function() {
+                $(this).find('i').toggleClass('bi-chevron-down bi-chevron-right');
+                $(this).siblings('.tree-children').slideToggle(200);
+            });
+            
+            $('#expandAll').click(function() {
+                $('.tree-children').slideDown(200);
+                $('.tree-toggle i').removeClass('bi-chevron-right').addClass('bi-chevron-down');
+            });
+            
+            $('#collapseAll').click(function() {
+                $('.tree-children').slideUp(200);
+                $('.tree-toggle i').removeClass('bi-chevron-down').addClass('bi-chevron-right');
+            });
+        });
+    </script>
+    
+    <style>
+        .tree {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .tree ul {
+            list-style: none;
+            padding-left: 30px;
+        }
+        
+        .tree li {
+            margin: 5px 0;
+        }
+        
+        .tree-toggle {
+            cursor: pointer;
+            color: #0d6efd;
+            margin-right: 5px;
+        }
+        
+        .tree-empty {
+            display: inline-block;
+            width: 16px;
+            margin-right: 5px;
+        }
+        
+        .tree-node {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-left: 3px solid #0d6efd;
+            display: inline-block;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+        
+        .tree-node:hover {
+            background: #e9ecef;
+        }
+        
+        .tree-children {
+            margin-top: 10px;
+        }
+    </style>
+}

@@ -1,0 +1,111 @@
+@{
+    ViewData["Title"] = "Department Statistics";
+    var stats = ViewBag.DepartmentStats as IEnumerable<dynamic>;
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-building"></i> Department Statistics</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Analytics
+        </a>
+    </div>
+    <hr />
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Departments</h6>
+                <h2>@ViewBag.TotalDepartments</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Employees</h6>
+                <h2>@ViewBag.TotalEmployees</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title">Active Employees</h6>
+                <h2>@ViewBag.ActiveEmployees</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">Avg per Department</h6>
+                <h2>@(ViewBag.TotalDepartments > 0 ? Math.Round((decimal)ViewBag.TotalEmployees / ViewBag.TotalDepartments, 1) : 0)</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Department Details Table -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-table"></i> Department-wise Employee Statistics</h5>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>Department ID</th>
+                        <th>Department Name</th>
+                        <th>Department Head</th>
+                        <th>Total Employees</th>
+                        <th>Active</th>
+                        <th>Inactive</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (stats != null && stats.Any())
+                    {
+                        @foreach (var stat in stats)
+                        {
+                            var dept = stat.Department;
+                            var employeeCount = stat.EmployeeCount;
+                            var activeCount = stat.ActiveEmployees;
+                            var inactiveCount = stat.InactiveEmployees;
+                            var percentage = ViewBag.TotalEmployees > 0 ? Math.Round((decimal)employeeCount / ViewBag.TotalEmployees * 100, 1) : 0;
+                            
+                            <tr>
+                                <td>@dept.DepartmentId</td>
+                                <td><strong>@(dept.DepartmentName ?? "N/A")</strong></td>
+                                <td>@(dept.DepartmentHead?.FullName ?? "No Head Assigned")</td>
+                                <td><span class="badge bg-primary">@employeeCount</span></td>
+                                <td><span class="badge bg-success">@activeCount</span></td>
+                                <td><span class="badge bg-danger">@inactiveCount</span></td>
+                                <td>
+                                    <div class="progress" style="min-width: 100px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: @percentage%;" 
+                                             aria-valuenow="@percentage" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            @percentage%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center">No department data available.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

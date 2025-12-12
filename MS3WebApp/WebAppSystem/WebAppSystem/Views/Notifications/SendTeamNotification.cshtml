@@ -1,0 +1,64 @@
+@{
+    ViewData["Title"] = "Send Team Notification";
+}
+
+<div class="mb-4">
+    <h1><i class="bi bi-send"></i> Send Team Notification</h1>
+    <hr />
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="SendTeamNotification" method="post">
+                    @Html.AntiForgeryToken()
+                    
+                    <div class="mb-3">
+                        <label for="messageContent" class="form-label">Message Content</label>
+                        <textarea class="form-control" id="messageContent" name="messageContent" rows="5" required 
+                                  placeholder="Enter your message to the team..."></textarea>
+                        <div class="form-text">This message will be sent to all members of your team.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="urgencyLevel" class="form-label">Urgency Level</label>
+                        <select class="form-select" id="urgencyLevel" name="urgencyLevel" required>
+                            <option value="">-- Select Urgency --</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Send Notification
+                        </button>
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Information</h5>
+                <p class="card-text">
+                    This notification will be sent to all active members of your team who report directly to you.
+                </p>
+                <hr />
+                <h6>Urgency Levels:</h6>
+                <ul class="list-unstyled">
+                    <li><span class="badge bg-info">Low</span> - General information</li>
+                    <li><span class="badge bg-warning">Medium</span> - Important updates</li>
+                    <li><span class="badge bg-danger">High</span> - Urgent matters</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

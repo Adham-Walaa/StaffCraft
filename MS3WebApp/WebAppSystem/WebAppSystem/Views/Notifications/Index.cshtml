@@ -1,0 +1,141 @@
+@model IEnumerable<WebAppSystem.Models.EmployeeNotification>
+
+@{
+    ViewData["Title"] = "My Notifications";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-bell"></i> My Notifications</h1>
+        @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+        {
+            <a asp-action="SendTeamNotification" class="btn btn-primary">
+                <i class="bi bi-send"></i> Send Team Notification
+            </a>
+        }
+    </div>
+    <hr />
+</div>
+
+@if (Model != null && Model.Any())
+{
+    <div class="row">
+        @foreach (var item in Model)
+        {
+            var notification = item.Notification;
+            if (notification != null)
+            {
+                var isUnread = notification.ReadStatus == false;
+                var urgencyClass = notification.Urgency?.ToLower() switch
+                {
+                    "high" => "border-danger",
+                    "medium" => "border-warning",
+                    "low" => "border-info",
+                    _ => "border-secondary"
+                };
+                var urgencyBadge = notification.Urgency?.ToLower() switch
+                {
+                    "high" => "bg-danger",
+                    "medium" => "bg-warning",
+                    "low" => "bg-info",
+                    _ => "bg-secondary"
+                };
+                var notificationIcon = notification.NotificationType?.ToLower() switch
+                {
+                    "contract" => "bi-file-earmark-text",
+                    "leave" => "bi-calendar-event",
+                    "shift" => "bi-clock",
+                    "mission" => "bi-briefcase",
+                    "team" => "bi-people",
+                    _ => "bi-info-circle"
+                };
+
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 @urgencyClass @(isUnread ? "border-3" : "")">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi @notificationIcon"></i>
+                                    @(notification.NotificationType ?? "Notification")
+                                </h5>
+                                <span class="badge @urgencyBadge">
+                                    @(notification.Urgency ?? "Normal")
+                                </span>
+                            </div>
+                            
+                            <p class="card-text">@notification.MesageContent</p>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i>
+                                    @(notification.Timestamp?.ToString("MMM dd, yyyy hh:mm tt") ?? "N/A")
+                                </small>
+                                
+                                @if (isUnread)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary mark-as-read" 
+                                            data-employee-id="@item.EmployeeId" 
+                                            data-notification-id="@item.NotificationId">
+                                        <i class="bi bi-check"></i> Mark as Read
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Read
+                                    </span>
+                                }
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(item.DeliveryStatus))
+                            {
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Status: <strong>@item.DeliveryStatus</strong>
+                                    </small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> You have no notifications at this time.
+    </div>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('.mark-as-read').click(function() {
+                var button = $(this);
+                var employeeId = button.data('employee-id');
+                var notificationId = button.data('notification-id');
+                
+                $.ajax({
+                    url: '@Url.Action("MarkAsRead", "Notifications")',
+                    type: 'POST',
+                    data: {
+                        employeeId: employeeId,
+                        notificationId: notificationId
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('Error: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred while marking the notification as read.');
+                    }
+                });
+            });
+        });
+    </script>
+}

@@ -1,0 +1,175 @@
+@model IEnumerable<WebAppSystem.Models.Employee>
+
+@{
+    ViewData["Title"] = "Compliance Report";
+    var complianceIssues = ViewBag.ComplianceIssues;
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-shield-check"></i> Compliance Report</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Analytics
+        </a>
+    </div>
+    <hr />
+</div>
+
+<!-- Compliance Issues Summary -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h6 class="card-title text-danger">No Contract</h6>
+                <h2>@complianceIssues.NoContract</h2>
+                <small>employees</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h6 class="card-title text-warning">No Tax Form</h6>
+                <h2>@complianceIssues.NoTaxForm</h2>
+                <small>employees</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body">
+                <h6 class="card-title text-info">Incomplete Profile</h6>
+                <h2>@complianceIssues.IncompleteProfile</h2>
+                <small>employees</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-secondary">
+            <div class="card-body">
+                <h6 class="card-title text-secondary">Inactive</h6>
+                <h2>@complianceIssues.Inactive</h2>
+                <small>employees</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-search"></i> Search and Filter</h5>
+        <form asp-action="ComplianceReport" method="get">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="searchTerm" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="searchTerm" name="searchTerm" 
+                               value="@ViewBag.SearchTerm" placeholder="Name, Email, or National ID">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="filterType" class="form-label">Filter Type</label>
+                        <select class="form-select" id="filterType" name="filterType">
+                            <option value="all" selected="@(ViewBag.FilterType == "all")">All Employees</option>
+                            <option value="nocontract" selected="@(ViewBag.FilterType == "nocontract")">No Contract</option>
+                            <option value="notaxform" selected="@(ViewBag.FilterType == "notaxform")">No Tax Form</option>
+                            <option value="incomplete" selected="@(ViewBag.FilterType == "incomplete")">Incomplete Profile</option>
+                            <option value="inactive" selected="@(ViewBag.FilterType == "inactive")">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">
+            <i class="bi bi-list-ul"></i> @ViewBag.FilterDescription
+            <span class="badge bg-primary">@Model.Count() results</span>
+        </h5>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Contract</th>
+                        <th>Tax Form</th>
+                        <th>Profile</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var employee in Model)
+                        {
+                            <tr>
+                                <td>@employee.EmployeeId</td>
+                                <td><strong>@employee.FullName</strong></td>
+                                <td>@employee.Email</td>
+                                <td>@(employee.Department?.DepartmentName ?? "N/A")</td>
+                                <td>
+                                    @if (employee.ContractId != null)
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger"><i class="bi bi-x-circle"></i> No</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (employee.TaxformId != null)
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger"><i class="bi bi-x-circle"></i> No</span>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var completion = employee.ProfileCompletionPercentage ?? 0;
+                                        var badgeClass = completion >= 100 ? "bg-success" : completion >= 50 ? "bg-warning" : "bg-danger";
+                                    }
+                                    <span class="badge @badgeClass">@completion%</span>
+                                </td>
+                                <td>
+                                    @if (employee.IsActive == true)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center">No employees found matching the criteria.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

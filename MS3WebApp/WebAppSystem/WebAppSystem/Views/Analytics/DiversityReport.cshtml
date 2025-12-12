@@ -1,0 +1,174 @@
+@{
+    ViewData["Title"] = "Diversity Report";
+    var employeesByCountry = ViewBag.EmployeesByCountry as IEnumerable<dynamic>;
+    var employeesByDepartment = ViewBag.EmployeesByDepartment as IEnumerable<dynamic>;
+    var employeesByStatus = ViewBag.EmployeesByStatus as IEnumerable<dynamic>;
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-globe"></i> Diversity Report</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Analytics
+        </a>
+    </div>
+    <hr />
+</div>
+
+<!-- Total Employees Summary -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3>Total Workforce: @ViewBag.TotalEmployees Employees</h3>
+                <p class="mb-0">Diversity Analysis Overview</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Geographic Diversity -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-map"></i> Geographic Diversity</h5>
+                <p class="text-muted">Employees by Country of Birth</p>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Country</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (employeesByCountry != null && employeesByCountry.Any())
+                            {
+                                @foreach (var item in employeesByCountry)
+                                {
+                                    var percentage = ViewBag.TotalEmployees > 0 ? Math.Round((decimal)item.Count / ViewBag.TotalEmployees * 100, 1) : 0;
+                                    <tr>
+                                        <td><strong>@item.Country</strong></td>
+                                        <td><span class="badge bg-primary">@item.Count</span></td>
+                                        <td>
+                                            <div class="progress" style="min-width: 80px;">
+                                                <div class="progress-bar bg-info" role="progressbar" 
+                                                     style="width: @percentage%;" 
+                                                     aria-valuenow="@percentage" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    @percentage%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center">No country data available.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Distribution -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-building"></i> Department Distribution</h5>
+                <p class="text-muted">Employees by Department</p>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (employeesByDepartment != null && employeesByDepartment.Any())
+                            {
+                                @foreach (var item in employeesByDepartment)
+                                {
+                                    var percentage = ViewBag.TotalEmployees > 0 ? Math.Round((decimal)item.Count / ViewBag.TotalEmployees * 100, 1) : 0;
+                                    <tr>
+                                        <td><strong>@item.Department</strong></td>
+                                        <td><span class="badge bg-success">@item.Count</span></td>
+                                        <td>
+                                            <div class="progress" style="min-width: 80px;">
+                                                <div class="progress-bar bg-success" role="progressbar" 
+                                                     style="width: @percentage%;" 
+                                                     aria-valuenow="@percentage" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    @percentage%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center">No department data available.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employment Status -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-person-badge"></i> Employment Status Distribution</h5>
+                <p class="text-muted">Employees by Employment Status</p>
+                <div class="row">
+                    @if (employeesByStatus != null && employeesByStatus.Any())
+                    {
+                        @foreach (var item in employeesByStatus)
+                        {
+                            var percentage = ViewBag.TotalEmployees > 0 ? Math.Round((decimal)item.Count / ViewBag.TotalEmployees * 100, 1) : 0;
+                            <div class="col-md-3 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">@item.Status</h6>
+                                        <h2 class="text-primary">@item.Count</h2>
+                                        <div class="progress mt-2">
+                                            <div class="progress-bar bg-warning" role="progressbar" 
+                                                 style="width: @percentage%;" 
+                                                 aria-valuenow="@percentage" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                @percentage%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-info">No employment status data available.</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

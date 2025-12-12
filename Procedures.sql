@@ -2458,6 +2458,9 @@ BEGIN
     END
     
     -- Recursive CTE to get all employees in the hierarchy (direct and indirect reports)
+    -- Maximum hierarchy depth is set to 10 levels to prevent infinite loops and performance issues
+    DECLARE @MaxHierarchyDepth INT = 10;
+    
     WITH TeamHierarchy AS (
         -- Anchor: Direct reports of the manager
         SELECT 
@@ -2532,7 +2535,7 @@ BEGIN
             CAST(th.HierarchyPath + ' > ' + e.full_name AS VARCHAR(500))
         FROM Employee e
         INNER JOIN TeamHierarchy th ON e.manager_id = th.EmployeeID
-        WHERE th.HierarchyLevel < 10  -- Prevent infinite loops
+        WHERE th.HierarchyLevel < @MaxHierarchyDepth
     )
     
     -- Return all team members with hierarchy information and all required columns

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WebAppSystem.Models
 {
@@ -14,6 +15,7 @@ namespace WebAppSystem.Models
         public string? CountryOfBirth { get; set; }
         public string? Phone { get; set; }
         public string? Email { get; set; }
+        // NOTE: PasswordHash is required for EF mapping but should never be displayed in views
         public string? PasswordHash { get; set; }
         public string? Address { get; set; }
         public string? EmergencyContactName { get; set; }
@@ -41,9 +43,14 @@ namespace WebAppSystem.Models
         public int HierarchyLevel { get; set; }
         public string? HierarchyPath { get; set; }
         
-        // Navigation properties (to be loaded separately)
+        // Navigation properties (to be loaded separately) - marked as NotMapped for SqlQuery
+        [NotMapped]
         public Department? Department { get; set; }
+        
+        [NotMapped]
         public Position? Position { get; set; }
+        
+        [NotMapped]
         public Employee? Manager { get; set; }
     }
 }

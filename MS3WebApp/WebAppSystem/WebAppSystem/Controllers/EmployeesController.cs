@@ -887,32 +887,33 @@ namespace WebAppSystem.Controllers
         {
             // If the new manager is in the reporting chain of the employee being assigned,
             // this would create a circular reference
-            var currentManagerId = newManagerId;
+            int? currentManagerId = newManagerId;
             var visitedManagers = new HashSet<int>();
 
-            while (currentManagerId != 0)
+            while (currentManagerId.HasValue && currentManagerId.Value != 0)
             {
-                if (currentManagerId == employeeId)
+                if (currentManagerId.Value == employeeId)
                 {
                     // Found a circular reference
                     return true;
                 }
 
-                if (visitedManagers.Contains(currentManagerId))
+                if (visitedManagers.Contains(currentManagerId.Value))
                 {
                     // Already visited this manager, prevent infinite loop
                     break;
                 }
 
-                visitedManagers.Add(currentManagerId);
+                visitedManagers.Add(currentManagerId.Value);
 
-                var manager = await _context.Employees.FindAsync(currentManagerId);
-                if (manager?.ManagerId == null)
+                var manager = await _context.Employees.FindAsync(currentManagerId.Value);
+                if (manager == null)
                 {
+                    // Manager not found, stop traversal
                     break;
                 }
 
-                currentManagerId = manager.ManagerId.Value;
+                currentManagerId = manager.ManagerId;
             }
 
             return false;

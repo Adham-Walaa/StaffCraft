@@ -734,17 +734,18 @@ namespace WebAppSystem.Controllers
                 "EmployeeId", 
                 "DisplayText");
 
-            // Get list of all line managers for reassignment
-            var managers = await _context.Database
-                .SqlQueryRaw<ManagerViewModel>(
-                    @"SELECT DISTINCT e.EmployeeID, e.full_name as FullName
-                    FROM Employee e
-                    INNER JOIN EmployeeRole er ON e.EmployeeID = er.employee_id
-                    INNER JOIN Role r ON er.role_id = r.RoleID
-                    WHERE r.role_name = 'Line Manager' AND e.is_active = 1")
+            // Get list of all active employees who can be managers (excluding the employee being assigned)
+            var managers = await _context.Employees
+                .Where(e => e.IsActive == true)
+                .OrderBy(e => e.FullName)
+                .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 
-            ViewData["ManagerId"] = new SelectList(managers, "EmployeeID", "FullName", userId.Value);
+            ViewData["ManagerId"] = new SelectList(
+                managers.Select(m => new { m.EmployeeId, DisplayText = $"{m.FullName} (ID: {m.EmployeeId})" }),
+                "EmployeeId", 
+                "DisplayText", 
+                userId.Value);
 
             return View();
         }
@@ -773,19 +774,18 @@ namespace WebAppSystem.Controllers
                 var employee = await _context.Employees.FindAsync(employeeId);
                 if (employee != null)
                 {
-                    // Check if manager exists and is a line manager
-                    var managerRoles = await _context.Database
-                        .SqlQueryRaw<string>(
-                            @"SELECT r.role_name 
-                            FROM EmployeeRole er 
-                            JOIN Role r ON er.role_id = r.RoleID 
-                            WHERE er.employee_id = @p0",
-                            managerId)
-                        .ToListAsync();
-
-                    if (!managerRoles.Any(r => r == "Line Manager"))
+                    // Verify the manager exists and is active
+                    var manager = await _context.Employees.FindAsync(managerId);
+                    if (manager == null || manager.IsActive != true)
                     {
-                        TempData["ErrorMessage"] = "The selected manager is not a Line Manager.";
+                        TempData["ErrorMessage"] = "The selected manager does not exist or is not active.";
+                        return RedirectToAction(nameof(AssignTeamMember));
+                    }
+
+                    // Prevent self-assignment
+                    if (employeeId == managerId)
+                    {
+                        TempData["ErrorMessage"] = "An employee cannot be assigned to themselves as their own manager.";
                         return RedirectToAction(nameof(AssignTeamMember));
                     }
 
@@ -793,7 +793,7 @@ namespace WebAppSystem.Controllers
                     employee.ManagerId = managerId;
                     await _context.SaveChangesAsync();
 
-                    TempData["SuccessMessage"] = $"Employee {employee.FullName} has been assigned to the selected manager.";
+                    TempData["SuccessMessage"] = $"Success! Employee {employee.FullName} has been assigned to the selected manager.";
                     return RedirectToAction(nameof(MyTeam));
                 }
                 else

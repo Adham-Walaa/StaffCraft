@@ -1,0 +1,51 @@
+@model WebAppSystem.Models.TaxForm
+
+@{
+    ViewData["Title"] = "Create Tax Form";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h2 class="mb-0"><i class="bi bi-file-earmark-text"></i> Create Tax Form</h2>
+            </div>
+            <div class="card-body">
+                <form asp-action="Create">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Jurisdiction" class="form-label"></label>
+                        <input asp-for="Jurisdiction" class="form-control" placeholder="e.g., US, UK, Canada" />
+                        <span asp-validation-for="Jurisdiction" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="ValidityPeriod" class="form-label"></label>
+                        <input asp-for="ValidityPeriod" class="form-control" type="date" />
+                        <span asp-validation-for="ValidityPeriod" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="FormContent" class="form-label"></label>
+                        <textarea asp-for="FormContent" class="form-control" rows="5" placeholder="Enter form content or description"></textarea>
+                        <span asp-validation-for="FormContent" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-check-circle"></i> Create Tax Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

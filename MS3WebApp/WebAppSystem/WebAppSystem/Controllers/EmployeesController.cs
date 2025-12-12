@@ -494,7 +494,7 @@ namespace WebAppSystem.Controllers
             return View(employee);
         }
 
-        // GET: Employees/MyTeam (For anyone with team members)
+        // GET: Employees/MyTeam (For anyone with team members - Line Managers can also edit)
         public async Task<IActionResult> MyTeam()
         {
             var userId = HttpContext.Session.GetInt32("UserId");

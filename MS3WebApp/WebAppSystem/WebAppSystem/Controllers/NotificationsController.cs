@@ -154,7 +154,7 @@ namespace WebAppSystem.Controllers
 
                 return Json(new { success = false, message = "Notification not found" });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return Json(new { success = false, message = ex.Message });
             }

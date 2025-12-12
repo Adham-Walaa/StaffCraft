@@ -33,16 +33,48 @@ namespace WebAppSystem.Controllers
             try
             {
                 // Call the ViewOrgHierarchy stored procedure
-                var hierarchyData = await _context.EmployeeHierarchies
-                    .FromSqlRaw("EXEC dbo.ViewOrgHierarchy")
-                    .ToListAsync();
-
-                return View(hierarchyData);
+                using (var connection = _context.Database.GetDbConnection())
+                {
+                    await connection.OpenAsync();
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = "EXEC dbo.ViewOrgHierarchy";
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            var hierarchyData = new List<OrgHierarchyViewModel>();
+                            while (await reader.ReadAsync())
+                            {
+                                hierarchyData.Add(new OrgHierarchyViewModel
+                                {
+                                    EmployeeId = reader.IsDBNull(0) ? null : reader.GetInt32(0),
+                                    FirstName = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    LastName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    ManagerId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                                    ManagerName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    DepartmentId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                                    DepartmentName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                                    PositionId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                                    PositionTitle = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                    HierarchyLevel = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                                    HierarchyPath = reader.IsDBNull(10) ? null : reader.GetString(10)
+                                });
+                            }
+                            
+                            // Set EmployeeName for each item
+                            foreach (var item in hierarchyData)
+                            {
+                                item.EmployeeName = $"{item.FirstName} {item.LastName}".Trim();
+                            }
+                            
+                            return View(hierarchyData);
+                        }
+                    }
+                }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 TempData["ErrorMessage"] = $"Error loading hierarchy: {ex.Message}";
-                return View(new List<EmployeeHierarchy>());
+                return View(new List<OrgHierarchyViewModel>());
             }
         }
 
@@ -146,23 +178,54 @@ namespace WebAppSystem.Controllers
         {
             try
             {
-                var hierarchyData = await _context.EmployeeHierarchies
-                    .FromSqlRaw("EXEC dbo.ViewOrgHierarchy")
-                    .ToListAsync();
+                using (var connection = _context.Database.GetDbConnection())
+                {
+                    await connection.OpenAsync();
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = "EXEC dbo.ViewOrgHierarchy";
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            var hierarchyData = new List<OrgHierarchyViewModel>();
+                            while (await reader.ReadAsync())
+                            {
+                                hierarchyData.Add(new OrgHierarchyViewModel
+                                {
+                                    EmployeeId = reader.IsDBNull(0) ? null : reader.GetInt32(0),
+                                    FirstName = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    LastName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    ManagerId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                                    ManagerName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    DepartmentId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                                    DepartmentName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                                    PositionId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                                    PositionTitle = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                    HierarchyLevel = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                                    HierarchyPath = reader.IsDBNull(10) ? null : reader.GetString(10)
+                                });
+                            }
+                            
+                            // Set EmployeeName for each item
+                            foreach (var item in hierarchyData)
+                            {
+                                item.EmployeeName = $"{item.FirstName} {item.LastName}".Trim();
+                            }
 
-                // Transform data for visualization
-                var treeData = BuildHierarchyTree(hierarchyData);
-                return Json(treeData);
+                            // Transform data for visualization
+                            var treeData = BuildHierarchyTree(hierarchyData);
+                            return Json(treeData);
+                        }
+                    }
+                }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return Json(new { error = ex.Message });
             }
         }
 
-        private List<object> BuildHierarchyTree(List<EmployeeHierarchy> data)
+        private List<object> BuildHierarchyTree(List<OrgHierarchyViewModel> data)
         {
-            var lookup = data.ToDictionary(x => x.EmployeeId);
             var rootNodes = new List<object>();
 
             foreach (var item in data.Where(x => x.ManagerId == null))
@@ -173,7 +236,7 @@ namespace WebAppSystem.Controllers
             return rootNodes;
         }
 
-        private object BuildNode(EmployeeHierarchy item, List<EmployeeHierarchy> allData)
+        private object BuildNode(OrgHierarchyViewModel item, List<OrgHierarchyViewModel> allData)
         {
             var children = allData.Where(x => x.ManagerId == item.EmployeeId)
                                   .Select(child => BuildNode(child, allData))

@@ -59,12 +59,12 @@
                 @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true || 
                      Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
                 {
-                    @if (item.Status == "Pending")
+                    @if (item.Status != null && item.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
                     {
                         <text> | </text>
-                        <a asp-action="Approve" asp-route-id="@item.RequestId" class="text-success">Approve</a>
-                        <text> | </text>
-                        <a asp-action="Reject" asp-route-id="@item.RequestId" class="text-danger">Reject</a>
+                        <a asp-action="Approve" asp-route-id="@item.RequestId" class="btn btn-sm btn-success">Approve</a>
+                        <text> </text>
+                        <a asp-action="Reject" asp-route-id="@item.RequestId" class="btn btn-sm btn-danger">Reject</a>
                     }
                 }
             </td>

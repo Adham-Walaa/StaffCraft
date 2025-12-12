@@ -80,7 +80,9 @@ namespace WebAppSystem.Controllers
             }
 
             // Generate new ConfigId
-            var maxConfigId = await _context.SplitShiftConfigurations.MaxAsync(s => (int?)s.ConfigId) ?? 0;
+            var maxConfigId = _context.SplitShiftConfigurations.Any() 
+                ? await _context.SplitShiftConfigurations.MaxAsync(s => s.ConfigId) 
+                : 0;
             splitShiftConfiguration.ConfigId = maxConfigId + 1;
             
             // Calculate total hours using helper method

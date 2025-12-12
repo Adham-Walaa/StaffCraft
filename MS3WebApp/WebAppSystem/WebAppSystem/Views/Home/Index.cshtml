@@ -78,7 +78,7 @@
             {
                 <!-- My Team Card (For employees with direct reports) -->
                 <div class="col-md-6">
-                    <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
+                    <div class="card shadow-sm @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
@@ -160,7 +160,7 @@
     else
     {
         <div class="text-center">
-            <h1 class="display-4">Welcome to HR Management System</h1>
+            <h1 class="display-4">Welcome to Team Entities' © Management System</h1>
             <hr class="my-4" />
             <p>Please login to access the system.</p>
             <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg">

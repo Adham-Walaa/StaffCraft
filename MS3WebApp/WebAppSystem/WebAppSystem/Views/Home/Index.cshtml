@@ -79,16 +79,34 @@
 
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
             {
-                <!-- My Team Card -->
+                @if (ViewBag.HasTeamMembers == true)
+                {
+                    <!-- My Team Card -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100 border-info">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-people-fill text-info"></i> My Team
+                                </h5>
+                                <p class="card-text">View and manage your direct reports.</p>
+                                <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
+                                    <i class="bi bi-arrow-right"></i> View My Team
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Team Management Card -->
                 <div class="col-md-6">
-                    <div class="card shadow-sm h-100 border-info">
+                    <div class="card shadow-sm h-100 border-success">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <i class="bi bi-people-fill text-info"></i> My Team
+                                <i class="bi bi-person-plus-fill text-success"></i> Team Management
                             </h5>
-                            <p class="card-text">View and manage your direct reports.</p>
-                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
-                                <i class="bi bi-arrow-right"></i> View My Team
+                            <p class="card-text">Assign employees to your team or other managers' teams.</p>
+                            <a asp-controller="Employees" asp-action="AssignTeamMember" class="btn btn-success">
+                                <i class="bi bi-arrow-right"></i> Assign Team Members
                             </a>
                         </div>
                     </div>

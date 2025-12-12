@@ -2463,14 +2463,31 @@ BEGIN
         first_name AS FirstName,
         last_name AS LastName,
         full_name AS FullName,
-        email AS Email,
+        national_id AS NationalId,
+        date_of_birth AS DateOfBirth,
+        country_of_birth AS CountryOfBirth,
         phone AS Phone,
+        email AS Email,
+        password_hash AS PasswordHash,
+        address AS Address,
+        emergency_contact_name AS EmergencyContactName,
+        emergency_contact_phone AS EmergencyContactPhone,
+        relationship AS Relationship,
+        biography AS Biography,
+        profile_image AS ProfileImage,
+        employment_progress AS EmploymentProgress,
         account_status AS AccountStatus,
         employment_status AS EmploymentStatus,
         hire_date AS HireDate,
+        is_active AS IsActive,
         department_id AS DepartmentId,
         position_id AS PositionId,
-        is_active AS IsActive
+        paygrade_id AS PaygradeId,
+        taxform_id AS TaxformId,
+        manager_id AS ManagerId,
+        salary_type_id AS SalaryTypeId,
+        contract_id AS ContractId,
+        profile_completion_percentage AS ProfileCompletionPercentage
     FROM Employee
     WHERE manager_id = @ManagerID
     ORDER BY last_name, first_name;

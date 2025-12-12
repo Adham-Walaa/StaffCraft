@@ -288,9 +288,9 @@ namespace WebAppSystem.Controllers
             {
                 // Get template shift if ShiftId is provided
                 ShiftSchedule? template = null;
-                if (model.ShiftId > 0)
+                if (model.ShiftId.HasValue && model.ShiftId.Value > 0)
                 {
-                    template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
+                    template = await _context.ShiftSchedules.FindAsync(model.ShiftId.Value);
                 }
 
                 // Generate new ShiftId
@@ -367,15 +367,15 @@ namespace WebAppSystem.Controllers
                 ModelState.AddModelError("DepartmentId", "Please select a department.");
             }
             
-            if (model.ShiftId == 0)
+            if (!model.ShiftId.HasValue || model.ShiftId.Value == 0)
             {
                 ModelState.AddModelError("ShiftId", "Please select a shift template.");
             }
             
-            if (ModelState.IsValid && model.DepartmentId.HasValue && model.ShiftId > 0)
+            if (ModelState.IsValid && model.DepartmentId.HasValue && model.DepartmentId.Value > 0 && model.ShiftId.HasValue && model.ShiftId.Value > 0)
             {
                 // Get template shift
-                var template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
+                var template = await _context.ShiftSchedules.FindAsync(model.ShiftId.Value);
                 if (template == null)
                 {
                     TempData["ErrorMessage"] = "Invalid shift template selected.";

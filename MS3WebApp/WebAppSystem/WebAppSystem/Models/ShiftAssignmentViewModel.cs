@@ -5,7 +5,7 @@ namespace WebAppSystem.Models
 {
     public class ShiftAssignmentViewModel
     {
-        public int ShiftId { get; set; }
+        public int? ShiftId { get; set; }
         public string? ShiftName { get; set; }
         public string? ShiftType { get; set; }
         public TimeOnly? StartTime { get; set; }

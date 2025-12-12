@@ -1,53 +1,134 @@
 ﻿@model IEnumerable<WebAppSystem.Models.Contract>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Contracts";
+    var userRoles = Context.Session.GetString("UserRoles");
+    var isHR = !string.IsNullOrEmpty(userRoles) && userRoles.Contains("HR Administrator");
+    
+    // Check if any contract is expired or terminated for non-HR users
+    var hasExpiredOrTerminatedContract = !isHR && Model.Any(c => c.CurrentState == "Expired" || c.CurrentState == "Terminated");
 }
 
-<h1>Index</h1>
+@if (hasExpiredOrTerminatedContract)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>Contract Renewal Required!</strong>
+        <p class="mb-0 mt-2">Your employment contract has expired or been terminated. Please contact the HR Administrator immediately to renew your contract.</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.Type)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.StartDate)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EndDate)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.CurrentState)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-file-text"></i> Contracts</h1>
+        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+        {
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New
+            </a>
+        }
+    </div>
+    <hr />
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Contract ID</th>
+                <th>Employee</th>
+                <th>@Html.DisplayNameFor(model => model.Type)</th>
+                <th>@Html.DisplayNameFor(model => model.StartDate)</th>
+                <th>@Html.DisplayNameFor(model => model.EndDate)</th>
+                <th>@Html.DisplayNameFor(model => model.CurrentState)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
 @foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.Type)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.StartDate)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EndDate)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.CurrentState)
-            </td>
-            <td>
-                <a asp-action="Edit" asp-route-id="@item.ContractId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.ContractId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.ContractId">Delete</a>
-            </td>
-        </tr>
+            <tr>
+                <td>@item.ContractId</td>
+                <td>
+                    @if (item.Employees != null && item.Employees.Any())
+                    {
+                        @string.Join(", ", item.Employees.Select(e => e.FullName))
+                    }
+                    else
+                    {
+                        <span class="text-muted">No employee assigned</span>
+                    }
+                </td>
+                <td>@Html.DisplayFor(modelItem => item.Type)</td>
+                <td>@(item.StartDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                <td>@(item.EndDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                <td>
+                    @if (item.CurrentState == "Active")
+                    {
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Active
+                        </span>
+                    }
+                    else if (item.CurrentState == "Terminated")
+                    {
+                        <span class="badge bg-danger">
+                            <i class="bi bi-x-circle"></i> Terminated
+                        </span>
+                    }
+                    else if (item.CurrentState == "Expired")
+                    {
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-exclamation-triangle"></i> Expired
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">@item.CurrentState</span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.ContractId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.ContractId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="RenewContract" asp-route-id="@item.ContractId" class="btn btn-success" title="Renew">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.ContractId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
+                    </div>
+                </td>
+            </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    @if (ViewBag.NoContract == true)
+    {
+        <div class="alert alert-warning text-center" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> 
+            <strong>No Contract Found</strong>
+            <p class="mb-0 mt-2">Your employment contract has not been created yet. Please contact the HR Administrator to set up your contract.</p>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info text-center" role="alert">
+            <i class="bi bi-info-circle"></i> No contracts found. 
+            @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+            {
+                <a asp-action="Create" class="alert-link">Create the first contract</a>
+            }
+        </div>
+    }
+}

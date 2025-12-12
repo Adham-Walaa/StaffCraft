@@ -55,6 +55,29 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Details/5
         public async Task<IActionResult> Details(int? id)
         {
+            // Check if user is authorized to view full employee details (System Admin, HR Admin, or Line Manager)
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userId = HttpContext.Session.GetInt32("UserId");
+            
+            if (string.IsNullOrEmpty(userRoles) || userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view employee details.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            // Allow System Admin, HR Admin, and Line Manager to view any employee
+            // Allow employees to view their own profile
+            bool isAuthorized = userRoles.Contains("System Administrator") || 
+                              userRoles.Contains("HR Administrator") || 
+                              userRoles.Contains("Line Manager") ||
+                              (id.HasValue && id.Value == userId.Value);
+
+            if (!isAuthorized)
+            {
+                TempData["ErrorMessage"] = "Access denied. Only administrators and managers can view full employee details.";
+                return RedirectToAction("MyProfile");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -175,6 +198,14 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit employee details.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -202,6 +233,14 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can edit employee details.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id != employee.EmployeeId)
             {
                 return NotFound();
@@ -240,6 +279,14 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete employees.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -267,13 +314,36 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var employee = await _context.Employees.FindAsync(id);
-            if (employee != null)
+            // Check if user is HR Administrator
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                _context.Employees.Remove(employee);
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can delete employees.";
+                return RedirectToAction("Index", "Home");
             }
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee != null)
+                {
+                    // Instead of deleting, deactivate the employee to avoid foreign key constraint issues
+                    employee.IsActive = false;
+                    employee.AccountStatus = "INACTIVE";
+                    employee.EmploymentStatus = "Terminated";
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Employee deactivated successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                }
+            }
+            catch (SystemException ex)
+            {
+                TempData["ErrorMessage"] = $"Error deactivating employee: {ex.Message}";
+            }
+
             return RedirectToAction(nameof(Index));
         }
 
@@ -332,7 +402,7 @@ namespace WebAppSystem.Controllers
         // POST: Employees/EditProfile
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography")] Employee employee, IFormFile ProfileImageFile)
+        public async Task<IActionResult> EditProfile([Bind("EmployeeId,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,CountryOfBirth,NationalId")] Employee employee, IFormFile ProfileImageFile)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null || userId.Value != employee.EmployeeId)
@@ -365,6 +435,8 @@ namespace WebAppSystem.Controllers
                     existingEmployee.EmergencyContactPhone = employee.EmergencyContactPhone;
                     existingEmployee.Relationship = employee.Relationship;
                     existingEmployee.Biography = employee.Biography;
+                    existingEmployee.CountryOfBirth = employee.CountryOfBirth;
+                    existingEmployee.NationalId = employee.NationalId;
                     
                     // Handle profile image upload
                     if (ProfileImageFile != null && ProfileImageFile.Length > 0)
@@ -529,7 +601,6 @@ namespace WebAppSystem.Controllers
                 "System Administrator",
                 "HR Administrator",
                 "Line Manager",
-                "Payroll Officer",
                 "Payroll Specialist",
                 "Employee"
             });
@@ -633,6 +704,153 @@ namespace WebAppSystem.Controllers
             }
 
             return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // GET: Employees/AssignTeamMember (For Line Managers)
+        public async Task<IActionResult> AssignTeamMember()
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only Line Managers can assign team members.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to assign team members.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            // Get list of employees not currently assigned to any manager or assigned to this manager
+            var availableEmployees = await _context.Employees
+                .Where(e => e.IsActive == true && e.EmployeeId != userId.Value)
+                .Select(e => new { e.EmployeeId, e.FullName, e.ManagerId })
+                .ToListAsync();
+
+            ViewData["EmployeeId"] = new SelectList(
+                availableEmployees.Select(e => new { e.EmployeeId, DisplayText = $"{e.FullName} (ID: {e.EmployeeId})" + (e.ManagerId.HasValue ? " - Already assigned" : " - Unassigned") }),
+                "EmployeeId", 
+                "DisplayText");
+
+            // Get list of all line managers for reassignment
+            var managers = await _context.Database
+                .SqlQueryRaw<ManagerViewModel>(
+                    @"SELECT DISTINCT e.EmployeeID, e.full_name as FullName
+                    FROM Employee e
+                    INNER JOIN EmployeeRole er ON e.EmployeeID = er.employee_id
+                    INNER JOIN Role r ON er.role_id = r.RoleID
+                    WHERE r.role_name = 'Line Manager' AND e.is_active = 1")
+                .ToListAsync();
+
+            ViewData["ManagerId"] = new SelectList(managers, "EmployeeID", "FullName", userId.Value);
+
+            return View();
+        }
+
+        // POST: Employees/AssignTeamMember
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignTeamMember(int employeeId, int managerId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only Line Managers can assign team members.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to assign team members.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee != null)
+                {
+                    // Check if manager exists and is a line manager
+                    var managerRoles = await _context.Database
+                        .SqlQueryRaw<string>(
+                            @"SELECT r.role_name 
+                            FROM EmployeeRole er 
+                            JOIN Role r ON er.role_id = r.RoleID 
+                            WHERE er.employee_id = @p0",
+                            managerId)
+                        .ToListAsync();
+
+                    if (!managerRoles.Any(r => r == "Line Manager"))
+                    {
+                        TempData["ErrorMessage"] = "The selected manager is not a Line Manager.";
+                        return RedirectToAction(nameof(AssignTeamMember));
+                    }
+
+                    // Update the employee's manager
+                    employee.ManagerId = managerId;
+                    await _context.SaveChangesAsync();
+
+                    TempData["SuccessMessage"] = $"Employee {employee.FullName} has been assigned to the selected manager.";
+                    return RedirectToAction(nameof(MyTeam));
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                }
+            }
+            catch (SystemException ex)
+            {
+                TempData["ErrorMessage"] = $"Error assigning team member: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(AssignTeamMember));
+        }
+
+        // POST: Employees/RemoveTeamMember (For Line Managers)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveTeamMember(int employeeId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager") || userId == null)
+            {
+                TempData["ErrorMessage"] = "Access denied. Only Line Managers can remove team members.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee != null)
+                {
+                    // Verify that this employee is under the current manager
+                    if (employee.ManagerId == userId.Value)
+                    {
+                        employee.ManagerId = null;
+                        await _context.SaveChangesAsync();
+                        TempData["SuccessMessage"] = $"Employee {employee.FullName} has been removed from your team.";
+                    }
+                    else
+                    {
+                        TempData["ErrorMessage"] = "You can only remove employees from your own team.";
+                    }
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                }
+            }
+            catch (SystemException ex)
+            {
+                TempData["ErrorMessage"] = $"Error removing team member: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(MyTeam));
         }
     }
 }

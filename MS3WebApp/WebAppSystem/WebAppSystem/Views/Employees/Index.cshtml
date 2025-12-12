@@ -60,12 +60,15 @@
                         <a asp-action="Details" asp-route-id="@item.EmployeeId" class="btn btn-info" title="Details">
                             <i class="bi bi-eye"></i>
                         </a>
-                        <a asp-action="Edit" asp-route-id="@item.EmployeeId" class="btn btn-warning" title="Edit">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <a asp-action="Delete" asp-route-id="@item.EmployeeId" class="btn btn-danger" title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </a>
+                        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.EmployeeId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.EmployeeId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
                     </div>
                 </td>
             </tr>

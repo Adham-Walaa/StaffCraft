@@ -982,7 +982,11 @@ namespace WebAppSystem.Controllers
 
                 TempData["SuccessMessage"] = "Pay grade updated successfully!";
             }
-            catch (SystemException ex)
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating pay grade: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
             {
                 TempData["ErrorMessage"] = $"Error updating pay grade: {ex.Message}";
             }
@@ -1048,7 +1052,11 @@ namespace WebAppSystem.Controllers
 
                 TempData["SuccessMessage"] = "Position updated successfully!";
             }
-            catch (SystemException ex)
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating position: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
             {
                 TempData["ErrorMessage"] = $"Error updating position: {ex.Message}";
             }
@@ -1114,7 +1122,11 @@ namespace WebAppSystem.Controllers
 
                 TempData["SuccessMessage"] = "Salary type updated successfully!";
             }
-            catch (SystemException ex)
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating salary type: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
             {
                 TempData["ErrorMessage"] = $"Error updating salary type: {ex.Message}";
             }
@@ -1180,7 +1192,11 @@ namespace WebAppSystem.Controllers
 
                 TempData["SuccessMessage"] = "Tax form updated successfully!";
             }
-            catch (SystemException ex)
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating tax form: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
             {
                 TempData["ErrorMessage"] = $"Error updating tax form: {ex.Message}";
             }
@@ -1260,7 +1276,12 @@ namespace WebAppSystem.Controllers
                 TempData["SuccessMessage"] = $"Password changed successfully for {employee.FullName}!";
                 return RedirectToAction(nameof(Details), new { id = id });
             }
-            catch (SystemException ex)
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error changing password: {ex.Message}";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
+            catch (InvalidOperationException ex)
             {
                 TempData["ErrorMessage"] = $"Error changing password: {ex.Message}";
                 return RedirectToAction(nameof(ChangePassword), new { id = id });

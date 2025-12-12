@@ -55,7 +55,7 @@ namespace WebAppSystem.Controllers
         // GET: Employees/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            // Check if user is authorized to view full employee details (System Admin, HR Admin, or Line Manager)
+            // Check if user is authorized to view full employee details
             var userRoles = HttpContext.Session.GetString("UserRoles");
             var userId = HttpContext.Session.GetInt32("UserId");
             
@@ -63,19 +63,6 @@ namespace WebAppSystem.Controllers
             {
                 TempData["ErrorMessage"] = "Please login to view employee details.";
                 return RedirectToAction("Login", "Account");
-            }
-
-            // Allow System Admin, HR Admin, and Line Manager to view any employee
-            // Allow employees to view their own profile
-            bool isAuthorized = userRoles.Contains("System Administrator") || 
-                              userRoles.Contains("HR Administrator") || 
-                              userRoles.Contains("Line Manager") ||
-                              (id.HasValue && id.Value == userId.Value);
-
-            if (!isAuthorized)
-            {
-                TempData["ErrorMessage"] = "Access denied. Only administrators and managers can view full employee details.";
-                return RedirectToAction("MyProfile");
             }
 
             if (id == null)
@@ -95,6 +82,23 @@ namespace WebAppSystem.Controllers
             if (employee == null)
             {
                 return NotFound();
+            }
+
+            // Authorization logic:
+            // 1. System Admin and HR Admin can view any employee
+            // 2. Line Managers can view any employee
+            // 3. Regular employees can view their own profile
+            // 4. Managers (supervisors) can view their direct reports
+            bool isAuthorized = userRoles.Contains("System Administrator") || 
+                              userRoles.Contains("HR Administrator") || 
+                              userRoles.Contains("Line Manager") ||
+                              (id.Value == userId.Value) ||
+                              (employee.ManagerId == userId.Value); // Allow managers to view their direct reports
+
+            if (!isAuthorized)
+            {
+                TempData["ErrorMessage"] = "Access denied. You can only view your own profile or the profiles of employees you supervise.";
+                return RedirectToAction("MyProfile");
             }
 
             return View(employee);

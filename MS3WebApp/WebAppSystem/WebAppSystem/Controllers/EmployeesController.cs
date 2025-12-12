@@ -734,13 +734,16 @@ namespace WebAppSystem.Controllers
                 "EmployeeId", 
                 "DisplayText");
 
-            // Get list of all active employees who can be managers (excluding the employee being assigned)
+            // Get list of all active employees who can be managers
+            // Note: We cannot exclude the selected employee here since it's not chosen yet
+            // Self-assignment prevention is handled in the POST action
             var managers = await _context.Employees
                 .Where(e => e.IsActive == true)
                 .OrderBy(e => e.FullName)
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 
+            // Default selection is the current user (most common use case for line managers)
             ViewData["ManagerId"] = new SelectList(
                 managers.Select(m => new { m.EmployeeId, DisplayText = $"{m.FullName} (ID: {m.EmployeeId})" }),
                 "EmployeeId", 

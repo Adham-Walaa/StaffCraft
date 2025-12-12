@@ -71,6 +71,13 @@ namespace WebAppSystem.Controllers
         // GET: ShiftSchedules/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+            {
+                return Forbid();
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -92,6 +99,13 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("ShiftId,EmployeeId,StartDate,EndDate,Status,ShiftName,ShiftType,StartTime,EndTime")] ShiftSchedule shiftSchedule)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+            {
+                return Forbid();
+            }
+
             if (id != shiftSchedule.ShiftId)
             {
                 return NotFound();
@@ -124,6 +138,12 @@ namespace WebAppSystem.Controllers
         // GET: ShiftSchedules/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
             if (id == null)
             {
                 return NotFound();
@@ -145,6 +165,12 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                return Forbid();
+            }
+
             var shiftSchedule = await _context.ShiftSchedules.FindAsync(id);
             if (shiftSchedule != null)
             {
@@ -212,7 +238,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
                 return Forbid();
             }
@@ -233,7 +259,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
                 return Forbid();
             }
@@ -281,7 +307,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
                 return Forbid();
             }
@@ -302,7 +328,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
                 return Forbid();
             }

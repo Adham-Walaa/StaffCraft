@@ -75,7 +75,7 @@
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="MyRequests">My Correction Requests</a></li>
                                     <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="SubmitRequest">Submit Correction</a></li>
-                                    @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true)
                                     {
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Attendances" asp-action="TeamAttendance">Team Attendance</a></li>
@@ -105,7 +105,7 @@
                                         <li><hr class="dropdown-divider"></li>
                                     }
                                     @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
-                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                         Context.Session.GetString("UserRoles")?.Contains("Manager") == true)
                                     {
                                         <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="AssignToEmployee">Assign to Employee</a></li>
                                         <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="AssignToDepartment">Assign to Department</a></li>

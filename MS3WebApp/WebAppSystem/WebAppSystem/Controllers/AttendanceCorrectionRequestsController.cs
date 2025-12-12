@@ -233,7 +233,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("Line Manager") && !userRoles.Contains("HR Administrator")))
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
             {
                 return Forbid();
             }
@@ -264,7 +264,7 @@ namespace WebAppSystem.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("Line Manager") && !userRoles.Contains("HR Administrator")) ||
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
                 userId == null)
             {
                 return Forbid();
@@ -289,7 +289,7 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("Line Manager") && !userRoles.Contains("HR Administrator")))
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
             {
                 return Forbid();
             }
@@ -320,7 +320,7 @@ namespace WebAppSystem.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("Line Manager") && !userRoles.Contains("HR Administrator")) ||
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
                 userId == null)
             {
                 return Forbid();

@@ -55,9 +55,18 @@
                 @Html.DisplayFor(modelItem => item.RecommendedByNavigation.EmployeeId)
             </td>
             <td>
-                <a asp-action="Edit" asp-route-id="@item.RequestId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.RequestId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.RequestId">Delete</a>
+                <a asp-action="Details" asp-route-id="@item.RequestId">Details</a>
+                @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true || 
+                     Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                {
+                    @if (item.Status == "Pending")
+                    {
+                        <text> | </text>
+                        <a asp-action="Approve" asp-route-id="@item.RequestId" class="text-success">Approve</a>
+                        <text> | </text>
+                        <a asp-action="Reject" asp-route-id="@item.RequestId" class="text-danger">Reject</a>
+                    }
+                }
             </td>
         </tr>
 }

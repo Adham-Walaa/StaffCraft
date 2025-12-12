@@ -67,9 +67,18 @@
                 @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
             </td>
             <td>
-                <a asp-action="Edit" asp-route-id="@item.ShiftId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.ShiftId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.ShiftId">Delete</a>
+                <a asp-action="Details" asp-route-id="@item.ShiftId">Details</a>
+                @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                     Context.Session.GetString("UserRoles")?.Contains("Manager") == true)
+                {
+                    <text> | </text>
+                    <a asp-action="Edit" asp-route-id="@item.ShiftId">Edit</a>
+                }
+                @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                {
+                    <text> | </text>
+                    <a asp-action="Delete" asp-route-id="@item.ShiftId">Delete</a>
+                }
             </td>
         </tr>
 }

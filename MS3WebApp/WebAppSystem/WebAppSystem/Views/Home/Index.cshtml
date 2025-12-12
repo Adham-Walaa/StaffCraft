@@ -7,7 +7,7 @@
     {
         <div class="text-center mb-5">
             <h1 class="display-4">Welcome, @Context.Session.GetString("UserName")!</h1>
-            <p class="lead">HR Management System - @DateTime.Now.ToString("MMMM dd, yyyy")</p>
+            <p class="lead">Today's date is @DateTime.Now.ToString("MMMM dd, yyyy")</p>
         </div>
 
         <div class="row g-4">
@@ -78,13 +78,13 @@
             {
                 <!-- My Team Card (For employees with direct reports) -->
                 <div class="col-md-6">
-                    <div class="card shadow-sm h-100 border-warning">
+                    <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <i class="bi bi-people-fill text-warning"></i> My Team
+                                <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
                             </h5>
                             <p class="card-text">View your direct reports.</p>
-                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-warning">
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn @(ViewBag.HasDirectReports == true ? "btn-warning" : "btn-secondary")">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
                         </div>
@@ -161,7 +161,6 @@
     {
         <div class="text-center">
             <h1 class="display-4">Welcome to HR Management System</h1>
-            <p class="lead">Employee Profiles & Contracts Management</p>
             <hr class="my-4" />
             <p>Please login to access the system.</p>
             <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg">

@@ -235,7 +235,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -267,7 +269,9 @@ namespace WebAppSystem.Controllers
                 (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
                 userId == null)
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             var request = await _context.AttendanceCorrectionRequests.FindAsync(id);
@@ -291,7 +295,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -323,7 +329,9 @@ namespace WebAppSystem.Controllers
                 (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
                 userId == null)
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             var request = await _context.AttendanceCorrectionRequests.FindAsync(id);

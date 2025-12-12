@@ -25,7 +25,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("HR Administrator")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             return View(await _context.ShiftCycles.ToListAsync());
@@ -38,7 +40,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("HR Administrator")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -62,7 +66,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             return View();
@@ -76,7 +82,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (ModelState.IsValid)
@@ -95,7 +103,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -119,7 +129,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id != shiftCycle.CycleId)
@@ -157,7 +169,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -183,7 +197,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             var shiftCycle = await _context.ShiftCycles.FindAsync(id);

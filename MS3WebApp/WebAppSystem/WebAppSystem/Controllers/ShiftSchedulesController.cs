@@ -75,7 +75,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -103,7 +105,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id != shiftSchedule.ShiftId)
@@ -141,7 +145,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -168,7 +174,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             var shiftSchedule = await _context.ShiftSchedules.FindAsync(id);
@@ -193,7 +201,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
             
             return View();
@@ -207,7 +217,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (ModelState.IsValid)
@@ -244,7 +256,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName");
@@ -265,7 +279,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (ModelState.IsValid && model.EmployeeId.HasValue)
@@ -317,7 +333,9 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName");
@@ -338,16 +356,29 @@ namespace WebAppSystem.Controllers
             if (string.IsNullOrEmpty(userRoles) || 
                 (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
+            // Validate inputs
+            if (!model.DepartmentId.HasValue || model.DepartmentId.Value == 0)
+            {
+                ModelState.AddModelError("DepartmentId", "Please select a department.");
+            }
+            
+            if (model.ShiftId == 0)
+            {
+                ModelState.AddModelError("ShiftId", "Please select a shift template.");
+            }
+            
             if (ModelState.IsValid && model.DepartmentId.HasValue && model.ShiftId > 0)
             {
                 // Get template shift
                 var template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
                 if (template == null)
                 {
-                    ModelState.AddModelError("", "Invalid shift template selected.");
+                    TempData["ErrorMessage"] = "Invalid shift template selected.";
                     ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", model.DepartmentId);
                     ViewData["ShiftTemplates"] = _context.ShiftSchedules
                         .Where(s => s.Status == "Template")
@@ -360,6 +391,17 @@ namespace WebAppSystem.Controllers
                 var employees = await _context.Employees
                     .Where(e => e.DepartmentId == model.DepartmentId.Value)
                     .ToListAsync();
+
+                if (employees.Count == 0)
+                {
+                    TempData["ErrorMessage"] = "No employees found in the selected department.";
+                    ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", model.DepartmentId);
+                    ViewData["ShiftTemplates"] = _context.ShiftSchedules
+                        .Where(s => s.Status == "Template")
+                        .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                        .ToList();
+                    return View(model);
+                }
 
                 // Get the max ShiftId to generate new IDs
                 var maxShiftId = await _context.ShiftSchedules.MaxAsync(s => (int?)s.ShiftId) ?? 0;
@@ -390,6 +432,7 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // If we got here, something failed - show validation errors
             ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", model.DepartmentId);
             ViewData["ShiftTemplates"] = _context.ShiftSchedules
                 .Where(s => s.Status == "Template")
@@ -406,7 +449,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id == null)
@@ -432,7 +477,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             if (id != shiftSchedule.ShiftId)

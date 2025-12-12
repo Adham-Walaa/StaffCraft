@@ -284,7 +284,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             return View();
@@ -298,7 +300,9 @@ namespace WebAppSystem.Controllers
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
             {
-                return Forbid();
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
             var leaveSyncService = new Services.LeaveSyncService(_context);

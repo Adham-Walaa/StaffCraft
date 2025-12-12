@@ -79,7 +79,7 @@
 
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
             {
-                <!-- My Team Card -->
+                <!-- My Team Card (Line Manager) -->
                 <div class="col-md-6">
                     <div class="card shadow-sm h-100 border-info">
                         <div class="card-body">
@@ -88,6 +88,23 @@
                             </h5>
                             <p class="card-text">View and manage your direct reports.</p>
                             <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
+                                <i class="bi bi-arrow-right"></i> View My Team
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- My Team Card (For employees with direct reports) -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100 border-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill text-secondary"></i> My Team
+                            </h5>
+                            <p class="card-text">View your direct reports.</p>
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-secondary">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
                         </div>

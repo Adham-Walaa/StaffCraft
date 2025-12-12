@@ -79,6 +79,10 @@ namespace WebAppSystem.Controllers
                 return Forbid();
             }
 
+            // Generate new ConfigId
+            var maxConfigId = await _context.SplitShiftConfigurations.MaxAsync(s => (int?)s.ConfigId) ?? 0;
+            splitShiftConfiguration.ConfigId = maxConfigId + 1;
+            
             // Calculate total hours using helper method
             splitShiftConfiguration.TotalHours = CalculateTotalHours(
                 splitShiftConfiguration.FirstSlotStart,

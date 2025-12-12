@@ -212,9 +212,13 @@ namespace WebAppSystem.Controllers
 
             if (ModelState.IsValid)
             {
+                // Generate new ShiftId
+                var maxShiftId = await _context.ShiftSchedules.MaxAsync(s => (int?)s.ShiftId) ?? 0;
+                
                 // Create a template shift schedule (not assigned to any employee yet)
                 var shiftSchedule = new ShiftSchedule
                 {
+                    ShiftId = maxShiftId + 1,
                     ShiftName = model.ShiftName,
                     ShiftType = model.ShiftType,
                     StartTime = model.StartTime,
@@ -273,8 +277,12 @@ namespace WebAppSystem.Controllers
                     template = await _context.ShiftSchedules.FindAsync(model.ShiftId);
                 }
 
+                // Generate new ShiftId
+                var maxShiftId = await _context.ShiftSchedules.MaxAsync(s => (int?)s.ShiftId) ?? 0;
+                
                 var shiftSchedule = new ShiftSchedule
                 {
+                    ShiftId = maxShiftId + 1,
                     EmployeeId = model.EmployeeId.Value,
                     ShiftName = template?.ShiftName ?? model.ShiftName,
                     ShiftType = template?.ShiftType ?? model.ShiftType,
@@ -353,11 +361,15 @@ namespace WebAppSystem.Controllers
                     .Where(e => e.DepartmentId == model.DepartmentId.Value)
                     .ToListAsync();
 
+                // Get the max ShiftId to generate new IDs
+                var maxShiftId = await _context.ShiftSchedules.MaxAsync(s => (int?)s.ShiftId) ?? 0;
                 int assignedCount = 0;
+                
                 foreach (var employee in employees)
                 {
                     var shiftSchedule = new ShiftSchedule
                     {
+                        ShiftId = maxShiftId + assignedCount + 1,
                         EmployeeId = employee.EmployeeId,
                         ShiftName = template.ShiftName,
                         ShiftType = template.ShiftType,

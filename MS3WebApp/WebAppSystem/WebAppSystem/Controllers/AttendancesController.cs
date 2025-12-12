@@ -221,6 +221,10 @@ namespace WebAppSystem.Controllers
                 attendance.Duration = exitMinutes - entryMinutes;
             }
 
+            // Generate new AttendanceId
+            var maxAttendanceId = await _context.Attendances.MaxAsync(a => (int?)a.AttendanceId) ?? 0;
+            attendance.AttendanceId = maxAttendanceId + 1;
+
             ModelState.Clear();
             if (TryValidateModel(attendance))
             {

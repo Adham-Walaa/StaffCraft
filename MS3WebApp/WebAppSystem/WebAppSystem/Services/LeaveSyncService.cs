@@ -46,9 +46,13 @@ namespace WebAppSystem.Services
 
                         if (leaveException == null)
                         {
+                            // Generate new ExceptionId
+                            var maxExceptionId = await _context.Exceptions.MaxAsync(e => (int?)e.ExceptionId) ?? 0;
+                            
                             // Create leave exception if it doesn't exist
                             leaveException = new Models.Exception
                             {
+                                ExceptionId = maxExceptionId + 1,
                                 Name = "On Leave",
                                 Category = "Leave",
                                 Status = "Active",
@@ -58,8 +62,12 @@ namespace WebAppSystem.Services
                             await _context.SaveChangesAsync();
                         }
 
+                        // Generate new AttendanceId
+                        var maxAttendanceId = await _context.Attendances.MaxAsync(a => (int?)a.AttendanceId) ?? 0;
+                        
                         var attendance = new Attendance
                         {
+                            AttendanceId = maxAttendanceId + syncedCount + 1,
                             EmployeeId = leaveRequest.EmployeeId.Value,
                             EntryTime = null,
                             ExitTime = null,
@@ -95,8 +103,12 @@ namespace WebAppSystem.Services
 
             if (leaveException == null)
             {
+                // Generate new ExceptionId
+                var maxExceptionId = await _context.Exceptions.MaxAsync(e => (int?)e.ExceptionId) ?? 0;
+                
                 leaveException = new Models.Exception
                 {
+                    ExceptionId = maxExceptionId + 1,
                     Name = "On Leave",
                     Category = "Leave",
                     Status = "Active",
@@ -106,9 +118,13 @@ namespace WebAppSystem.Services
                 await _context.SaveChangesAsync();
             }
 
+            // Generate new AttendanceId
+            var maxAttendanceId = await _context.Attendances.MaxAsync(a => (int?)a.AttendanceId) ?? 0;
+            
             // Create attendance record
             var attendance = new Attendance
             {
+                AttendanceId = maxAttendanceId + 1,
                 EmployeeId = leaveRequest.EmployeeId.Value,
                 EntryTime = null,
                 ExitTime = null,

@@ -566,7 +566,7 @@ namespace WebAppSystem.Controllers
                 }
                 return RedirectToAction("Index", "Home");
             }
-            catch (SystemException ex)
+            catch (SystemException)
             {
                 TempData["ErrorMessage"] = $"An unexpected error occurred while retrieving your team. Please try again or contact your system administrator if the problem persists.";
                 return RedirectToAction("Index", "Home");
@@ -823,19 +823,19 @@ namespace WebAppSystem.Controllers
                 }
 
                 // Check for circular reference by walking up the manager chain
-                var currentManagerId = managerId;
+                var currentManagerId = (int?)managerId;
                 var maxIterations = 100; // Prevent infinite loops
                 var iteration = 0;
                 
-                while (currentManagerId != null && iteration < maxIterations)
+                while (currentManagerId.HasValue && iteration < maxIterations)
                 {
-                    if (currentManagerId == employeeId)
+                    if (currentManagerId.Value == employeeId)
                     {
                         TempData["ErrorMessage"] = "Cannot assign this employee to the selected manager because it would create a circular reporting structure.";
                         return RedirectToAction(nameof(AssignTeamMember));
                     }
                     
-                    var currentManager = await _context.Employees.FindAsync(currentManagerId);
+                    var currentManager = await _context.Employees.FindAsync(currentManagerId.Value);
                     currentManagerId = currentManager?.ManagerId;
                     iteration++;
                 }
@@ -861,12 +861,12 @@ namespace WebAppSystem.Controllers
                 TempData["SuccessMessage"] = assignmentMessage;
                 return RedirectToAction(nameof(MyTeam));
             }
-            catch (DbUpdateException dbEx)
+            catch (DbUpdateException)
             {
                 TempData["ErrorMessage"] = "A database error occurred while assigning the team member. Please ensure all data is valid and try again.";
                 return RedirectToAction(nameof(AssignTeamMember));
             }
-            catch (SystemException ex)
+            catch (SystemException)
             {
                 TempData["ErrorMessage"] = $"An unexpected error occurred while assigning the team member. Please try again or contact support if the problem persists.";
                 return RedirectToAction(nameof(AssignTeamMember));
@@ -918,11 +918,11 @@ namespace WebAppSystem.Controllers
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = $"{employee.FullName} has been removed from your team and is now unassigned.";
             }
-            catch (DbUpdateException dbEx)
+            catch (DbUpdateException)
             {
                 TempData["ErrorMessage"] = "A database error occurred while removing the team member. Please try again.";
             }
-            catch (SystemException ex)
+            catch (SystemException)
             {
                 TempData["ErrorMessage"] = "An unexpected error occurred while removing the team member. Please try again or contact support if the problem persists.";
             }

@@ -66,7 +66,7 @@
                             <h5 class="card-title">
                                 <i class="bi bi-people-fill text-info"></i> My Team
                             </h5>
-                            <p class="card-text">View and manage your direct reports.</p>
+                            <p class="card-text">View and manage your team.</p>
                             <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-info text-white">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
@@ -83,7 +83,7 @@
                             <h5 class="card-title">
                                 <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
                             </h5>
-                            <p class="card-text">View your direct reports.</p>
+                            <p class="card-text">View your team.</p>
                             <a asp-controller="Employees" asp-action="MyTeam" class="btn @(ViewBag.HasDirectReports == true ? "btn-warning" : "btn-secondary")">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>

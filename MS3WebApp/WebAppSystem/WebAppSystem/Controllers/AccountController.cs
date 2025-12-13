@@ -122,7 +122,6 @@ namespace WebAppSystem.Controllers
                 new { Value = "System Administrator", Text = "System Administrator" },
                 new { Value = "HR Administrator", Text = "HR Administrator" },
                 new { Value = "Line Manager", Text = "Line Manager" },
-                new { Value = "Manager", Text = "Manager" },
                 new { Value = "Employee", Text = "Employee" }
             }, "Value", "Text");
 

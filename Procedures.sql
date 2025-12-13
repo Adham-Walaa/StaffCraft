@@ -2330,7 +2330,7 @@ CREATE OR ALTER PROCEDURE ApproveLeaveRequest                --Runs well
 --Assign missions or business trips to employees.
 --Signature:
 --Name: AssignMission.
---Input: @EmployeeID int, @ManagerID int, @Title varchar(200), @Description text, @Destination varchar(50), @StartDate date, @EndDate date.
+--Input: @EmployeeId int, @ManagerId int, @Title varchar(200), @Description text, @Destination varchar(50), @StartDate date, @EndDate date.
 --Output: Confirmation message.
  
 CREATE OR ALTER PROCEDURE AssignMission               --Runs well

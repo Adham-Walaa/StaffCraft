@@ -216,7 +216,9 @@ namespace WebAppSystem.Controllers
                 mission.MissionId = maxMissionId + 1;
                 
                 mission.Status = "Pending";
-                mission.EmployeeId = mission.ManagerId; // Initially assign to manager
+                // Initially assign mission to manager so it appears in their pending approvals
+                // Manager can later reassign to a specific team member after approval
+                mission.EmployeeId = mission.ManagerId;
                 
                 _context.Add(mission);
                 await _context.SaveChangesAsync();

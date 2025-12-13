@@ -146,14 +146,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var payGrade = await _context.PayGrades.FindAsync(id);
-            if (payGrade != null)
+            try
             {
-                _context.PayGrades.Remove(payGrade);
+                var payGrade = await _context.PayGrades.FindAsync(id);
+                if (payGrade != null)
+                {
+                    _context.PayGrades.Remove(payGrade);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Pay Grade deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this pay grade because it is assigned to one or more employees. Please reassign those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool PayGradeExists(int id)

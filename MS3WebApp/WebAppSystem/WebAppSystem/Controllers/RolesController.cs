@@ -146,14 +146,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var role = await _context.Roles.FindAsync(id);
-            if (role != null)
+            try
             {
-                _context.Roles.Remove(role);
+                var role = await _context.Roles.FindAsync(id);
+                if (role != null)
+                {
+                    _context.Roles.Remove(role);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Role deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this role because it is assigned to one or more employees. Please remove the role from those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool RoleExists(int id)

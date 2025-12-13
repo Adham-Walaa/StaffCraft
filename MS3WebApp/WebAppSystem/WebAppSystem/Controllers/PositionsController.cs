@@ -146,14 +146,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var position = await _context.Positions.FindAsync(id);
-            if (position != null)
+            try
             {
-                _context.Positions.Remove(position);
+                var position = await _context.Positions.FindAsync(id);
+                if (position != null)
+                {
+                    _context.Positions.Remove(position);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Position deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this position because it is assigned to one or more employees. Please reassign those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool PositionExists(int id)

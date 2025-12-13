@@ -155,15 +155,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var taxForm = await _context.TaxForms.FindAsync(id);
-            if (taxForm != null)
+            try
             {
-                _context.TaxForms.Remove(taxForm);
+                var taxForm = await _context.TaxForms.FindAsync(id);
+                if (taxForm != null)
+                {
+                    _context.TaxForms.Remove(taxForm);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Tax Form deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Tax Form deleted successfully!";
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this tax form because it is assigned to one or more employees. Please reassign those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool TaxFormExists(int id)

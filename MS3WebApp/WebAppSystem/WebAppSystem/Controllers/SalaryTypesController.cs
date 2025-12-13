@@ -143,15 +143,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var salaryType = await _context.SalaryTypes.FindAsync(id);
-            if (salaryType != null)
+            try
             {
-                _context.SalaryTypes.Remove(salaryType);
+                var salaryType = await _context.SalaryTypes.FindAsync(id);
+                if (salaryType != null)
+                {
+                    _context.SalaryTypes.Remove(salaryType);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Salary Type deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Salary Type deleted successfully!";
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this salary type because it is assigned to one or more employees. Please reassign those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool SalaryTypeExists(int id)

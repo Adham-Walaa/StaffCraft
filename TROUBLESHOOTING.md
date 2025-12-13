@@ -43,6 +43,23 @@ Your application might have cached the old model. **Solutions:**
    - Or press Ctrl+Shift+B
 
 2. **Clear bin/obj folders:**
+   
+   **Windows (Command Prompt):**
+   ```cmd
+   cd MS3WebApp\WebAppSystem\WebAppSystem
+   rmdir /s /q bin
+   rmdir /s /q obj
+   dotnet build
+   ```
+   
+   **Windows (PowerShell):**
+   ```powershell
+   cd MS3WebApp\WebAppSystem\WebAppSystem
+   Remove-Item -Recurse -Force bin,obj -ErrorAction SilentlyContinue
+   dotnet build
+   ```
+   
+   **Linux/Mac:**
    ```bash
    cd MS3WebApp/WebAppSystem/WebAppSystem
    rm -rf bin obj
@@ -95,7 +112,17 @@ When you try to register, look at the **exact error message** in Visual Studio:
 
 ### Step 5: Complete Fresh Start (Last Resort)
 
-If nothing else works, here's how to completely reset:
+⚠️ **WARNING: This will delete ALL data in your database!** ⚠️
+
+Make a backup first if you have important data:
+```sql
+-- Backup your database first!
+BACKUP DATABASE MILESTONE2 
+TO DISK = 'C:\Backups\MILESTONE2_Backup.bak';
+GO
+```
+
+If you're sure you want to start fresh:
 
 ```sql
 -- In SQL Server Management Studio:
@@ -117,7 +144,8 @@ Share the following information:
 
 1. **Output from Diagnose_Employee_Table.sql**
 2. **Exact error message from Visual Studio Output window**
-3. **Connection string from appsettings.json** (remove passwords!)
+3. **Connection string from appsettings.json** (redact server names, usernames, and passwords!)
+   - Example: `Server=***;Database=MILESTONE2;User Id=***;Password=***`
 4. **Which step you tried and what happened**
 
 ---

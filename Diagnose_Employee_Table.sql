@@ -17,7 +17,8 @@ PRINT '';
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Employee')
 BEGIN
     PRINT 'ERROR: Employee table does not exist!';
-    PRINT 'You need to run Tables.sql to create the database schema.';
+    PRINT 'You need to execute Tables.sql to create the database schema.';
+    PRINT 'Path: Database-Project/Tables.sql';
 END
 ELSE
 BEGIN
@@ -125,9 +126,17 @@ PRINT '========================================';
 PRINT 'DIAGNOSTIC COMPLETE';
 PRINT '========================================';
 PRINT '';
+PRINT '';
 PRINT 'NEXT STEPS:';
-PRINT '1. If you see duplicate password_hash columns: Run Fix_Password_Hash_Column.sql';
-PRINT '2. If password_hash column is missing: Run Fix_Password_Hash_Column.sql';
-PRINT '3. If everything looks correct: Try registering again and check application error logs';
+PRINT '-------------------------------------------';
+PRINT '1. If you see duplicate password_hash columns:';
+PRINT '   → Run Fix_Password_Hash_Column.sql';
+PRINT '';
+PRINT '2. If password_hash column is missing:';
+PRINT '   → Run Fix_Password_Hash_Column.sql';
+PRINT '';
+PRINT '3. If everything looks correct:';
+PRINT '   → Rebuild your application in Visual Studio';
+PRINT '   → Check TROUBLESHOOTING.md for more help';
 PRINT '';
 GO

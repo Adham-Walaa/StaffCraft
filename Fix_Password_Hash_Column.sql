@@ -9,14 +9,27 @@ USE MILESTONE2;
 GO
 
 -- Check if the duplicate column issue exists
-IF EXISTS (
-    SELECT 1 
-    FROM sys.columns 
+-- We check if there are multiple password_hash columns (duplicate issue)
+-- or if the schema needs updating
+DECLARE @ColumnCount INT;
+SELECT @ColumnCount = COUNT(*) 
+FROM sys.columns 
+WHERE object_id = OBJECT_ID('dbo.Employee') 
+AND name = 'password_hash';
+
+IF @ColumnCount > 1 OR (@ColumnCount = 1 AND EXISTS (
+    SELECT 1 FROM sys.columns 
     WHERE object_id = OBJECT_ID('dbo.Employee') 
     AND name = 'password_hash'
-)
+))
 BEGIN
     PRINT 'Fixing Employee table schema...';
+    PRINT CONCAT('Found ', @ColumnCount, ' password_hash column(s)');
+    
+    IF @ColumnCount > 1
+        PRINT 'WARNING: Duplicate password_hash columns detected!';
+    ELSE
+        PRINT 'Updating Employee table schema to latest version...';
     
     -- Step 1: Drop all foreign key constraints that reference the Employee table
     DECLARE @sql NVARCHAR(MAX) = '';

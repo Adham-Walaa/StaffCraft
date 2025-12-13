@@ -1,4 +1,14 @@
-﻿--SYSTEM ADMIN PROCEDURES
+﻿-- ========================================
+-- IMPORTANT: Before running these procedures
+-- ========================================
+-- Make sure your Employee table has the password_hash column.
+-- If you get "Invalid column name 'password_hash'" errors:
+-- 1. Run Fix_PasswordHash_Column.sql to add the missing column, OR
+-- 2. Drop and recreate the database using Tables.sql
+-- See PASSWORD_HASH_FIX.md for detailed instructions.
+-- ========================================
+
+--SYSTEM ADMIN PROCEDURES
 
 USE MILESTONE2;
 GO
@@ -167,6 +177,7 @@ BEGIN
             country_of_birth,
             phone,
             email,
+            password_hash,
             address,
             emergency_contact_name,
             emergency_contact_phone,
@@ -196,6 +207,7 @@ BEGIN
             @CountryOfBirth,
             @Phone,
             @Email,
+            NULL, -- password_hash set to NULL, will be updated by application
             @Address,
             @EmergencyContactName,
             @EmergencyContactPhone,

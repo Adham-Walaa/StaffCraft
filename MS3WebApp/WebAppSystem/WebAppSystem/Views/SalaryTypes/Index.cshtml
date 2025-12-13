@@ -7,12 +7,6 @@
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
         <h1><i class="bi bi-currency-dollar"></i> Salary Types</h1>
-        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
-        {
-            <a asp-action="Create" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Create New
-            </a>
-        }
     </div>
     <hr />
 </div>
@@ -69,10 +63,6 @@
 @if (!Model.Any())
 {
     <div class="alert alert-info text-center" role="alert">
-        <i class="bi bi-info-circle"></i> No salary types found. 
-        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
-        {
-            <a asp-action="Create" class="alert-link">Create the first salary type</a>
-        }
+        <i class="bi bi-info-circle"></i> No salary types found.
     </div>
 }

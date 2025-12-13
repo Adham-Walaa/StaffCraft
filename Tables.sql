@@ -21,7 +21,7 @@ CREATE TABLE Employee
     country_of_birth varchar(50),
     phone varchar(15),
     email varchar(100),
-    password_hash varchar(255),
+    password_hash varchar(255) NULL,
     address varchar(200),
     emergency_contact_name varchar(100),
     emergency_contact_phone varchar(15),
@@ -40,7 +40,8 @@ CREATE TABLE Employee
     manager_id int,
     salary_type_id int,
     contract_id int,
-    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100));
+    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
+);
 
 CREATE TABLE HRAdministrator
 (

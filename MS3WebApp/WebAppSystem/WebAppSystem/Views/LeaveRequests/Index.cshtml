@@ -1,65 +1,123 @@
 ﻿@model IEnumerable<WebAppSystem.Models.LeaveRequest>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Leave Requests";
 }
 
-<h1>Index</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-calendar-check"></i> Leave Requests</h1>
+        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+        {
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New
+            </a>
+        }
+    </div>
+    <hr />
+</div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.Justification)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Duration)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ApprovalTiming)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Status)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Employee)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Leave)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Request ID</th>
+                <th>@Html.DisplayNameFor(model => model.Employee)</th>
+                <th>@Html.DisplayNameFor(model => model.Leave)</th>
+                <th>@Html.DisplayNameFor(model => model.Duration)</th>
+                <th>@Html.DisplayNameFor(model => model.Justification)</th>
+                <th>@Html.DisplayNameFor(model => model.ApprovalTiming)</th>
+                <th>@Html.DisplayNameFor(model => model.Status)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
 @foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.Justification)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Duration)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.ApprovalTiming)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Status)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Leave.LeaveId)
-            </td>
-            <td>
-                <a asp-action="Edit" asp-route-id="@item.RequestId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.RequestId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.RequestId">Delete</a>
-            </td>
-        </tr>
+            <tr>
+                <td>@item.RequestId</td>
+                <td>
+                    @if (item.Employee != null)
+                    {
+                        @item.Employee.FullName
+                    }
+                    else
+                    {
+                        <span class="text-muted">N/A</span>
+                    }
+                </td>
+                <td>
+                    @if (item.Leave != null)
+                    {
+                        <span class="badge bg-primary">@item.Leave.LeaveType</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">N/A</span>
+                    }
+                </td>
+                <td>@item.Duration</td>
+                <td>
+                    @if (!string.IsNullOrEmpty(item.Justification))
+                    {
+                        if (item.Justification.Length > 50)
+                        {
+                            @item.Justification.Substring(0, 50)<text>...</text>
+                        }
+                        else
+                        {
+                            @item.Justification
+                        }
+                    }
+                </td>
+                <td>
+                    @if (item.ApprovalTiming.HasValue)
+                    {
+                        @item.ApprovalTiming.Value.ToString("MMM dd, yyyy")
+                    }
+                    else
+                    {
+                        <span class="text-muted">Pending</span>
+                    }
+                </td>
+                <td>
+                    @if (item.Status == "Approved")
+                    {
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Approved
+                        </span>
+                    }
+                    else if (item.Status == "Rejected")
+                    {
+                        <span class="badge bg-danger">
+                            <i class="bi bi-x-circle"></i> Rejected
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-clock"></i> Pending
+                        </span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.RequestId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.RequestId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.RequestId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
+                    </div>
+                </td>
+            </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+

@@ -2022,9 +2022,9 @@ BEGIN
     END
 
     -- Validate role
-    IF @Role NOT IN ('System Administrator', 'HR Administrator', 'Payroll Officer', 'Payroll Specialist', 'Line Manager', 'Manager', 'Employee')
+    IF @Role NOT IN ('System Administrator', 'HR Administrator', 'Payroll Officer', 'Payroll Specialist', 'Line Manager', 'Employee')
     BEGIN
-        RAISERROR('Invalid role. Valid roles are: System Administrator, HR Administrator, Payroll Officer, Payroll Specialist, Line Manager, Manager, Employee.', 16, 1);
+        RAISERROR('Invalid role. Valid roles are: System Administrator, HR Administrator, Payroll Officer, Payroll Specialist, Line Manager, Employee.', 16, 1);
         RETURN;
     END
 

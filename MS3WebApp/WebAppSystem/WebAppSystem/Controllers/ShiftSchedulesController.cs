@@ -73,10 +73,10 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
@@ -103,10 +103,10 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
@@ -250,15 +250,15 @@ namespace WebAppSystem.Controllers
         }
 
         // GET: ShiftSchedules/AssignToEmployee
-        // System Admin or Manager assigns shift to employee
+        // System Admin or Line Manager assigns shift to employee
         public IActionResult AssignToEmployee()
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
@@ -278,10 +278,10 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
@@ -327,15 +327,15 @@ namespace WebAppSystem.Controllers
         }
 
         // GET: ShiftSchedules/AssignToDepartment
-        // System Admin or Manager assigns shift to department
+        // System Admin or Line Manager assigns shift to department
         public IActionResult AssignToDepartment()
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 
@@ -355,10 +355,10 @@ namespace WebAppSystem.Controllers
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
-                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Manager")))
+                (!userRoles.Contains("System Administrator") && !userRoles.Contains("Line Manager")))
             {
                 ViewBag.Message = "You do not have permission to perform this action.";
-                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Manager";
+                ViewBag.AllowedRoles = "This action can only be performed by: System Administrator or Line Manager";
                 return View("~/Views/Shared/AccessDenied.cshtml");
             }
 

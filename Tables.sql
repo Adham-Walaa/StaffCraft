@@ -211,6 +211,8 @@ CREATE TABLE Reimbursement
 CREATE TABLE Mission
 (
     MissionID int PRIMARY KEY,
+    title varchar(200),
+    description text,
     destination varchar(100),
     start_date datetime,
     end_date datetime,

@@ -73,6 +73,26 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Mission Approvals Card for Managers -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-briefcase text-warning"></i> Mission Approvals
+                            </h5>
+                            <p class="card-text">Review and approve mission requests.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Missions" asp-action="PendingApprovals" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-clock"></i> Pending Approvals
+                                </a>
+                                <a asp-controller="Missions" asp-action="Index" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-list-ul"></i> All Missions
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             }
             else
             {
@@ -108,6 +128,26 @@
 
             @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
             {
+                <!-- Mission Management Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-briefcase text-primary"></i> Mission Management
+                            </h5>
+                            <p class="card-text">Assign and manage employee missions.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Missions" asp-action="AssignMission" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus-circle"></i> Assign Mission
+                                </a>
+                                <a asp-controller="Missions" asp-action="Index" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-list-ul"></i> View All Missions
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- HR Quick Actions Card -->
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">

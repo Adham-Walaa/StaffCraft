@@ -1,54 +1,88 @@
-﻿@model WebAppSystem.Models.Mission
+@model WebAppSystem.Models.Mission
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Mission Details";
 }
 
-<h1>Details</h1>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h2 class="mb-0"><i class="bi bi-briefcase"></i> Mission Details</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Mission ID</dt>
+                        <dd class="col-sm-9">@Model.MissionId</dd>
 
-<div>
-    <h4>Mission</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Destination)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Destination)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.StartDate)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.StartDate)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.EndDate)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.EndDate)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Status)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Status)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Employee)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Employee.EmployeeId)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Manager)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Manager.EmployeeId)
-        </dd>
-    </dl>
-</div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.MissionId">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+                        <dt class="col-sm-3">Title</dt>
+                        <dd class="col-sm-9"><strong>@Model.Title</strong></dd>
+
+                        <dt class="col-sm-3">Description</dt>
+                        <dd class="col-sm-9">@Model.Description</dd>
+
+                        <dt class="col-sm-3">Destination</dt>
+                        <dd class="col-sm-9">@Model.Destination</dd>
+
+                        <dt class="col-sm-3">Start Date</dt>
+                        <dd class="col-sm-9">@(Model.StartDate?.ToString("MMMM dd, yyyy") ?? "N/A")</dd>
+
+                        <dt class="col-sm-3">End Date</dt>
+                        <dd class="col-sm-9">@(Model.EndDate?.ToString("MMMM dd, yyyy") ?? "N/A")</dd>
+
+                        <dt class="col-sm-3">Status</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.Status == "Approved")
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Approved
+                                </span>
+                            }
+                            else if (Model.Status == "Pending")
+                            {
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-clock"></i> Pending
+                                </span>
+                            }
+                            else if (Model.Status == "Rejected")
+                            {
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-circle"></i> Rejected
+                                </span>
+                            }
+                            else if (Model.Status == "COMPLETED")
+                            {
+                                <span class="badge bg-info">
+                                    <i class="bi bi-check-all"></i> Completed
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">@Model.Status</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">Assigned Employee</dt>
+                        <dd class="col-sm-9">@(Model.Employee?.FullName ?? "Not assigned")</dd>
+
+                        <dt class="col-sm-3">Manager</dt>
+                        <dd class="col-sm-9">@(Model.Manager?.FullName ?? "N/A")</dd>
+                    </dl>
+
+                    <div class="mt-4">
+                        @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@Model.MissionId" class="btn btn-warning">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                        }
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

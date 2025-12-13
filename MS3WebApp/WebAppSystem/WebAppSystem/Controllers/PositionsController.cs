@@ -39,6 +39,14 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            // Get employees with this position
+            var employees = await _context.Employees
+                .Where(e => e.PositionId == id)
+                .Select(e => new { e.EmployeeId, e.FullName, e.Email })
+                .ToListAsync();
+
+            ViewBag.AssignedEmployees = employees;
+
             return View(position);
         }
 
@@ -53,12 +61,20 @@ namespace WebAppSystem.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("PositionId,PositionTitle,Responsibilities,Status")] Position position)
+        public async Task<IActionResult> Create([Bind("PositionTitle,Responsibilities,Status")] Position position, int? returnToEmployeeId, string returnToAction)
         {
             if (ModelState.IsValid)
             {
                 _context.Add(position);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Position created successfully!";
+                
+                // If we came from employee management, redirect back
+                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                {
+                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                }
+                
                 return RedirectToAction(nameof(Index));
             }
             return View(position);
@@ -138,14 +154,22 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var position = await _context.Positions.FindAsync(id);
-            if (position != null)
+            try
             {
-                _context.Positions.Remove(position);
+                var position = await _context.Positions.FindAsync(id);
+                if (position != null)
+                {
+                    _context.Positions.Remove(position);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Position deleted successfully!";
+                }
+                return RedirectToAction(nameof(Index));
             }
-
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this position because it is assigned to one or more employees. Please reassign those employees first.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         private bool PositionExists(int id)

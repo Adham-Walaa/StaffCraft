@@ -12,7 +12,7 @@
 
         <div class="row g-4">
             <!-- Employee Management Card -->
-            <div class="col-md-6">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">
@@ -35,7 +35,7 @@
             </div>
 
             <!-- Contract Management Card -->
-            <div class="col-md-6">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">
@@ -57,10 +57,10 @@
                 </div>
             </div>
 
+            <!-- My Team Card -->
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
             {
-                <!-- My Team Card (Line Manager) -->
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-info">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -76,8 +76,7 @@
             }
             else
             {
-                <!-- My Team Card (For employees with direct reports) -->
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -92,10 +91,25 @@
                 </div>
             }
 
+            <!-- My Profile Card -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-person-circle text-secondary"></i> My Profile
+                        </h5>
+                        <p class="card-text">View and update your personal information.</p>
+                        <a asp-controller="Employees" asp-action="MyProfile" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> View Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
             {
                 <!-- HR Quick Actions Card -->
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -121,7 +135,7 @@
             @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
             {
                 <!-- System Admin Card -->
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-danger">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -135,6 +149,22 @@
                                 <a asp-controller="Employees" asp-action="Index" class="btn btn-sm btn-outline-info">
                                     <i class="bi bi-people"></i> View All Employees
                                 </a>
+                                <hr class="my-1" />
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Role" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-shield"></i> Manage Roles
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="PayGrade" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-cash-stack"></i> Manage Pay Grades
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Position" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-briefcase"></i> Manage Positions
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="SalaryType" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-currency-dollar"></i> Manage Salary Types
+                                </a>
+                                <a asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="TaxForm" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-file-earmark-text"></i> Manage Tax Forms
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -142,7 +172,7 @@
             }
 
             <!-- My Profile Card -->
-            <div class="col-md-6">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">

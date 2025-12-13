@@ -80,6 +80,14 @@ body {
   border-color: var(--dark-border);
 }
 
+.dropdown-header {
+  color: var(--dark-text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+}
+
 /* Cards */
 .card {
   background-color: var(--dark-bg-secondary);

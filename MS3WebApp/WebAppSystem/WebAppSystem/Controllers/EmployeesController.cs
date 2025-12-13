@@ -568,14 +568,13 @@ namespace WebAppSystem.Controllers
                 .ToListAsync();
 
             ViewBag.CurrentRoles = currentRoles;
-            ViewBag.AvailableRoles = new SelectList(new[]
-            {
-                "System Administrator",
-                "HR Administrator",
-                "Line Manager",
-                "Payroll Specialist",
-                "Employee"
-            });
+            
+            // Get all available roles from database
+            var availableRoles = await _context.Roles
+                .Select(r => r.RoleName)
+                .ToListAsync();
+            
+            ViewBag.AvailableRoles = new SelectList(availableRoles);
 
             return View(employee);
         }
@@ -868,6 +867,424 @@ namespace WebAppSystem.Controllers
             }
 
             return RedirectToAction(nameof(MyTeam));
+        }
+
+        // GET: Employees/SelectEmployeeForManagement
+        public async Task<IActionResult> SelectEmployeeForManagement(string managementType)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage employee attributes.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (string.IsNullOrEmpty(managementType))
+            {
+                return NotFound();
+            }
+
+            ViewBag.ManagementType = managementType;
+            
+            var employees = await _context.Employees
+                .Where(e => e.IsActive == true)
+                .Select(e => new { e.EmployeeId, e.FullName })
+                .OrderBy(e => e.FullName)
+                .ToListAsync();
+
+            ViewData["EmployeeId"] = new SelectList(
+                employees.Select(e => new { e.EmployeeId, DisplayText = $"{e.FullName} (ID: {e.EmployeeId})" }),
+                "EmployeeId",
+                "DisplayText");
+
+            return View();
+        }
+
+        // POST: Employees/SelectEmployeeForManagement
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult SelectEmployeeForManagement(int employeeId, string managementType)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage employee attributes.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            return managementType switch
+            {
+                "Role" => RedirectToAction(nameof(ManageRoles), new { id = employeeId }),
+                "PayGrade" => RedirectToAction(nameof(ManagePayGrade), new { id = employeeId }),
+                "Position" => RedirectToAction(nameof(ManagePosition), new { id = employeeId }),
+                "SalaryType" => RedirectToAction(nameof(ManageSalaryType), new { id = employeeId }),
+                "TaxForm" => RedirectToAction(nameof(ManageTaxForm), new { id = employeeId }),
+                _ => NotFound()
+            };
+        }
+
+        // GET: Employees/ManagePayGrade/5
+        public async Task<IActionResult> ManagePayGrade(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage pay grades.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.Paygrade)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.CurrentPayGrade = employee.Paygrade;
+            ViewBag.AvailablePayGrades = new SelectList(_context.PayGrades, "PayGradeId", "GradeName", employee.PaygradeId);
+
+            return View(employee);
+        }
+
+        // POST: Employees/AssignPayGrade
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignPayGrade(int employeeId, int? payGradeId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage pay grades.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee == null)
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                employee.PaygradeId = payGradeId;
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Pay grade updated successfully!";
+            }
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating pay grade: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating pay grade: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(ManagePayGrade), new { id = employeeId });
+        }
+
+        // GET: Employees/ManagePosition/5
+        public async Task<IActionResult> ManagePosition(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage positions.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.Paygrade)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.CurrentPosition = employee.Position;
+            ViewBag.AvailablePositions = new SelectList(_context.Positions, "PositionId", "PositionTitle", employee.PositionId);
+
+            return View(employee);
+        }
+
+        // POST: Employees/AssignPosition
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignPosition(int employeeId, int? positionId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage positions.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee == null)
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                employee.PositionId = positionId;
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Position updated successfully!";
+            }
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating position: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating position: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(ManagePosition), new { id = employeeId });
+        }
+
+        // GET: Employees/ManageSalaryType/5
+        public async Task<IActionResult> ManageSalaryType(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage salary types.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.SalaryType)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.CurrentSalaryType = employee.SalaryType;
+            ViewBag.AvailableSalaryTypes = new SelectList(_context.SalaryTypes, "SalaryTypeId", "Type", employee.SalaryTypeId);
+
+            return View(employee);
+        }
+
+        // POST: Employees/AssignSalaryType
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignSalaryType(int employeeId, int? salaryTypeId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage salary types.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee == null)
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                employee.SalaryTypeId = salaryTypeId;
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Salary type updated successfully!";
+            }
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating salary type: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating salary type: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(ManageSalaryType), new { id = employeeId });
+        }
+
+        // GET: Employees/ManageTaxForm/5
+        public async Task<IActionResult> ManageTaxForm(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage tax forms.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.Taxform)
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.CurrentTaxForm = employee.Taxform;
+            ViewBag.AvailableTaxForms = new SelectList(_context.TaxForms, "TaxFormId", "Jurisdiction", employee.TaxformId);
+
+            return View(employee);
+        }
+
+        // POST: Employees/AssignTaxForm
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignTaxForm(int employeeId, int? taxFormId)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can manage tax forms.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(employeeId);
+                if (employee == null)
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                employee.TaxformId = taxFormId;
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Tax form updated successfully!";
+            }
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error updating tax form: {ex.Message}";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = $"Error updating tax form: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(ManageTaxForm), new { id = employeeId });
+        }
+
+        // GET: Employees/ChangePassword/5
+        public async Task<IActionResult> ChangePassword(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can change employee passwords.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(m => m.EmployeeId == id);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
+        }
+
+        // POST: Employees/ChangePassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(int id, string newPassword, string confirmPassword)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("System Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only System Administrators can change employee passwords.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (string.IsNullOrEmpty(newPassword) || string.IsNullOrEmpty(confirmPassword))
+            {
+                TempData["ErrorMessage"] = "Password fields cannot be empty.";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                TempData["ErrorMessage"] = "Passwords do not match.";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
+
+            if (newPassword.Length < 6)
+            {
+                TempData["ErrorMessage"] = "Password must be at least 6 characters long.";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee == null)
+                {
+                    TempData["ErrorMessage"] = "Employee not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Hash the password using BCrypt
+                employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Password changed successfully for {employee.FullName}!";
+                return RedirectToAction(nameof(Details), new { id = id });
+            }
+            catch (DbUpdateException ex)
+            {
+                TempData["ErrorMessage"] = $"Database error changing password: {ex.Message}";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = $"Error changing password: {ex.Message}";
+                return RedirectToAction(nameof(ChangePassword), new { id = id });
+            }
         }
     }
 }

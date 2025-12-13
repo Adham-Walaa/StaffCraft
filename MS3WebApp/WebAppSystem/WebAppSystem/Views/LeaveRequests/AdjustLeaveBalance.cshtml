@@ -61,34 +61,34 @@
                                         @foreach (var balance in leaveBalances)
                                         {
                                             <tr>
-                                                <td>
-                                                    @if (balance.LeaveType != null)
-                                                    {
-                                                        <strong>@balance.LeaveType.LeaveType</strong>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="text-muted">Unknown</span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    <span class="badge @(balance.Entitlement > 0 ? "bg-success" : balance.Entitlement == 0 ? "bg-warning text-dark" : "bg-danger")">
-                                                        @balance.Entitlement days
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <form asp-action="UpdateLeaveBalance" method="post" class="d-inline">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="employeeId" value="@ViewBag.SelectedEmployeeId" />
-                                                        <input type="hidden" name="leaveTypeId" value="@balance.LeaveTypeId" />
-                                                        <input type="number" name="newBalance" class="form-control form-control-sm d-inline-block" style="width: 100px;" value="@balance.Entitlement" min="0" />
-                                                </td>
-                                                <td>
+                                                <form asp-action="UpdateLeaveBalance" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="employeeId" value="@ViewBag.SelectedEmployeeId" />
+                                                    <input type="hidden" name="leaveTypeId" value="@balance.LeaveTypeId" />
+                                                    <td>
+                                                        @if (balance.LeaveType != null)
+                                                        {
+                                                            <strong>@balance.LeaveType.LeaveType</strong>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Unknown</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @(balance.Entitlement > 0 ? "bg-success" : balance.Entitlement == 0 ? "bg-warning text-dark" : "bg-danger")">
+                                                            @balance.Entitlement days
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" name="newBalance" class="form-control form-control-sm" style="width: 100px;" value="@balance.Entitlement" min="0" />
+                                                    </td>
+                                                    <td>
                                                         <button type="submit" class="btn btn-sm btn-primary">
                                                             <i class="bi bi-check-circle"></i> Update
                                                         </button>
-                                                    </form>
-                                                </td>
+                                                    </td>
+                                                </form>
                                             </tr>
                                         }
                                     </tbody>

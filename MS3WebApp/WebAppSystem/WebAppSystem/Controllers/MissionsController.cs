@@ -176,8 +176,18 @@ namespace WebAppSystem.Controllers
             }
 
             // Get all managers (employees with Line Manager role)
+            var managerRoleId = await _context.Roles
+                .Where(r => r.RoleName == "Line Manager")
+                .Select(r => r.RoleId)
+                .FirstOrDefaultAsync();
+
+            var managerEmployeeIds = await _context.EmployeeRoles
+                .Where(er => er.RoleId == managerRoleId)
+                .Select(er => er.EmployeeId)
+                .ToListAsync();
+
             var managers = await _context.Employees
-                .Where(e => e.EmployeeRoles.Any(er => er.Role.RoleName == "Line Manager"))
+                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 
@@ -216,8 +226,18 @@ namespace WebAppSystem.Controllers
             }
 
             // If we got here, something failed, reload the form
+            var managerRoleId = await _context.Roles
+                .Where(r => r.RoleName == "Line Manager")
+                .Select(r => r.RoleId)
+                .FirstOrDefaultAsync();
+
+            var managerEmployeeIds = await _context.EmployeeRoles
+                .Where(er => er.RoleId == managerRoleId)
+                .Select(er => er.EmployeeId)
+                .ToListAsync();
+
             var managers = await _context.Employees
-                .Where(e => e.EmployeeRoles.Any(er => er.Role.RoleName == "Line Manager"))
+                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 

@@ -1,0 +1,99 @@
+@model IEnumerable<WebAppSystem.Models.Mission>
+
+@{
+    ViewData["Title"] = "My Missions";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-briefcase"></i> My Missions</h1>
+        <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
+    </div>
+    <hr />
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (Model.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Mission ID</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Destination</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                    <th>Manager</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    @foreach (var item in Model)
+    {
+                <tr>
+                    <td>@item.MissionId</td>
+                    <td><strong>@item.Title</strong></td>
+                    <td>@(item.Description?.Length > 50 ? item.Description.Substring(0, 50) + "..." : item.Description)</td>
+                    <td>@item.Destination</td>
+                    <td>@(item.StartDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                    <td>@(item.EndDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                    <td>
+                        @if (item.Status == "Approved")
+                        {
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Approved
+                            </span>
+                        }
+                        else if (item.Status == "Pending")
+                        {
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-clock"></i> Pending
+                            </span>
+                        }
+                        else if (item.Status == "Rejected")
+                        {
+                            <span class="badge bg-danger">
+                                <i class="bi bi-x-circle"></i> Rejected
+                            </span>
+                        }
+                        else if (item.Status == "COMPLETED")
+                        {
+                            <span class="badge bg-info">
+                                <i class="bi bi-check-all"></i> Completed
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">@item.Status</span>
+                        }
+                    </td>
+                    <td>@(item.Manager?.FullName ?? "N/A")</td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.MissionId" class="btn btn-info btn-sm" title="View Details">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                    </td>
+                </tr>
+    }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> You have no missions assigned yet.
+    </div>
+}

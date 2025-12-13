@@ -28,7 +28,7 @@
                     
                     <div class="mb-3">
                         <label asp-for="Duration" class="form-label">Duration (days)</label>
-                        <input asp-for="Duration" class="form-control" type="number" min="1" placeholder="Enter number of days" />
+                        <input asp-for="Duration" class="form-control" type="number" min="1" max="365" placeholder="Enter number of days" />
                         <span asp-validation-for="Duration" class="text-danger"></span>
                     </div>
                     

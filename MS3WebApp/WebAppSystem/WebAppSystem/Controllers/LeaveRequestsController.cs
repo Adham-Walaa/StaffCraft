@@ -184,6 +184,17 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
+            // Server-side validation for duration
+            if (leaveRequest.Duration <= 0)
+            {
+                ModelState.AddModelError("Duration", "Duration must be at least 1 day.");
+            }
+
+            if (leaveRequest.Duration > 365)
+            {
+                ModelState.AddModelError("Duration", "Duration cannot exceed 365 days.");
+            }
+
             leaveRequest.EmployeeId = userId.Value;
             leaveRequest.Status = "Pending";
             leaveRequest.ApprovalTiming = null;
@@ -191,6 +202,25 @@ namespace WebAppSystem.Controllers
             // Generate new RequestId
             var maxRequestId = await _context.LeaveRequests.MaxAsync(lr => (int?)lr.RequestId) ?? 0;
             leaveRequest.RequestId = maxRequestId + 1;
+
+            // Validate file if uploaded
+            if (attachment != null && attachment.Length > 0)
+            {
+                // File size validation (10MB max)
+                if (attachment.Length > 10 * 1024 * 1024)
+                {
+                    ModelState.AddModelError("attachment", "File size must not exceed 10MB.");
+                }
+
+                // File type validation
+                var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx" };
+                var fileExtension = Path.GetExtension(attachment.FileName).ToLowerInvariant();
+                
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    ModelState.AddModelError("attachment", "Only PDF, JPG, PNG, DOC, and DOCX files are allowed.");
+                }
+            }
 
             if (ModelState.IsValid)
             {
@@ -270,17 +300,23 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            leaveRequest.Status = "Approved";
-            leaveRequest.ApprovalTiming = DateTime.Now;
-
-            // Deduct from leave balance
+            // Check if employee has sufficient leave balance
             var entitlement = await _context.LeaveEntitlements
                 .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
             
             if (entitlement != null && entitlement.Entitlement.HasValue)
             {
+                if (entitlement.Entitlement < leaveRequest.Duration)
+                {
+                    TempData["ErrorMessage"] = $"Cannot approve: Employee only has {entitlement.Entitlement} days remaining but requested {leaveRequest.Duration} days.";
+                    return RedirectToAction(nameof(HRLeaveRequests));
+                }
+                
                 entitlement.Entitlement -= leaveRequest.Duration;
             }
+
+            leaveRequest.Status = "Approved";
+            leaveRequest.ApprovalTiming = DateTime.Now;
 
             await _context.SaveChangesAsync();
             TempData["SuccessMessage"] = "Leave request approved successfully!";

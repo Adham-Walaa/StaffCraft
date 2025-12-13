@@ -11958,3 +11958,30 @@ BEGIN
     SELECT @@ROWCOUNT AS UpdatedCount;
 END;
 GO
+
+--------------------------------------------------------------
+-- SetEmployeePassword
+-- Sets or updates the password hash for an employee
+--------------------------------------------------------------
+CREATE OR ALTER PROCEDURE dbo.SetEmployeePassword
+    @EmployeeID INT,
+    @PasswordHash VARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate employee exists
+    IF NOT EXISTS (SELECT 1 FROM dbo.Employee WHERE EmployeeID = @EmployeeID)
+    BEGIN
+        RAISERROR('Employee with ID %d does not exist.', 16, 1, @EmployeeID);
+        RETURN;
+    END;
+    
+    -- Update password hash
+    UPDATE dbo.Employee
+    SET password_hash = @PasswordHash
+    WHERE EmployeeID = @EmployeeID;
+    
+    SELECT 'Password updated successfully' AS Message;
+END;
+GO

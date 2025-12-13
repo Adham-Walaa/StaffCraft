@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -304,16 +305,22 @@ namespace WebAppSystem.Controllers
             var entitlement = await _context.LeaveEntitlements
                 .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
             
-            if (entitlement != null && entitlement.Entitlement.HasValue)
+            // If no entitlement exists, cannot approve
+            if (entitlement == null || !entitlement.Entitlement.HasValue)
             {
-                if (entitlement.Entitlement < leaveRequest.Duration)
-                {
-                    TempData["ErrorMessage"] = $"Cannot approve: Employee only has {entitlement.Entitlement} days remaining but requested {leaveRequest.Duration} days.";
-                    return RedirectToAction(nameof(HRLeaveRequests));
-                }
-                
-                entitlement.Entitlement -= leaveRequest.Duration;
+                TempData["ErrorMessage"] = "Cannot approve: Employee has no leave balance set up for this leave type.";
+                return RedirectToAction(nameof(HRLeaveRequests));
             }
+            
+            // Check if sufficient balance
+            if (entitlement.Entitlement < leaveRequest.Duration)
+            {
+                TempData["ErrorMessage"] = $"Cannot approve: Employee only has {entitlement.Entitlement} days remaining but requested {leaveRequest.Duration} days.";
+                return RedirectToAction(nameof(HRLeaveRequests));
+            }
+            
+            // Deduct from balance
+            entitlement.Entitlement -= leaveRequest.Duration;
 
             leaveRequest.Status = "Approved";
             leaveRequest.ApprovalTiming = DateTime.Now;

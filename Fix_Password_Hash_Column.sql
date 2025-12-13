@@ -70,7 +70,6 @@ BEGIN
     
     -- Step 3: Copy data from old table to new table
     PRINT 'Copying data to temporary table...';
-    SET IDENTITY_INSERT dbo.Employee_Temp OFF;
     
     INSERT INTO dbo.Employee_Temp 
     (

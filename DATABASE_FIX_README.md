@@ -88,14 +88,14 @@ CREATE TABLE Employee
 (
     ...
     email varchar(100),
-    password_hash varchar(255),      -- First definition (line 24)
+    password_hash varchar(255),      -- First definition (originally at line 24)
     address varchar(200),
     ...
-    password_hash varchar(255) NULL  -- Second definition (line 44) - DUPLICATE!
+    password_hash varchar(255) NULL  -- Second definition (originally at line 44) - DUPLICATE!
 );
 ```
 
-SQL Server doesn't allow duplicate column names, which caused the error during registration when the application tried to update the password_hash field.
+The duplicate at line 24 has now been removed. SQL Server doesn't allow duplicate column names, which caused the error during registration when the application tried to update the password_hash field.
 
 ## Need Help?
 

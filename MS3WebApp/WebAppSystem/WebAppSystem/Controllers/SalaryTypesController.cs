@@ -39,6 +39,14 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            // Get employees with this salary type
+            var employees = await _context.Employees
+                .Where(e => e.SalaryTypeId == id)
+                .Select(e => new { e.EmployeeId, e.FullName, e.Email })
+                .ToListAsync();
+
+            ViewBag.AssignedEmployees = employees;
+
             return View(salaryType);
         }
 
@@ -53,19 +61,30 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Type,PaymentFrequency,Currency")] SalaryType salaryType, int? returnToEmployeeId, string returnToAction)
         {
+            // Remove validation for navigation properties
+            ModelState.Remove("CurrencyNavigation");
+            ModelState.Remove("Employees");
+            
             if (ModelState.IsValid)
             {
-                _context.Add(salaryType);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Salary Type created successfully!";
-                
-                // If we came from employee management, redirect back
-                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                try
                 {
-                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                    _context.Add(salaryType);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Salary Type created successfully!";
+                    
+                    // If we came from employee management, redirect back
+                    if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                    {
+                        return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                    }
+                    
+                    return RedirectToAction(nameof(Index));
                 }
-                
-                return RedirectToAction(nameof(Index));
+                catch (System.Exception ex)
+                {
+                    ModelState.AddModelError("", $"Error creating salary type: {ex.Message}");
+                }
             }
             return View(salaryType);
         }

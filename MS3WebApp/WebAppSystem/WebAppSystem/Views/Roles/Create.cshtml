@@ -17,13 +17,13 @@
                     
                     <div class="mb-3">
                         <label asp-for="RoleName" class="form-label"></label>
-                        <input asp-for="RoleName" class="form-control" placeholder="e.g., System Administrator, HR Manager" />
+                        <input asp-for="RoleName" class="form-control" placeholder="e.g., System Administrator, HR Manager" required />
                         <span asp-validation-for="RoleName" class="text-danger"></span>
                     </div>
                     
                     <div class="mb-3">
                         <label asp-for="Purpose" class="form-label"></label>
-                        <textarea asp-for="Purpose" class="form-control" rows="3" placeholder="Describe the purpose and responsibilities of this role"></textarea>
+                        <textarea asp-for="Purpose" class="form-control" rows="3" placeholder="Describe the purpose and responsibilities of this role" required></textarea>
                         <span asp-validation-for="Purpose" class="text-danger"></span>
                     </div>
                     

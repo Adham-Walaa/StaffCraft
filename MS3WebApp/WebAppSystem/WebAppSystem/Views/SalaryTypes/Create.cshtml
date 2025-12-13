@@ -17,19 +17,19 @@
                     
                     <div class="mb-3">
                         <label asp-for="Type" class="form-label"></label>
-                        <input asp-for="Type" class="form-control" placeholder="e.g., Hourly, Monthly, Annual" />
+                        <input asp-for="Type" class="form-control" placeholder="e.g., Hourly, Monthly, Annual" required />
                         <span asp-validation-for="Type" class="text-danger"></span>
                     </div>
                     
                     <div class="mb-3">
                         <label asp-for="PaymentFrequency" class="form-label"></label>
-                        <input asp-for="PaymentFrequency" class="form-control" placeholder="e.g., Weekly, Bi-weekly, Monthly" />
+                        <input asp-for="PaymentFrequency" class="form-control" placeholder="e.g., Weekly, Bi-weekly, Monthly" required />
                         <span asp-validation-for="PaymentFrequency" class="text-danger"></span>
                     </div>
                     
                     <div class="mb-3">
                         <label asp-for="Currency" class="form-label"></label>
-                        <select asp-for="Currency" class="form-select">
+                        <select asp-for="Currency" class="form-select" required>
                             <option value="">-- Select Currency --</option>
                             <option value="USD">USD</option>
                             <option value="GBP">GBP</option>

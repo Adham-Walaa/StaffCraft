@@ -39,6 +39,14 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            // Get employees with this tax form
+            var employees = await _context.Employees
+                .Where(e => e.TaxformId == id)
+                .Select(e => new { e.EmployeeId, e.FullName, e.Email })
+                .ToListAsync();
+
+            ViewBag.AssignedEmployees = employees;
+
             return View(taxForm);
         }
 

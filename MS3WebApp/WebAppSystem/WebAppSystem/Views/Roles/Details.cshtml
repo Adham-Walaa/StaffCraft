@@ -1,30 +1,84 @@
 ﻿@model WebAppSystem.Models.Role
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Role Details";
 }
 
-<h1>Details</h1>
-
-<div>
-    <h4>Role</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.RoleName)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.RoleName)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Purpose)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Purpose)
-        </dd>
-    </dl>
-</div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.RoleId">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+<div class="row justify-content-center mt-4">
+    <div class="col-md-10">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h2 class="mb-0"><i class="bi bi-shield"></i> Role Details</h2>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Role ID</dt>
+                    <dd class="col-sm-9">@Model.RoleId</dd>
+                    
+                    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.RoleName)</dt>
+                    <dd class="col-sm-9">@Html.DisplayFor(model => model.RoleName)</dd>
+                    
+                    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Purpose)</dt>
+                    <dd class="col-sm-9">@Html.DisplayFor(model => model.Purpose)</dd>
+                </dl>
+                
+                <hr class="my-4" />
+                
+                <h5 class="mb-3"><i class="bi bi-people"></i> Employees with this Role</h5>
+                @if (ViewBag.AssignedEmployees != null && ViewBag.AssignedEmployees.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var employee in ViewBag.AssignedEmployees)
+                                {
+                                    <tr>
+                                        <td>@employee.EmployeeId</td>
+                                        <td>@employee.FullName</td>
+                                        <td>@employee.Email</td>
+                                        <td>
+                                            <a asp-controller="Employees" asp-action="Details" asp-route-id="@employee.EmployeeId" 
+                                               class="btn btn-sm btn-outline-info" title="View Employee">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted"><small>Total: @ViewBag.AssignedEmployees.Count employee(s)</small></p>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No employees currently assigned to this role.
+                    </div>
+                }
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.RoleId" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@Model.RoleId" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Delete
+                        </a>
+                    }
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

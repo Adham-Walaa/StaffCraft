@@ -39,6 +39,22 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            // Get employees with this role
+            var employeesWithRole = await _context.Database
+                .SqlQueryRaw<int>(
+                    @"SELECT er.employee_id 
+                    FROM EmployeeRole er 
+                    WHERE er.role_id = @p0",
+                    id.Value)
+                .ToListAsync();
+
+            var employees = await _context.Employees
+                .Where(e => employeesWithRole.Contains(e.EmployeeId))
+                .Select(e => new { e.EmployeeId, e.FullName, e.Email })
+                .ToListAsync();
+
+            ViewBag.AssignedEmployees = employees;
+
             return View(role);
         }
 
@@ -55,19 +71,29 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("RoleName,Purpose")] Role role, int? returnToEmployeeId, string returnToAction)
         {
+            // Remove validation for navigation properties
+            ModelState.Remove("EmployeeRoles");
+            
             if (ModelState.IsValid)
             {
-                _context.Add(role);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Role created successfully!";
-                
-                // If we came from employee management, redirect back
-                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                try
                 {
-                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                    _context.Add(role);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Role created successfully!";
+                    
+                    // If we came from employee management, redirect back
+                    if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                    {
+                        return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                    }
+                    
+                    return RedirectToAction(nameof(Index));
                 }
-                
-                return RedirectToAction(nameof(Index));
+                catch (System.Exception ex)
+                {
+                    ModelState.AddModelError("", $"Error creating role: {ex.Message}");
+                }
             }
             return View(role);
         }

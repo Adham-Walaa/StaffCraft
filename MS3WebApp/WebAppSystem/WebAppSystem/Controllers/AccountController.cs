@@ -39,19 +39,27 @@ namespace WebAppSystem.Controllers
         // Set password hash for an employee (extracted method to avoid duplication)
         private async Task SetEmployeePasswordAsync(int employeeId, string password)
         {
-            var hashedPassword = HashPassword(password);
-            
-            // Use stored procedure to set password hash to avoid EF issues
-            var parameters = new[]
+            try
             {
-                new SqlParameter("@EmployeeID", employeeId),
-                new SqlParameter("@PasswordHash", hashedPassword)
-            };
-            
-            await _context.Database.ExecuteSqlRawAsync(
-                "EXEC dbo.SetEmployeePassword @EmployeeID, @PasswordHash",
-                parameters
-            );
+                var hashedPassword = HashPassword(password);
+                
+                // Use stored procedure to set password hash to avoid EF issues
+                var parameters = new[]
+                {
+                    new SqlParameter("@EmployeeID", employeeId),
+                    new SqlParameter("@PasswordHash", hashedPassword)
+                };
+                
+                await _context.Database.ExecuteSqlRawAsync(
+                    "EXEC dbo.SetEmployeePassword @EmployeeID, @PasswordHash",
+                    parameters
+                );
+            }
+            catch (SystemException ex)
+            {
+                // Log or rethrow with more context
+                throw new SystemException($"Failed to set password for employee {employeeId}: {ex.Message}", ex);
+            }
         }
 
         // GET: Account/Login

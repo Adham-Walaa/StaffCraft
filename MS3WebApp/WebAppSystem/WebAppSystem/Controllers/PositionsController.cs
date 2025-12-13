@@ -53,12 +53,20 @@ namespace WebAppSystem.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("PositionId,PositionTitle,Responsibilities,Status")] Position position)
+        public async Task<IActionResult> Create([Bind("PositionTitle,Responsibilities,Status")] Position position, int? returnToEmployeeId, string returnToAction)
         {
             if (ModelState.IsValid)
             {
                 _context.Add(position);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Position created successfully!";
+                
+                // If we came from employee management, redirect back
+                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                {
+                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                }
+                
                 return RedirectToAction(nameof(Index));
             }
             return View(position);

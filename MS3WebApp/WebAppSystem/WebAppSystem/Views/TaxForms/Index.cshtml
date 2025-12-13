@@ -1,0 +1,94 @@
+@model IEnumerable<WebAppSystem.Models.TaxForm>
+
+@{
+    ViewData["Title"] = "Tax Forms";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-file-earmark-text"></i> Tax Forms</h1>
+        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+        {
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New
+            </a>
+        }
+    </div>
+    <hr />
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Tax Form ID</th>
+                <th>@Html.DisplayNameFor(model => model.Jurisdiction)</th>
+                <th>@Html.DisplayNameFor(model => model.ValidityPeriod)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+@foreach (var item in Model) {
+            <tr>
+                <td>@item.TaxFormId</td>
+                <td>@Html.DisplayFor(modelItem => item.Jurisdiction)</td>
+                <td>
+                    @if (item.ValidityPeriod.HasValue)
+                    {
+                        @item.ValidityPeriod.Value.ToString("MMM dd, yyyy")
+                        @if (item.ValidityPeriod.Value < DateTime.Today)
+                        {
+                            <span class="badge bg-danger ms-2">
+                                <i class="bi bi-exclamation-triangle"></i> Expired
+                            </span>
+                        }
+                        else if (item.ValidityPeriod.Value < DateTime.Today.AddMonths(3))
+                        {
+                            <span class="badge bg-warning text-dark ms-2">
+                                <i class="bi bi-clock"></i> Expiring Soon
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success ms-2">
+                                <i class="bi bi-check-circle"></i> Valid
+                            </span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-muted">N/A</span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.TaxFormId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.TaxFormId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.TaxFormId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
+                    </div>
+                </td>
+            </tr>
+}
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No tax forms found. 
+        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+        {
+            <a asp-action="Create" class="alert-link">Create the first tax form</a>
+        }
+    </div>
+}

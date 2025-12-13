@@ -80,7 +80,10 @@
                     </form>
 
                     <div class="mt-3">
-                        <a asp-controller="Positions" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                        <a asp-controller="Positions" asp-action="Create" 
+                           asp-route-returnToEmployeeId="@Model.EmployeeId" 
+                           asp-route-returnToAction="ManagePosition" 
+                           class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-plus-circle"></i> Create New Position
                         </a>
                     </div>

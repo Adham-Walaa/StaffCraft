@@ -80,7 +80,10 @@
                     </form>
 
                     <div class="mt-3">
-                        <a asp-controller="SalaryTypes" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                        <a asp-controller="SalaryTypes" asp-action="Create" 
+                           asp-route-returnToEmployeeId="@Model.EmployeeId" 
+                           asp-route-returnToAction="ManageSalaryType" 
+                           class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-plus-circle"></i> Create New Salary Type
                         </a>
                     </div>

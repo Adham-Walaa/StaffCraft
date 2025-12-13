@@ -51,13 +51,26 @@ namespace WebAppSystem.Controllers
         // POST: TaxForms/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("TaxFormId,Jurisdiction,ValidityPeriod,FormContent")] TaxForm taxForm)
+        public async Task<IActionResult> Create([Bind("Jurisdiction,ValidityPeriod,FormContent")] TaxForm taxForm, int? returnToEmployeeId, string returnToAction)
         {
+            // Validate that ValidityPeriod is not in the past
+            if (taxForm.ValidityPeriod.HasValue && taxForm.ValidityPeriod.Value < DateTime.Today)
+            {
+                ModelState.AddModelError("ValidityPeriod", "Validity period cannot be in the past.");
+            }
+            
             if (ModelState.IsValid)
             {
                 _context.Add(taxForm);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Tax Form created successfully!";
+                
+                // If we came from employee management, redirect back
+                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                {
+                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                }
+                
                 return RedirectToAction(nameof(Index));
             }
             return View(taxForm);

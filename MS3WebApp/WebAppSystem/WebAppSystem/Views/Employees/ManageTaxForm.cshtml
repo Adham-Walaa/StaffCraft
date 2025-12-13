@@ -79,7 +79,10 @@
                     </form>
 
                     <div class="mt-3">
-                        <a asp-controller="TaxForms" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                        <a asp-controller="TaxForms" asp-action="Create" 
+                           asp-route-returnToEmployeeId="@Model.EmployeeId" 
+                           asp-route-returnToAction="ManageTaxForm" 
+                           class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-plus-circle"></i> Create New Tax Form
                         </a>
                     </div>

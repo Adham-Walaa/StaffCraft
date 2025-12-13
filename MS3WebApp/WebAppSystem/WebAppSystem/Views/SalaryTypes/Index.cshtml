@@ -1,12 +1,12 @@
-﻿@model IEnumerable<WebAppSystem.Models.Role>
+@model IEnumerable<WebAppSystem.Models.SalaryType>
 
 @{
-    ViewData["Title"] = "Roles";
+    ViewData["Title"] = "Salary Types";
 }
 
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
-        <h1><i class="bi bi-shield"></i> Roles</h1>
+        <h1><i class="bi bi-currency-dollar"></i> Salary Types</h1>
         @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
         {
             <a asp-action="Create" class="btn btn-primary">
@@ -21,29 +21,40 @@
     <table class="table table-hover table-striped">
         <thead class="table-dark">
             <tr>
-                <th>Role ID</th>
-                <th>@Html.DisplayNameFor(model => model.RoleName)</th>
-                <th>@Html.DisplayNameFor(model => model.Purpose)</th>
+                <th>Salary Type ID</th>
+                <th>@Html.DisplayNameFor(model => model.Type)</th>
+                <th>@Html.DisplayNameFor(model => model.PaymentFrequency)</th>
+                <th>@Html.DisplayNameFor(model => model.Currency)</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
 @foreach (var item in Model) {
             <tr>
-                <td>@item.RoleId</td>
-                <td>@Html.DisplayFor(modelItem => item.RoleName)</td>
-                <td>@Html.DisplayFor(modelItem => item.Purpose)</td>
+                <td>@item.SalaryTypeId</td>
+                <td>@Html.DisplayFor(modelItem => item.Type)</td>
+                <td>@Html.DisplayFor(modelItem => item.PaymentFrequency)</td>
+                <td>
+                    @if (!string.IsNullOrEmpty(item.Currency))
+                    {
+                        <span class="badge bg-primary">@item.Currency</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">N/A</span>
+                    }
+                </td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
-                        <a asp-action="Details" asp-route-id="@item.RoleId" class="btn btn-info" title="Details">
+                        <a asp-action="Details" asp-route-id="@item.SalaryTypeId" class="btn btn-info" title="Details">
                             <i class="bi bi-eye"></i>
                         </a>
                         @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
                         {
-                            <a asp-action="Edit" asp-route-id="@item.RoleId" class="btn btn-warning" title="Edit">
+                            <a asp-action="Edit" asp-route-id="@item.SalaryTypeId" class="btn btn-warning" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <a asp-action="Delete" asp-route-id="@item.RoleId" class="btn btn-danger" title="Delete">
+                            <a asp-action="Delete" asp-route-id="@item.SalaryTypeId" class="btn btn-danger" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </a>
                         }
@@ -58,10 +69,10 @@
 @if (!Model.Any())
 {
     <div class="alert alert-info text-center" role="alert">
-        <i class="bi bi-info-circle"></i> No roles found. 
+        <i class="bi bi-info-circle"></i> No salary types found. 
         @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
         {
-            <a asp-action="Create" class="alert-link">Create the first role</a>
+            <a asp-action="Create" class="alert-link">Create the first salary type</a>
         }
     </div>
 }

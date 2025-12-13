@@ -51,13 +51,20 @@ namespace WebAppSystem.Controllers
         // POST: SalaryTypes/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("SalaryTypeId,Type,PaymentFrequency,Currency")] SalaryType salaryType)
+        public async Task<IActionResult> Create([Bind("Type,PaymentFrequency,Currency")] SalaryType salaryType, int? returnToEmployeeId, string returnToAction)
         {
             if (ModelState.IsValid)
             {
                 _context.Add(salaryType);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Salary Type created successfully!";
+                
+                // If we came from employee management, redirect back
+                if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
+                {
+                    return RedirectToAction(returnToAction, "Employees", new { id = returnToEmployeeId.Value });
+                }
+                
                 return RedirectToAction(nameof(Index));
             }
             return View(salaryType);

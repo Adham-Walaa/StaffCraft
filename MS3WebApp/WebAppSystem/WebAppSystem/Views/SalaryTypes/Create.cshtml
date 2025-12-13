@@ -28,7 +28,12 @@
                     
                     <div class="mb-3">
                         <label asp-for="Currency" class="form-label"></label>
-                        <input asp-for="Currency" class="form-control" placeholder="e.g., USD, EUR, GBP" />
+                        <select asp-for="Currency" class="form-select">
+                            <option value="">-- Select Currency --</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                        </select>
                         <span asp-validation-for="Currency" class="text-danger"></span>
                     </div>
                     

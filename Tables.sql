@@ -21,7 +21,7 @@ CREATE TABLE Employee
     country_of_birth varchar(50),
     phone varchar(15),
     email varchar(100),
-    password_hash varchar(255) NULL,
+    password_hash varchar(255) ,
     address varchar(200),
     emergency_contact_name varchar(100),
     emergency_contact_phone varchar(15),

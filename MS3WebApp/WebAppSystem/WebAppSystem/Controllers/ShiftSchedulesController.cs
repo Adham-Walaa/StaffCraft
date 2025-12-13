@@ -121,6 +121,7 @@ namespace WebAppSystem.Controllers
                 {
                     _context.Update(shiftSchedule);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Shift assignment updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {

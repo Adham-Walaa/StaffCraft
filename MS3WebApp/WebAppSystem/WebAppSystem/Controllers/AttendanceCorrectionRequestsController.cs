@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using WebAppSystem.Models;
+using System.Linq;
 
 namespace WebAppSystem.Controllers
 {
@@ -217,6 +218,12 @@ namespace WebAppSystem.Controllers
             ModelState.Clear();
             if (TryValidateModel(attendanceCorrectionRequest))
             {
+                // Generate RequestId for non-identity column
+                var maxId = await _context.AttendanceCorrectionRequests.AnyAsync() 
+                    ? await _context.AttendanceCorrectionRequests.MaxAsync(x => x.RequestId) 
+                    : 0;
+                attendanceCorrectionRequest.RequestId = maxId + 1;
+                
                 _context.Add(attendanceCorrectionRequest);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Attendance correction request submitted successfully!";

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using WebAppSystem.Models;
+using System.Linq;
 
 namespace WebAppSystem.Controllers
 {
@@ -89,6 +90,12 @@ namespace WebAppSystem.Controllers
 
             if (ModelState.IsValid)
             {
+                // Generate CycleId for non-identity column
+                var maxId = await _context.ShiftCycles.AnyAsync() 
+                    ? await _context.ShiftCycles.MaxAsync(x => x.CycleId) 
+                    : 0;
+                shiftCycle.CycleId = maxId + 1;
+                
                 _context.Add(shiftCycle);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Rotational shift cycle created successfully!";

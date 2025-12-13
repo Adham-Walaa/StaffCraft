@@ -75,13 +75,16 @@
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="MyRequests">My Correction Requests</a></li>
                                     <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="SubmitRequest">Submit Correction</a></li>
-                                    @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true)
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true || 
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
                                     {
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Attendances" asp-action="TeamAttendance">Team Attendance</a></li>
                                     }
                                     @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
-                                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true ||
+                                         Context.Session.GetString("UserRoles")?.Contains("Manager") == true ||
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
                                     {
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Attendances" asp-action="Index">All Attendance Records</a></li>

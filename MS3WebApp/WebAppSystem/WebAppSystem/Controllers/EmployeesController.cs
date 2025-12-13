@@ -568,14 +568,13 @@ namespace WebAppSystem.Controllers
                 .ToListAsync();
 
             ViewBag.CurrentRoles = currentRoles;
-            ViewBag.AvailableRoles = new SelectList(new[]
-            {
-                "System Administrator",
-                "HR Administrator",
-                "Line Manager",
-                "Payroll Specialist",
-                "Employee"
-            });
+            
+            // Get all available roles from database
+            var availableRoles = await _context.Roles
+                .Select(r => r.RoleName)
+                .ToListAsync();
+            
+            ViewBag.AvailableRoles = new SelectList(availableRoles);
 
             return View(employee);
         }

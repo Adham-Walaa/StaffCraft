@@ -102,6 +102,12 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
+            // Validate that ValidityPeriod is not in the past
+            if (taxForm.ValidityPeriod.HasValue && taxForm.ValidityPeriod.Value < DateTime.Today)
+            {
+                ModelState.AddModelError("ValidityPeriod", "Validity period cannot be in the past.");
+            }
+
             if (ModelState.IsValid)
             {
                 try

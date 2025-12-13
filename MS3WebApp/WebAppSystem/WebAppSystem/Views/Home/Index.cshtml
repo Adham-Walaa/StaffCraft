@@ -12,7 +12,7 @@
 
         <div class="row g-4">
             <!-- Employee Management Card -->
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">
@@ -35,7 +35,7 @@
             </div>
 
             <!-- Contract Management Card -->
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">
@@ -60,7 +60,7 @@
             <!-- My Team Card -->
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
             {
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-info">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -76,7 +76,7 @@
             }
             else
             {
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -91,10 +91,25 @@
                 </div>
             }
 
+            <!-- My Profile Card -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-person-circle text-secondary"></i> My Profile
+                        </h5>
+                        <p class="card-text">View and update your personal information.</p>
+                        <a asp-controller="Employees" asp-action="MyProfile" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> View Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
             {
                 <!-- HR Quick Actions Card -->
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -120,7 +135,7 @@
             @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
             {
                 <!-- System Admin Card -->
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-danger">
                         <div class="card-body">
                             <h5 class="card-title">
@@ -157,7 +172,7 @@
             }
 
             <!-- My Profile Card -->
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <h5 class="card-title">

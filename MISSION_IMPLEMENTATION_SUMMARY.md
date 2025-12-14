@@ -122,16 +122,20 @@ All views follow the existing design patterns with:
 
 ### Key Design Decisions:
 
-1. **Initial Assignment Strategy**: When HR creates a mission for a manager, the EmployeeId is initially set to the ManagerId. This ensures:
-   - The mission appears in the manager's mission list
-   - Manager can see pending approvals
-   - Can be later reassigned to specific team members
+1. **Team Mission Visibility**: When HR creates a mission for a manager, the EmployeeId is initially set to the ManagerId. When the manager approves the mission:
+   - The mission status changes to "Approved"
+   - ALL employees who report to that manager can see the mission
+   - This implements team-level mission visibility rather than individual assignments
 
-2. **Navigation Property Handling**: Used join queries through EmployeeRoles and Roles tables to fetch Line Managers, avoiding direct navigation property issues in the Employee model.
+2. **Employee Mission View**: The `MyMissions()` method shows missions where:
+   - Mission is directly assigned to the employee (EmployeeId matches), OR
+   - Mission's manager is the employee's manager AND status is "Approved" (team missions)
+   
+3. **Navigation Property Handling**: Used join queries through EmployeeRoles and Roles tables to fetch Line Managers, avoiding direct navigation property issues in the Employee model.
 
-3. **Status Flow**:
+4. **Status Flow**:
    - Pending → Mission created, awaiting manager approval
-   - Approved → Manager accepted, visible to employees
+   - Approved → Manager accepted, visible to all team members
    - Rejected → Manager declined
    - COMPLETED → Mission finished (using existing procedure)
 

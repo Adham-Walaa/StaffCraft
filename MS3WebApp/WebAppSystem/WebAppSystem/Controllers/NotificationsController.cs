@@ -30,12 +30,8 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            // Check for expiring contracts and create notifications
-            var debugInfo = await CheckExpiringContracts(userId.Value);
-            if (!string.IsNullOrEmpty(debugInfo))
-            {
-                ViewData["DebugInfo"] = debugInfo;
-            }
+            // Check for expiring contracts and set warning message
+            await CheckExpiringContracts(userId.Value);
 
             // Get all notifications for the logged-in user
             var notifications = await _context.EmployeeNotifications
@@ -174,190 +170,86 @@ namespace WebAppSystem.Controllers
         }
 
         // Private helper method to check for expiring contracts and create notifications
-        private async Task<string> CheckExpiringContracts(int employeeId)
+        private async Task CheckExpiringContracts(int employeeId)
         {
-            var debugMessages = new List<string>();
-            
             try
             {
-                debugMessages.Add($"Checking contracts for employee ID: {employeeId}");
-                
                 // Get the employee's contract information
                 var employee = await _context.Employees
                     .Include(e => e.Contract)
                     .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
 
-                if (employee == null)
+                if (employee == null || employee.Contract == null)
                 {
-                    debugMessages.Add("Employee not found");
-                    return string.Join(" | ", debugMessages);
-                }
-
-                debugMessages.Add($"Employee found: {employee.FullName}");
-                debugMessages.Add($"Employee.ContractId: {employee.ContractId?.ToString() ?? "NULL"}");
-                debugMessages.Add($"Employee.Contract loaded: {(employee.Contract != null ? "YES" : "NO")}");
-
-                // If employee doesn't have a contract linked, try to find it
-                if (employee.Contract == null && employee.ContractId.HasValue)
-                {
-                    debugMessages.Add($"Attempting to load contract ID: {employee.ContractId.Value}");
-                    var employeeContract = await _context.Contracts.FindAsync(employee.ContractId.Value);
-                    if (employeeContract != null)
+                    // Try fallback if contract navigation didn't load
+                    if (employee != null && employee.ContractId.HasValue)
                     {
-                        employee.Contract = employeeContract;
-                        debugMessages.Add("Contract loaded successfully via fallback");
-                    }
-                    else
-                    {
-                        debugMessages.Add("Contract not found in database");
+                        var contract = await _context.Contracts.FindAsync(employee.ContractId.Value);
+                        if (contract != null)
+                        {
+                            employee.Contract = contract;
+                        }
                     }
                 }
 
-                if (employee.Contract == null)
+                if (employee?.Contract == null)
                 {
-                    debugMessages.Add("No contract to check - returning");
-                    return string.Join(" | ", debugMessages);
+                    return; // No contract to check
                 }
 
-                var contract = employee.Contract;
-                debugMessages.Add($"Contract ID: {contract.ContractId}, Type: {contract.Type ?? "NULL"}, EndDate: {contract.EndDate?.ToString("yyyy-MM-dd") ?? "NULL"}, State: {contract.CurrentState ?? "NULL"}");
+                var contractInfo = employee.Contract;
 
                 // Check if contract has an end date
-                if (!contract.EndDate.HasValue)
+                if (!contractInfo.EndDate.HasValue)
                 {
-                    debugMessages.Add("No end date - returning");
-                    return string.Join(" | ", debugMessages);
+                    return; // No end date, nothing to warn about
                 }
 
                 // Check if contract is active (case-insensitive check)
-                var currentState = contract.CurrentState?.Trim().ToLower();
-                debugMessages.Add($"Current state (lowercase): '{currentState}'");
-                
+                var currentState = contractInfo.CurrentState?.Trim().ToLower();
                 if (currentState != "active")
                 {
-                    debugMessages.Add($"Contract not active (state: '{currentState}') - returning");
-                    return string.Join(" | ", debugMessages);
+                    return; // Only check active contracts
                 }
 
-                // Calculate days until expiry using Date (not DateTime) to avoid time component issues
+                // Calculate days until expiry using Date to avoid time component issues
                 var today = DateTime.Today;
-                var endDate = contract.EndDate.Value.Date;
+                var endDate = contractInfo.EndDate.Value.Date;
                 var daysUntilExpiry = (endDate - today).Days;
-                
-                debugMessages.Add($"Today: {today:yyyy-MM-dd}, EndDate: {endDate:yyyy-MM-dd}, Days until expiry: {daysUntilExpiry}");
 
                 // Check if contract expires in 30 days or less
                 if (daysUntilExpiry >= 0 && daysUntilExpiry <= 30)
                 {
-                    debugMessages.Add("Contract within 30 days - checking for existing notification");
+                    var urgency = daysUntilExpiry <= 7 ? "High" : daysUntilExpiry <= 14 ? "Medium" : "Low";
+                    var contractType = string.IsNullOrEmpty(contractInfo.Type) ? "employment" : contractInfo.Type;
+                    var contractDescription = contractInfo.Type ?? "Contract";
                     
-                    // Check if we already have a permanent contract expiration notification for this employee
-                    var existingNotification = await _context.EmployeeNotifications
-                        .Include(en => en.Notification)
-                        .Where(en => en.EmployeeId == employeeId 
-                            && en.Notification != null
-                            && en.Notification.NotificationType == "ContractExpiration"
-                            && en.Notification.ReadStatus == false) // Only look for unread ones
-                        .FirstOrDefaultAsync();
-
-                    // Only create if there isn't already an active expiration notification
-                    if (existingNotification == null)
-                    {
-                        debugMessages.Add("Creating new notification");
-                        
-                        // Create a new permanent notification
-                        var notificationId = await _context.Notifications.AnyAsync() 
-                            ? await _context.Notifications.MaxAsync(n => n.NotificationId) + 1 
-                            : 1;
-
-                        var urgency = daysUntilExpiry <= 7 ? "High" : daysUntilExpiry <= 14 ? "Medium" : "Low";
-                        
-                        var contractType = string.IsNullOrEmpty(contract.Type) ? "employment" : contract.Type;
-                        
-                        var notification = new Notification
-                        {
-                            NotificationId = notificationId,
-                            MesageContent = $"URGENT: Your {contractType} contract will expire in {daysUntilExpiry} day{(daysUntilExpiry > 1 ? "s" : "")} (on {contract.EndDate.Value:MMM dd, yyyy}). If your contract is not renewed within the following days, it will expire. Please contact HR immediately to discuss renewal options.",
-                            Timestamp = DateTime.Now,
-                            Urgency = urgency,
-                            ReadStatus = false,
-                            NotificationType = "ContractExpiration" // Special type that cannot be dismissed
-                        };
-
-                        _context.Notifications.Add(notification);
-                        await _context.SaveChangesAsync();
-                        
-                        debugMessages.Add($"Notification created with ID: {notificationId}");
-
-                        // Link notification to employee
-                        var employeeNotification = new EmployeeNotification
-                        {
-                            EmployeeId = employeeId,
-                            NotificationId = notificationId,
-                            DeliveryStatus = "PERMANENT", // Special status indicating this is permanent
-                            DeliveredAt = DateTime.Now
-                        };
-
-                        _context.EmployeeNotifications.Add(employeeNotification);
-                        await _context.SaveChangesAsync();
-                        
-                        debugMessages.Add("Notification linked to employee successfully");
-                    }
-                    else if (existingNotification.Notification != null)
-                    {
-                        debugMessages.Add("Updating existing notification");
-                        
-                        // Update existing notification with current days count
-                        var contractType = string.IsNullOrEmpty(contract.Type) ? "employment" : contract.Type;
-                        var urgency = daysUntilExpiry <= 7 ? "High" : daysUntilExpiry <= 14 ? "Medium" : "Low";
-                        
-                        existingNotification.Notification.MesageContent = $"URGENT: Your {contractType} contract will expire in {daysUntilExpiry} day{(daysUntilExpiry > 1 ? "s" : "")} (on {contract.EndDate.Value:MMM dd, yyyy}). If your contract is not renewed within the following days, it will expire. Please contact HR immediately to discuss renewal options.";
-                        existingNotification.Notification.Urgency = urgency;
-                        existingNotification.Notification.Timestamp = DateTime.Now;
-                        
-                        await _context.SaveChangesAsync();
-                        
-                        debugMessages.Add("Notification updated successfully");
-                    }
-                }
-                else if (daysUntilExpiry > 30)
-                {
-                    debugMessages.Add($"Contract has {daysUntilExpiry} days remaining (>30) - removing any existing notifications");
+                    // Set ViewBag properties for the alert banner
+                    ViewBag.ContractExpirationWarning = true;
+                    ViewBag.ContractExpirationDays = daysUntilExpiry;
+                    ViewBag.ContractExpirationDate = contractInfo.EndDate.Value.ToString("MMMM dd, yyyy");
+                    ViewBag.ContractType = contractDescription;
+                    ViewBag.ContractUrgency = urgency;
                     
-                    // If more than 30 days away, remove any existing contract expiration notification
-                    var existingNotifications = await _context.EmployeeNotifications
-                        .Include(en => en.Notification)
-                        .Where(en => en.EmployeeId == employeeId 
-                            && en.Notification != null
-                            && en.Notification.NotificationType == "ContractExpiration")
-                        .ToListAsync();
-
-                    if (existingNotifications.Any())
+                    // Create message based on number of contracts (checking if employee might have multiple)
+                    var contractCount = await _context.Contracts
+                        .Where(c => c.Employees.Any(e => e.EmployeeId == employeeId) && c.CurrentState.ToLower() == "active")
+                        .CountAsync();
+                    
+                    if (contractCount > 1)
                     {
-                        foreach (var en in existingNotifications)
-                        {
-                            if (en.Notification != null)
-                            {
-                                _context.Notifications.Remove(en.Notification);
-                            }
-                            _context.EmployeeNotifications.Remove(en);
-                        }
-                        await _context.SaveChangesAsync();
-                        debugMessages.Add("Removed existing notifications");
+                        ViewBag.ContractExpirationMessage = $"⚠️ URGENT: One of your contracts ({contractDescription}) is expiring in {daysUntilExpiry} day{(daysUntilExpiry != 1 ? "s" : "")} (on {ViewBag.ContractExpirationDate}). Unless your contract is renewed by an HR Administrator, it will expire. Please contact HR immediately to request contract renewal.";
+                    }
+                    else
+                    {
+                        ViewBag.ContractExpirationMessage = $"⚠️ URGENT: Your {contractType} contract is expiring in {daysUntilExpiry} day{(daysUntilExpiry != 1 ? "s" : "")} (on {ViewBag.ContractExpirationDate}). Unless your contract is renewed by an HR Administrator, it will expire. Please contact HR immediately to request contract renewal.";
                     }
                 }
-                else
-                {
-                    debugMessages.Add($"Contract has {daysUntilExpiry} days remaining (already expired or invalid)");
-                }
-                
-                return string.Join(" | ", debugMessages);
             }
             catch (System.Exception ex)
             {
-                debugMessages.Add($"ERROR: {ex.Message}");
-                debugMessages.Add($"Stack: {ex.StackTrace}");
-                return string.Join(" | ", debugMessages);
+                // Silently fail - don't disrupt the page if contract check fails
+                System.Diagnostics.Debug.WriteLine($"Contract expiration check error: {ex.Message}");
             }
         }
     }

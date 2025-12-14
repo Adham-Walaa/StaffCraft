@@ -173,68 +173,101 @@ namespace WebAppSystem.Controllers
                     .Include(e => e.Contract)
                     .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
 
-                if (employee == null || employee.Contract == null)
+                if (employee == null)
+                {
+                    return; // Employee not found
+                }
+
+                // If employee doesn't have a contract linked, try to find it
+                if (employee.Contract == null && employee.ContractId.HasValue)
+                {
+                    var employeeContract = await _context.Contracts.FindAsync(employee.ContractId.Value);
+                    if (employeeContract != null)
+                    {
+                        employee.Contract = employeeContract;
+                    }
+                }
+
+                if (employee.Contract == null)
                 {
                     return; // No contract to check
                 }
 
                 var contract = employee.Contract;
 
-                // Check if contract expires in less than 30 days
-                if (contract.EndDate.HasValue && contract.CurrentState == "Active")
+                // Check if contract has an end date
+                if (!contract.EndDate.HasValue)
                 {
-                    var daysUntilExpiry = (contract.EndDate.Value - DateTime.Now).Days;
+                    return; // No end date, nothing to check
+                }
 
-                    if (daysUntilExpiry > 0 && daysUntilExpiry <= 30)
+                // Check if contract is active (case-insensitive check)
+                var currentState = contract.CurrentState?.Trim().ToLower();
+                if (currentState != "active")
+                {
+                    return; // Only check active contracts
+                }
+
+                // Calculate days until expiry using Date (not DateTime) to avoid time component issues
+                var today = DateTime.Today;
+                var endDate = contract.EndDate.Value.Date;
+                var daysUntilExpiry = (endDate - today).Days;
+
+                // Check if contract expires in 1 to 30 days
+                if (daysUntilExpiry >= 1 && daysUntilExpiry <= 30)
+                {
+                    // Check if we already created a notification for this contract expiration
+                    var existingNotification = await _context.EmployeeNotifications
+                        .Include(en => en.Notification)
+                        .Where(en => en.EmployeeId == employeeId 
+                            && en.Notification != null
+                            && en.Notification.NotificationType == "Contract"
+                            && en.Notification.MesageContent != null
+                            && en.Notification.MesageContent.Contains("expires in"))
+                        .OrderByDescending(en => en.Notification.Timestamp)
+                        .FirstOrDefaultAsync();
+
+                    // Only create notification if we haven't created one in the last 7 days
+                    bool shouldCreateNotification = existingNotification == null || 
+                        (existingNotification.Notification != null &&
+                         existingNotification.Notification.Timestamp.HasValue && 
+                         (DateTime.Now - existingNotification.Notification.Timestamp.Value).Days >= 7);
+
+                    if (shouldCreateNotification)
                     {
-                        // Check if we already created a notification for this contract expiration
-                        var existingNotification = await _context.EmployeeNotifications
-                            .Include(en => en.Notification)
-                            .Where(en => en.EmployeeId == employeeId 
-                                && en.Notification.NotificationType == "Contract"
-                                && en.Notification.MesageContent.Contains("expires in"))
-                            .OrderByDescending(en => en.Notification.Timestamp)
-                            .FirstOrDefaultAsync();
+                        // Create a new notification
+                        var notificationId = await _context.Notifications.AnyAsync() 
+                            ? await _context.Notifications.MaxAsync(n => n.NotificationId) + 1 
+                            : 1;
 
-                        // Only create notification if we haven't created one in the last 7 days
-                        bool shouldCreateNotification = existingNotification == null || 
-                            (existingNotification.Notification.Timestamp.HasValue && 
-                             (DateTime.Now - existingNotification.Notification.Timestamp.Value).Days >= 7);
-
-                        if (shouldCreateNotification)
+                        var urgency = daysUntilExpiry <= 7 ? "High" : daysUntilExpiry <= 14 ? "Medium" : "Low";
+                        
+                        var contractType = string.IsNullOrEmpty(contract.Type) ? "employment" : contract.Type;
+                        
+                        var notification = new Notification
                         {
-                            // Create a new notification
-                            var notificationId = await _context.Notifications.AnyAsync() 
-                                ? await _context.Notifications.MaxAsync(n => n.NotificationId) + 1 
-                                : 1;
+                            NotificationId = notificationId,
+                            MesageContent = $"Your {contractType} contract expires in {daysUntilExpiry} day{(daysUntilExpiry > 1 ? "s" : "")} (on {contract.EndDate.Value:MMM dd, yyyy}). Please contact HR to discuss renewal or next steps.",
+                            Timestamp = DateTime.Now,
+                            Urgency = urgency,
+                            ReadStatus = false,
+                            NotificationType = "Contract"
+                        };
 
-                            var urgency = daysUntilExpiry <= 7 ? "High" : daysUntilExpiry <= 14 ? "Medium" : "Low";
-                            
-                            var notification = new Notification
-                            {
-                                NotificationId = notificationId,
-                                MesageContent = $"Your {contract.Type} contract expires in {daysUntilExpiry} days (on {contract.EndDate.Value:MMM dd, yyyy}). Please contact HR to discuss renewal or next steps.",
-                                Timestamp = DateTime.Now,
-                                Urgency = urgency,
-                                ReadStatus = false,
-                                NotificationType = "Contract"
-                            };
+                        _context.Notifications.Add(notification);
+                        await _context.SaveChangesAsync();
 
-                            _context.Notifications.Add(notification);
-                            await _context.SaveChangesAsync();
+                        // Link notification to employee
+                        var employeeNotification = new EmployeeNotification
+                        {
+                            EmployeeId = employeeId,
+                            NotificationId = notificationId,
+                            DeliveryStatus = "SENT",
+                            DeliveredAt = DateTime.Now
+                        };
 
-                            // Link notification to employee
-                            var employeeNotification = new EmployeeNotification
-                            {
-                                EmployeeId = employeeId,
-                                NotificationId = notificationId,
-                                DeliveryStatus = "SENT",
-                                DeliveredAt = DateTime.Now
-                            };
-
-                            _context.EmployeeNotifications.Add(employeeNotification);
-                            await _context.SaveChangesAsync();
-                        }
+                        _context.EmployeeNotifications.Add(employeeNotification);
+                        await _context.SaveChangesAsync();
                     }
                 }
             }

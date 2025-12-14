@@ -576,6 +576,19 @@ CREATE TABLE ManagerNotes
 );
 
 -- ========================================
+-- INITIAL DATA - LEAVE TYPES
+-- ========================================
+
+-- Insert default leave types
+INSERT INTO Leave (LeaveID, leave_type, leave_description) VALUES
+(1, 'Sick leave', 'Leave for medical reasons and illness'),
+(2, 'Bereavement leave', 'Leave for mourning the death of a family member'),
+(3, 'Parental leave', 'Leave for new parents to care for their newborn or newly adopted child'),
+(4, 'Jury duty', 'Leave for employees called to serve on a jury'),
+(5, 'Holidays', 'Paid time off for public holidays and vacations'),
+(6, 'Unpaid leave', 'Leave without pay for personal reasons');
+
+-- ========================================
 -- FOREIGN KEY CONSTRAINTS
 -- ========================================
 

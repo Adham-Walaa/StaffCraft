@@ -305,11 +305,23 @@ namespace WebAppSystem.Controllers
             var entitlement = await _context.LeaveEntitlements
                 .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
             
-            // If no entitlement exists, cannot approve
-            if (entitlement == null || !entitlement.Entitlement.HasValue)
+            // If no entitlement exists, initialize with default balance
+            if (entitlement == null)
             {
-                TempData["ErrorMessage"] = "Cannot approve: Employee has no leave balance set up for this leave type.";
-                return RedirectToAction(nameof(HRLeaveRequests));
+                entitlement = new LeaveEntitlement
+                {
+                    EmployeeId = leaveRequest.EmployeeId.Value,
+                    LeaveTypeId = leaveRequest.LeaveId.Value,
+                    Entitlement = 3 // Default 3 leaves per month
+                };
+                _context.LeaveEntitlements.Add(entitlement);
+                await _context.SaveChangesAsync();
+            }
+            
+            // Check if entitlement value is null
+            if (!entitlement.Entitlement.HasValue)
+            {
+                entitlement.Entitlement = 3; // Set default if null
             }
             
             // Check if sufficient balance
@@ -541,11 +553,23 @@ namespace WebAppSystem.Controllers
             var entitlement = await _context.LeaveEntitlements
                 .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
             
-            // If no entitlement exists, cannot approve
-            if (entitlement == null || !entitlement.Entitlement.HasValue)
+            // If no entitlement exists, initialize with default balance
+            if (entitlement == null)
             {
-                TempData["ErrorMessage"] = "Cannot approve: Employee has no leave balance set up for this leave type.";
-                return RedirectToAction(nameof(ManagerLeaveRequests));
+                entitlement = new LeaveEntitlement
+                {
+                    EmployeeId = leaveRequest.EmployeeId.Value,
+                    LeaveTypeId = leaveRequest.LeaveId.Value,
+                    Entitlement = 3 // Default 3 leaves per month
+                };
+                _context.LeaveEntitlements.Add(entitlement);
+                await _context.SaveChangesAsync();
+            }
+            
+            // Check if entitlement value is null
+            if (!entitlement.Entitlement.HasValue)
+            {
+                entitlement.Entitlement = 3; // Set default if null
             }
             
             // Check if sufficient balance

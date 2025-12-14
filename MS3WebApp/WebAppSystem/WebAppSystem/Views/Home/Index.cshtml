@@ -147,6 +147,24 @@
                 </div>
             }
 
+            @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+            {
+                <!-- Manager Leave Request Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill text-primary"></i> Team Leave Requests
+                            </h5>
+                            <p class="card-text">Review and manage leave requests from your team.</p>
+                            <a asp-controller="LeaveRequests" asp-action="ManagerLeaveRequests" class="btn btn-primary">
+                                <i class="bi bi-arrow-right"></i> View Team Requests
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+
             @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
             {
                 <!-- System Admin Card -->

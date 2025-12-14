@@ -474,5 +474,181 @@ namespace WebAppSystem.Controllers
             TempData["SuccessMessage"] = "Leave balance updated successfully!";
             return RedirectToAction(nameof(AdjustLeaveBalance), new { employeeId = employeeId });
         }
+
+        // GET: LeaveRequests/ManagerLeaveRequests
+        public async Task<IActionResult> ManagerLeaveRequests()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only Line Managers can view this page.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            // Get all pending leave requests from employees who report to this manager
+            var teamLeaveRequests = await _context.LeaveRequests
+                .Include(l => l.Employee)
+                .Include(l => l.Leave)
+                .Include(l => l.LeaveDocuments)
+                .Where(l => l.Employee.ManagerId == userId.Value && l.Status == "Pending")
+                .OrderBy(l => l.RequestId)
+                .ToListAsync();
+
+            return View(teamLeaveRequests);
+        }
+
+        // POST: LeaveRequests/ManagerApproveLeaveRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ManagerApproveLeaveRequest(int id)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var leaveRequest = await _context.LeaveRequests
+                .Include(l => l.Employee)
+                .FirstOrDefaultAsync(l => l.RequestId == id);
+                
+            if (leaveRequest == null)
+            {
+                return NotFound();
+            }
+
+            // Verify the employee reports to this manager
+            if (leaveRequest.Employee.ManagerId != userId.Value)
+            {
+                TempData["ErrorMessage"] = "You can only approve leave requests from your direct reports.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+
+            // Check if employee has sufficient leave balance
+            var entitlement = await _context.LeaveEntitlements
+                .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
+            
+            // If no entitlement exists, cannot approve
+            if (entitlement == null || !entitlement.Entitlement.HasValue)
+            {
+                TempData["ErrorMessage"] = "Cannot approve: Employee has no leave balance set up for this leave type.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+            
+            // Check if sufficient balance
+            if (entitlement.Entitlement < leaveRequest.Duration)
+            {
+                TempData["ErrorMessage"] = $"Cannot approve: Employee only has {entitlement.Entitlement} days remaining but requested {leaveRequest.Duration} days.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+            
+            // Deduct from balance
+            entitlement.Entitlement -= leaveRequest.Duration;
+
+            leaveRequest.Status = "Approved";
+            leaveRequest.ApprovalTiming = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Leave request approved successfully!";
+            return RedirectToAction(nameof(ManagerLeaveRequests));
+        }
+
+        // POST: LeaveRequests/ManagerRejectLeaveRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ManagerRejectLeaveRequest(int id)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var leaveRequest = await _context.LeaveRequests
+                .Include(l => l.Employee)
+                .FirstOrDefaultAsync(l => l.RequestId == id);
+                
+            if (leaveRequest == null)
+            {
+                return NotFound();
+            }
+
+            // Verify the employee reports to this manager
+            if (leaveRequest.Employee.ManagerId != userId.Value)
+            {
+                TempData["ErrorMessage"] = "You can only reject leave requests from your direct reports.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+
+            leaveRequest.Status = "Rejected";
+            leaveRequest.ApprovalTiming = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Leave request rejected.";
+            return RedirectToAction(nameof(ManagerLeaveRequests));
+        }
+
+        // POST: LeaveRequests/FlagIrregularPattern
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> FlagIrregularPattern(int id, string patternNotes)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("Line Manager"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var leaveRequest = await _context.LeaveRequests
+                .Include(l => l.Employee)
+                .FirstOrDefaultAsync(l => l.RequestId == id);
+                
+            if (leaveRequest == null)
+            {
+                return NotFound();
+            }
+
+            // Verify the employee reports to this manager
+            if (leaveRequest.Employee.ManagerId != userId.Value)
+            {
+                TempData["ErrorMessage"] = "You can only flag leave requests from your direct reports.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+
+            // Add a note to the justification indicating irregular pattern
+            var flagNote = $"\n\n[FLAGGED BY MANAGER on {DateTime.Now:yyyy-MM-dd HH:mm}]: {patternNotes}";
+            leaveRequest.Justification = (leaveRequest.Justification ?? "") + flagNote;
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Leave request flagged for irregular pattern.";
+            return RedirectToAction(nameof(ManagerLeaveRequests));
+        }
     }
 }

@@ -65,10 +65,18 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
+            // Get the current employee's manager ID
+            var employee = await _context.Employees.FindAsync(userId.Value);
+            var employeeManagerId = employee?.ManagerId;
+
+            // Get missions where:
+            // 1. Mission is directly assigned to this employee, OR
+            // 2. Mission's manager is this employee's manager AND status is Approved (team missions)
             var missions = await _context.Missions
                 .Include(m => m.Employee)
                 .Include(m => m.Manager)
-                .Where(m => m.EmployeeId == userId.Value)
+                .Where(m => m.EmployeeId == userId.Value || 
+                           (m.ManagerId == employeeManagerId && m.Status == "Approved" && employeeManagerId != null))
                 .OrderByDescending(m => m.StartDate)
                 .ToListAsync();
 

@@ -626,6 +626,19 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
+            // Validate pattern notes
+            if (string.IsNullOrWhiteSpace(patternNotes))
+            {
+                TempData["ErrorMessage"] = "Pattern notes are required.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+
+            if (patternNotes.Length > 500)
+            {
+                TempData["ErrorMessage"] = "Pattern notes must not exceed 500 characters.";
+                return RedirectToAction(nameof(ManagerLeaveRequests));
+            }
+
             var leaveRequest = await _context.LeaveRequests
                 .Include(l => l.Employee)
                 .FirstOrDefaultAsync(l => l.RequestId == id);
@@ -643,7 +656,8 @@ namespace WebAppSystem.Controllers
             }
 
             // Add a note to the justification indicating irregular pattern
-            var flagNote = $"\n\n[FLAGGED BY MANAGER on {DateTime.Now:yyyy-MM-dd HH:mm}]: {patternNotes}";
+            var sanitizedNotes = patternNotes.Trim();
+            var flagNote = $"\n\n[FLAGGED BY MANAGER on {DateTime.Now:yyyy-MM-dd HH:mm}]: {sanitizedNotes}";
             leaveRequest.Justification = (leaveRequest.Justification ?? "") + flagNote;
 
             await _context.SaveChangesAsync();

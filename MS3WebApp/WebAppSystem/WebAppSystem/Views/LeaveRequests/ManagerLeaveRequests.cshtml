@@ -114,23 +114,32 @@
                                     }
                                 </td>
                                 <td>
-                                    <div class="btn-group" role="group">
-                                        <form asp-action="ManagerApproveLeaveRequest" method="post" class="d-inline">
-                                            <input type="hidden" name="id" value="@item.RequestId" />
-                                            <button type="submit" class="btn btn-sm btn-success" title="Approve">
-                                                <i class="bi bi-check-lg"></i>
+                                    @if (item.Status == "Pending")
+                                    {
+                                        <div class="btn-group" role="group">
+                                            <form asp-action="ManagerApproveLeaveRequest" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.RequestId" />
+                                                <button type="submit" class="btn btn-sm btn-success" title="Approve">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            </form>
+                                            <form asp-action="ManagerRejectLeaveRequest" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.RequestId" />
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Reject">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </form>
+                                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#flagModal@(item.RequestId)" title="Flag Irregular Pattern">
+                                                <i class="bi bi-flag"></i>
                                             </button>
-                                        </form>
-                                        <form asp-action="ManagerRejectLeaveRequest" method="post" class="d-inline">
-                                            <input type="hidden" name="id" value="@item.RequestId" />
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Reject">
-                                                <i class="bi bi-x-lg"></i>
-                                            </button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#flagModal@(item.RequestId)" title="Flag Irregular Pattern">
-                                            <i class="bi bi-flag"></i>
-                                        </button>
-                                    </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No actions available</span>
+                                    }
 
                                     <!-- Flag Modal -->
                                     <div class="modal fade" id="flagModal@(item.RequestId)" tabindex="-1" aria-labelledby="flagModalLabel@(item.RequestId)" aria-hidden="true">
@@ -141,12 +150,13 @@
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <form asp-action="FlagIrregularPattern" method="post">
+                                                    @Html.AntiForgeryToken()
                                                     <div class="modal-body">
                                                         <input type="hidden" name="id" value="@item.RequestId" />
                                                         <div class="mb-3">
                                                             <label for="patternNotes@(item.RequestId)" class="form-label">Pattern Notes</label>
-                                                            <textarea class="form-control" id="patternNotes@(item.RequestId)" name="patternNotes" rows="3" placeholder="Describe the irregular pattern observed (e.g., frequent Monday absences, pattern around holidays)" required></textarea>
-                                                            <div class="form-text">This note will be added to the leave request for HR review.</div>
+                                                            <textarea class="form-control" id="patternNotes@(item.RequestId)" name="patternNotes" rows="3" maxlength="500" placeholder="Describe the irregular pattern observed (e.g., frequent Monday absences, pattern around holidays)" required></textarea>
+                                                            <div class="form-text">This note will be added to the leave request for HR review (max 500 characters).</div>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">

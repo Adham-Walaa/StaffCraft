@@ -1,0 +1,57 @@
+@model WebAppSystem.Models.SalaryType
+
+@{
+    ViewData["Title"] = "Create Salary Type";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-currency-dollar"></i> Create Salary Type</h2>
+            </div>
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Type" class="form-label"></label>
+                        <input asp-for="Type" class="form-control" placeholder="e.g., Hourly, Monthly, Annual" required />
+                        <span asp-validation-for="Type" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="PaymentFrequency" class="form-label"></label>
+                        <input asp-for="PaymentFrequency" class="form-control" placeholder="e.g., Weekly, Bi-weekly, Monthly" required />
+                        <span asp-validation-for="PaymentFrequency" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Currency" class="form-label"></label>
+                        <select asp-for="Currency" class="form-select" required>
+                            <option value="">-- Select Currency --</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                        <span asp-validation-for="Currency" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Create Salary Type
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

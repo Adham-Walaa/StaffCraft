@@ -81,14 +81,25 @@
                 else
                 {
                     <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i> No team members found. You may not have any direct reports assigned yet.
+                        <i class="bi bi-exclamation-triangle"></i> No team members assigned to you yet. 
+                        @if (ViewBag.IsLineManager)
+                        {
+                            <text>Use the button below to assign employees to your team.</text>
+                        }
+                        else
+                        {
+                            <text>Contact a Line Manager if you need team members assigned to you.</text>
+                        }
                     </div>
                 }
 
                 <div class="mt-4">
-                    <a asp-action="AssignTeamMember" class="btn btn-success me-2">
-                        <i class="bi bi-person-plus"></i> Assign Team Member
-                    </a>
+                    @if (ViewBag.IsLineManager)
+                    {
+                        <a asp-action="AssignTeamMember" class="btn btn-success me-2">
+                            <i class="bi bi-person-plus"></i> Assign Team Member
+                        </a>
+                    }
                     <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Back to Home
                     </a>

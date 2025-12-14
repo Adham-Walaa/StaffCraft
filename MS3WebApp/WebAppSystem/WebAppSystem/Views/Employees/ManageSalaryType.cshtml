@@ -1,0 +1,96 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "Manage Salary Type";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-10">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-currency-dollar"></i> Manage Salary Type</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5 class="text-primary">Employee Information</h5>
+                    <dl class="row">
+                        <dt class="col-sm-3">Employee ID:</dt>
+                        <dd class="col-sm-9">@Model.EmployeeId</dd>
+
+                        <dt class="col-sm-3">Full Name:</dt>
+                        <dd class="col-sm-9">@Model.FullName</dd>
+
+                        <dt class="col-sm-3">Email:</dt>
+                        <dd class="col-sm-9">@Model.Email</dd>
+
+                        <dt class="col-sm-3">Department:</dt>
+                        <dd class="col-sm-9">@(Model.Department?.DepartmentName ?? "N/A")</dd>
+
+                        <dt class="col-sm-3">Position:</dt>
+                        <dd class="col-sm-9">@(Model.Position?.PositionTitle ?? "N/A")</dd>
+                    </dl>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="mb-4">
+                    <h5 class="text-primary">Current Salary Type</h5>
+                    @if (ViewBag.CurrentSalaryType != null)
+                    {
+                        <div class="alert alert-info">
+                            <strong>@ViewBag.CurrentSalaryType.Type</strong><br />
+                            <small>
+                                Payment Frequency: @(ViewBag.CurrentSalaryType.PaymentFrequency ?? "N/A") | 
+                                Currency: @(ViewBag.CurrentSalaryType.Currency ?? "N/A")
+                            </small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No salary type assigned yet.
+                        </div>
+                    }
+                </div>
+
+                <hr class="my-4" />
+
+                <div>
+                    <h5 class="text-primary">Assign Salary Type</h5>
+                    <form asp-action="AssignSalaryType" method="post" class="row g-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+
+                        <div class="col-md-8">
+                            <label for="salaryTypeId" class="form-label">Select Salary Type</label>
+                            <select id="salaryTypeId" name="salaryTypeId" class="form-select">
+                                <option value="">-- Remove Salary Type --</option>
+                                @foreach (var item in (SelectList)ViewBag.AvailableSalaryTypes)
+                                {
+                                    <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-check-circle"></i> Update Salary Type
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i> View Full Profile
+                    </a>
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Employee List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

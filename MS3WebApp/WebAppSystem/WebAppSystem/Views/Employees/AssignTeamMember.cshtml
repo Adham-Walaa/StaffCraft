@@ -10,7 +10,7 @@
             </div>
             <div class="card-body">
                 <p class="text-muted">
-                    As a Line Manager, you can assign employees to your team or to other managers' teams.
+                    As a Line Manager, you can assign employees to any active employee as their supervisor. This includes assigning employees to yourself or to other employees who will act as team leads.
                 </p>
 
                 <form asp-action="AssignTeamMember" method="post" class="mt-4">
@@ -26,12 +26,12 @@
                             }
                         </select>
                         <div class="form-text">
-                            Select an employee to assign to a team. Employees marked as "Already assigned" can be reassigned to a different manager.
+                            Select an employee to assign. Employees marked as "Already assigned" can be reassigned to a different supervisor.
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="managerId" class="form-label">Assign to Manager</label>
+                        <label for="managerId" class="form-label">Assign to Supervisor</label>
                         <select id="managerId" name="managerId" class="form-select" required>
                             @foreach (var item in (SelectList)ViewData["ManagerId"])
                             {
@@ -39,7 +39,7 @@
                             }
                         </select>
                         <div class="form-text">
-                            Select the manager to whom this employee should report.
+                            Select any active employee who will supervise this employee. They do not need to have the Line Manager role.
                         </div>
                     </div>
 

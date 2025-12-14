@@ -280,7 +280,8 @@ CREATE TABLE LeaveEntitlement
 (
     employee_id int,
     leave_type_id int,
-    entitlement int
+    entitlement int,
+    PRIMARY KEY (employee_id, leave_type_id)
 );
 
 CREATE TABLE LeaveDocument

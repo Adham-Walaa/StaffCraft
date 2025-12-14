@@ -1014,8 +1014,10 @@ public partial class Milestone2Context : DbContext
         modelBuilder.Entity<LeaveEntitlement>(entity =>
         {
             entity
-                .HasNoKey()
-                .ToTable("LeaveEntitlement");
+                .HasKey(e => new { e.EmployeeId, e.LeaveTypeId })
+                .HasName("PK_LeaveEntitlement");
+            
+            entity.ToTable("LeaveEntitlement");
 
             entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
             entity.Property(e => e.Entitlement).HasColumnName("entitlement");

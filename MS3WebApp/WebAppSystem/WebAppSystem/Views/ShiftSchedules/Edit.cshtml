@@ -57,15 +57,13 @@
             </div>
             <div class="form-group">
                 <label asp-for="StartTime" class="control-label"></label>
-                <input asp-for="StartTime" type="text" class="form-control" placeholder="HH:MM (24-hour format, e.g., 09:00 or 23:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                <input asp-for="StartTime" type="time" class="form-control" />
                 <span asp-validation-for="StartTime" class="text-danger"></span>
-                <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
             </div>
             <div class="form-group">
                 <label asp-for="EndTime" class="control-label"></label>
-                <input asp-for="EndTime" type="text" class="form-control" placeholder="HH:MM (24-hour format, e.g., 17:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                <input asp-for="EndTime" type="time" class="form-control" />
                 <span asp-validation-for="EndTime" class="text-danger"></span>
-                <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
             </div>
             <div class="form-group">
                 <input type="submit" value="Save" class="btn btn-primary" />

@@ -23,16 +23,14 @@
                     <h5>First Slot</h5>
                     <div class="form-group mb-3">
                         <label asp-for="FirstSlotStart" class="control-label">Start Time</label>
-                        <input asp-for="FirstSlotStart" class="form-control" type="text" placeholder="HH:MM (24-hour format, e.g., 09:00 or 23:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                        <input asp-for="FirstSlotStart" class="form-control" type="time" />
                         <span asp-validation-for="FirstSlotStart" class="text-danger"></span>
-                        <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
                     </div>
                     
                     <div class="form-group mb-3">
                         <label asp-for="FirstSlotEnd" class="control-label">End Time</label>
-                        <input asp-for="FirstSlotEnd" class="form-control" type="text" placeholder="HH:MM (24-hour format, e.g., 17:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                        <input asp-for="FirstSlotEnd" class="form-control" type="time" />
                         <span asp-validation-for="FirstSlotEnd" class="text-danger"></span>
-                        <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
                     </div>
                 </div>
                 
@@ -40,16 +38,14 @@
                     <h5>Second Slot</h5>
                     <div class="form-group mb-3">
                         <label asp-for="SecondSlotStart" class="control-label">Start Time</label>
-                        <input asp-for="SecondSlotStart" class="form-control" type="text" placeholder="HH:MM (24-hour format, e.g., 09:00 or 23:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                        <input asp-for="SecondSlotStart" class="form-control" type="time" />
                         <span asp-validation-for="SecondSlotStart" class="text-danger"></span>
-                        <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
                     </div>
                     
                     <div class="form-group mb-3">
                         <label asp-for="SecondSlotEnd" class="control-label">End Time</label>
-                        <input asp-for="SecondSlotEnd" class="form-control" type="text" placeholder="HH:MM (24-hour format, e.g., 17:00)" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" />
+                        <input asp-for="SecondSlotEnd" class="form-control" type="time" />
                         <span asp-validation-for="SecondSlotEnd" class="text-danger"></span>
-                        <small class="form-text text-muted">Enter time in 24-hour format (e.g., 09:00, 14:30, 23:45)</small>
                     </div>
                 </div>
             </div>

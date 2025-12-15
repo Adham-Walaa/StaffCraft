@@ -1,10 +1,18 @@
 ﻿@model IEnumerable<WebAppSystem.Models.ShiftSchedule>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Shift Schedules";
 }
 
-<h1>Shift Schedules</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-calendar3"></i> Shift Schedules</h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New
+        </a>
+    </div>
+    <hr />
+</div>
 
 @if (TempData["SuccessMessage"] != null)
 {
@@ -22,10 +30,8 @@
     </div>
 }
 
-<p>
-    <a asp-action="Create" class="btn btn-primary">Create New</a>
-</p>
-<table class="table">
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
     <thead>
         <tr>
             <th>
@@ -83,20 +89,34 @@
                 @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
             </td>
             <td>
-                <a asp-action="Details" asp-route-id="@item.ShiftId">Details</a>
-                @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
-                     Context.Session.GetString("UserRoles")?.Contains("Manager") == true)
-                {
-                    <text> | </text>
-                    <a asp-action="Edit" asp-route-id="@item.ShiftId">Edit</a>
-                }
-                @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
-                {
-                    <text> | </text>
-                    <a asp-action="Delete" asp-route-id="@item.ShiftId">Delete</a>
-                }
+                <div class="btn-group btn-group-sm" role="group">
+                    <a asp-action="Details" asp-route-id="@item.ShiftId" class="btn btn-info" title="Details">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                    {
+                        <a asp-action="Edit" asp-route-id="@item.ShiftId" class="btn btn-warning" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    }
+                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                    {
+                        <a asp-action="Delete" asp-route-id="@item.ShiftId" class="btn btn-danger" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    }
+                </div>
             </td>
         </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No shift schedules found. <a asp-action="Create" class="alert-link">Create a new schedule</a>
+    </div>
+}

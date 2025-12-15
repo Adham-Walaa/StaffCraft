@@ -187,6 +187,7 @@ namespace WebAppSystem.Controllers
             }
 
             await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Shift assignment deleted successfully!";
             return RedirectToAction(nameof(Index));
         }
 

@@ -1,0 +1,77 @@
+@model WebAppSystem.Models.SplitShiftConfiguration
+
+@{
+    ViewData["Title"] = "Split Shift Details";
+}
+
+<h1>Split Shift Details</h1>
+
+<div>
+    <h4>Split Shift Configuration</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.ConfigId)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.ConfigId)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.ShiftName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.ShiftName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.FirstSlotStart)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.FirstSlotStart)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.FirstSlotEnd)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.FirstSlotEnd)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.SecondSlotStart)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.SecondSlotStart)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.SecondSlotEnd)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.SecondSlotEnd)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.TotalHours)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.TotalHours)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.BreakDurationMinutes)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.BreakDurationMinutes)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.CreatedDate)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.CreatedDate)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.IsActive)
+        </dt>
+        <dd class="col-sm-9">
+            @(Model.IsActive == true ? "Yes" : "No")
+        </dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</div>

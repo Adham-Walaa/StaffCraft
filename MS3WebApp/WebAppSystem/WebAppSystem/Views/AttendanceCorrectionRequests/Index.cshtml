@@ -46,7 +46,16 @@
                 @Html.DisplayFor(modelItem => item.Reason)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.Status)
+                @{
+                    var statusClass = item.Status?.ToLower() switch
+                    {
+                        "pending" => "badge bg-warning text-dark",
+                        "approved" => "badge bg-success",
+                        "rejected" => "badge bg-danger",
+                        _ => "badge bg-secondary"
+                    };
+                }
+                <span class="@statusClass">@(item.Status ?? "Unknown")</span>
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
@@ -56,7 +65,7 @@
             </td>
             <td>
                 <a asp-action="Details" asp-route-id="@item.RequestId">Details</a>
-                @if (Context.Session.GetString("UserRoles")?.Contains("Manager") == true || 
+                @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true || 
                      Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
                 {
                     @if (item.Status != null && item.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))

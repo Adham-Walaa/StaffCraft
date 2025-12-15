@@ -1,0 +1,35 @@
+@model WebAppSystem.Models.ShiftCycle
+
+@{
+    ViewData["Title"] = "Rotational Shift Details";
+}
+
+<h1>Rotational Shift Details</h1>
+
+<div>
+    <h4>Shift Cycle</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.CycleId)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.CycleId)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.CycleName)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.CycleName)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Description)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Description)
+        </dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</div>

@@ -107,6 +107,7 @@ namespace WebAppSystem.Controllers
                 {
                     _context.Update(attendance);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Attendance record updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {

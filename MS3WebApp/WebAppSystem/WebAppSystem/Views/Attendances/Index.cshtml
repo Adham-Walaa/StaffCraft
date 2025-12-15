@@ -13,6 +13,12 @@
     <thead>
         <tr>
             <th>
+                Date
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Employee)
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.EntryTime)
             </th>
             <th>
@@ -22,16 +28,13 @@
                 @Html.DisplayNameFor(model => model.Duration)
             </th>
             <th>
+                Status
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.LoginMethod)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.LogoutMethod)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Employee)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Exception)
             </th>
             <th></th>
         </tr>
@@ -39,6 +42,12 @@
     <tbody>
 @foreach (var item in Model) {
         <tr>
+            <td>
+                @DateTime.Today.ToString("yyyy-MM-dd")
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
+            </td>
             <td>
                 @Html.DisplayFor(modelItem => item.EntryTime)
             </td>
@@ -49,16 +58,13 @@
                 @Html.DisplayFor(modelItem => item.Duration)
             </td>
             <td>
+                @(item.EntryTime.HasValue && item.ExitTime.HasValue ? "Complete" : item.EntryTime.HasValue ? "In Progress" : "Absent")
+            </td>
+            <td>
                 @Html.DisplayFor(modelItem => item.LoginMethod)
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.LogoutMethod)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Exception.ExceptionId)
             </td>
             <td>
                 <a asp-action="Edit" asp-route-id="@item.AttendanceId">Edit</a> |

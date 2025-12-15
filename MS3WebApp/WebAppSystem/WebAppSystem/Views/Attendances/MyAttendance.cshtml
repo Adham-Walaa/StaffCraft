@@ -23,6 +23,7 @@
 <table class="table table-striped">
     <thead>
         <tr>
+            <th>Date</th>
             <th>Attendance ID</th>
             <th>Entry Time</th>
             <th>Exit Time</th>
@@ -36,6 +37,9 @@
     <tbody>
 @foreach (var item in Model) {
         <tr>
+            <td>
+                @DateTime.Today.ToString("yyyy-MM-dd")
+            </td>
             <td>
                 @(item.AttendanceId)
             </td>

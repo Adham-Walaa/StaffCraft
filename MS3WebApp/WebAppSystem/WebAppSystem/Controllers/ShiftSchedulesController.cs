@@ -47,7 +47,33 @@ namespace WebAppSystem.Controllers
         // GET: ShiftSchedules/Create
         public IActionResult Create()
         {
-            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "EmployeeId");
+            // Populate employee dropdown with name
+            var employees = _context.Employees
+                .Select(e => new { e.EmployeeId, FullName = e.FirstName + " " + e.LastName })
+                .ToList();
+            ViewData["EmployeeId"] = new SelectList(employees, "EmployeeId", "FullName");
+
+            // Get shift templates for auto-population
+            var shiftTemplates = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new {
+                    s.ShiftId,
+                    s.ShiftName,
+                    s.ShiftType,
+                    StartTime = s.StartTime.HasValue ? s.StartTime.Value.ToString(@"hh\:mm") : "",
+                    EndTime = s.EndTime.HasValue ? s.EndTime.Value.ToString(@"hh\:mm") : ""
+                })
+                .ToList();
+            ViewData["ShiftTemplates"] = shiftTemplates;
+
+            // Get distinct shift names
+            var shiftNames = _context.ShiftSchedules
+                .Where(s => !string.IsNullOrEmpty(s.ShiftName))
+                .Select(s => s.ShiftName)
+                .Distinct()
+                .ToList();
+            ViewData["ShiftNames"] = shiftNames;
+
             return View();
         }
 
@@ -60,11 +86,44 @@ namespace WebAppSystem.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Set Status to Active if not provided
+                if (string.IsNullOrEmpty(shiftSchedule.Status))
+                {
+                    shiftSchedule.Status = "Active";
+                }
+
                 _context.Add(shiftSchedule);
                 await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Shift schedule created successfully!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "EmployeeId", shiftSchedule.EmployeeId);
+
+            // Repopulate dropdowns on error
+            var employees = _context.Employees
+                .Select(e => new { e.EmployeeId, FullName = e.FirstName + " " + e.LastName })
+                .ToList();
+            ViewData["EmployeeId"] = new SelectList(employees, "EmployeeId", "FullName", shiftSchedule.EmployeeId);
+
+            var shiftTemplates = _context.ShiftSchedules
+                .Where(s => s.Status == "Template")
+                .Select(s => new {
+                    s.ShiftId,
+                    s.ShiftName,
+                    s.ShiftType,
+                    StartTime = s.StartTime.HasValue ? s.StartTime.Value.ToString(@"hh\:mm") : "",
+                    EndTime = s.EndTime.HasValue ? s.EndTime.Value.ToString(@"hh\:mm") : ""
+                })
+                .ToList();
+            ViewData["ShiftTemplates"] = shiftTemplates;
+
+            var shiftNames = _context.ShiftSchedules
+                .Where(s => !string.IsNullOrEmpty(s.ShiftName))
+                .Select(s => s.ShiftName)
+                .Distinct()
+                .ToList();
+            ViewData["ShiftNames"] = shiftNames;
+
             return View(shiftSchedule);
         }
 

@@ -264,9 +264,20 @@ namespace WebAppSystem.Controllers
             }
 
             ViewData["EmployeeId"] = new SelectList(_context.Employees, "EmployeeId", "FullName");
-            ViewData["ShiftTemplates"] = _context.ShiftSchedules
+            
+            var templates = _context.ShiftSchedules
                 .Where(s => s.Status == "Template")
-                .Select(s => new { s.ShiftId, Display = $"{s.ShiftName} ({s.ShiftType})" })
+                .ToList();
+            
+            ViewData["ShiftTemplates"] = templates
+                .Select(s => new { 
+                    s.ShiftId, 
+                    s.ShiftName,
+                    s.ShiftType,
+                    s.StartTime,
+                    s.EndTime,
+                    Display = $"{s.ShiftName} ({s.ShiftType})" 
+                })
                 .ToList();
             
             return View();
@@ -275,7 +286,7 @@ namespace WebAppSystem.Controllers
         // POST: ShiftSchedules/AssignToEmployee
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AssignToEmployee([Bind("ShiftId,EmployeeId,StartDate,EndDate,ShiftName,ShiftType,StartTime,EndTime")] ShiftAssignmentViewModel model)
+        public async Task<IActionResult> AssignToEmployee([Bind("ShiftId,EmployeeId,StartDate,EndDate,ShiftName,ShiftType,StartTime,EndTime,Status")] ShiftAssignmentViewModel model)
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || 
@@ -308,7 +319,7 @@ namespace WebAppSystem.Controllers
                     EndTime = template?.EndTime ?? model.EndTime,
                     StartDate = model.StartDate,
                     EndDate = model.EndDate,
-                    Status = "Active"
+                    Status = string.IsNullOrEmpty(model.Status) ? "Active" : model.Status
                 };
 
                 _context.Add(shiftSchedule);

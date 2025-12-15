@@ -1146,6 +1146,13 @@ public partial class Milestone2Context : DbContext
             entity.Property(e => e.MissionId)
                 .ValueGeneratedNever()
                 .HasColumnName("MissionID");
+            entity.Property(e => e.Title)
+                .HasMaxLength(200)
+                .IsUnicode(false)
+                .HasColumnName("title");
+            entity.Property(e => e.Description)
+                .HasColumnType("text")
+                .HasColumnName("description");
             entity.Property(e => e.Destination)
                 .HasMaxLength(100)
                 .IsUnicode(false)

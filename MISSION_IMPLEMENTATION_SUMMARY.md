@@ -11,6 +11,11 @@ This implementation adds Component 4 - Mission & Task Management to the Database
   - `description text` - Detailed mission description
   - Existing fields: destination, start_date, end_date, status, employee_id, manager_id
 
+**IMPORTANT: Database Migration Required**
+- If you have an existing database, you MUST run `Migration_AddMissionTitleDescription.sql` to add the new columns
+- See `MIGRATION_README.md` for detailed instructions
+- The migration script is safe to run multiple times (checks if columns exist first)
+
 ### 2. Stored Procedure Updates (Procedures.sql)
 - **Updated AssignMission procedure** to include:
   - @Title parameter
@@ -23,7 +28,11 @@ This implementation adds Component 4 - Mission & Task Management to the Database
 - Added `Title` and `Description` properties to the Mission model
 - Maintained navigation properties for Employee and Manager relationships
 
-### 4. Controller Implementation (Controllers/MissionsController.cs)
+### 4. DbContext Updates (Models/Milestone2Context.cs)
+- Added Entity Framework column mappings for `Title` → `title` and `Description` → `description`
+- Ensures proper case-insensitive column name mapping to avoid SqlException errors
+
+### 5. Controller Implementation (Controllers/MissionsController.cs)
 Created comprehensive mission management with the following actions:
 
 #### For All Users:
@@ -43,7 +52,7 @@ Created comprehensive mission management with the following actions:
 #### Standard CRUD Operations:
 - Create, Edit, Delete (accessible to authorized users)
 
-### 5. View Implementation
+### 6. View Implementation
 
 #### Created/Updated Views:
 1. **Index.cshtml** - Main missions list with role-based filtering and actions
@@ -62,7 +71,7 @@ All views follow the existing design patterns with:
 - Proper form validation
 - Success/error message handling
 
-### 6. Home Page Integration (Views/Home/Index.cshtml)
+### 7. Home Page Integration (Views/Home/Index.cshtml)
 
 #### Added Cards for Different Roles:
 

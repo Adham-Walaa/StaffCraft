@@ -239,6 +239,28 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(mission.Title))
+            {
+                ModelState.AddModelError("Title", "Mission title is required.");
+            }
+            if (string.IsNullOrWhiteSpace(mission.Description))
+            {
+                ModelState.AddModelError("Description", "Mission description is required.");
+            }
+            if (!mission.ManagerId.HasValue || mission.ManagerId.Value == 0)
+            {
+                ModelState.AddModelError("ManagerId", "Please select a manager.");
+            }
+            if (!mission.StartDate.HasValue)
+            {
+                ModelState.AddModelError("StartDate", "Start date is required.");
+            }
+            if (!mission.EndDate.HasValue)
+            {
+                ModelState.AddModelError("EndDate", "End date is required.");
+            }
+
             if (ModelState.IsValid)
             {
                 try

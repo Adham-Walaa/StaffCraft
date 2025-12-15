@@ -183,19 +183,43 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            // Get all managers (employees with Line Manager role)
+            // Get all managers: employees with Line Manager role OR employees who supervise others
             var managerRoleId = await _context.Roles
                 .Where(r => r.RoleName == "Line Manager")
                 .Select(r => r.RoleId)
                 .FirstOrDefaultAsync();
 
-            var managerEmployeeIds = await _context.EmployeeRoles
+            var managerEmployeeIdsNullable = await _context.EmployeeRoles
                 .Where(er => er.RoleId == managerRoleId)
                 .Select(er => er.EmployeeId)
                 .ToListAsync();
 
+            var managerEmployeeIds = managerEmployeeIdsNullable
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToList();
+
+            // Get employees who supervise others (have direct reports)
+            var supervisorIdsNullable = await _context.Employees
+                .Where(e => e.ManagerId != null)
+                .Select(e => e.ManagerId)
+                .Distinct()
+                .ToListAsync();
+
+            var supervisorIds = supervisorIdsNullable
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToList();
+
+            // Combine both lists
+            var allManagerIds = managerEmployeeIds
+                .Union(supervisorIds)
+                .Distinct()
+                .ToList();
+
             var managers = await _context.Employees
-                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
+                .Where(e => allManagerIds.Contains(e.EmployeeId))
+                .OrderBy(e => e.FullName)
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 
@@ -252,13 +276,37 @@ namespace WebAppSystem.Controllers
                 .Select(r => r.RoleId)
                 .FirstOrDefaultAsync();
 
-            var managerEmployeeIds = await _context.EmployeeRoles
+            var managerEmployeeIdsNullable = await _context.EmployeeRoles
                 .Where(er => er.RoleId == managerRoleId)
                 .Select(er => er.EmployeeId)
                 .ToListAsync();
 
+            var managerEmployeeIds = managerEmployeeIdsNullable
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToList();
+
+            // Get employees who supervise others (have direct reports)
+            var supervisorIdsNullable = await _context.Employees
+                .Where(e => e.ManagerId != null)
+                .Select(e => e.ManagerId)
+                .Distinct()
+                .ToListAsync();
+
+            var supervisorIds = supervisorIdsNullable
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToList();
+
+            // Combine both lists
+            var allManagerIds = managerEmployeeIds
+                .Union(supervisorIds)
+                .Distinct()
+                .ToList();
+
             var managers = await _context.Employees
-                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
+                .Where(e => allManagerIds.Contains(e.EmployeeId))
+                .OrderBy(e => e.FullName)
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();
 

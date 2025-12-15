@@ -113,6 +113,47 @@ else
                                     <i class="bi bi-x-circle"></i>
                                 </button>
                             </form>
+                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#overrideModal@(item.RequestId)" title="Override Decision">
+                                <i class="bi bi-shield-exclamation"></i>
+                            </button>
+                        </div>
+
+                        <!-- Override Modal -->
+                        <div class="modal fade" id="overrideModal@(item.RequestId)" tabindex="-1" aria-labelledby="overrideModalLabel@(item.RequestId)" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="overrideModalLabel@(item.RequestId)">Override Decision</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Override allows you to approve or reject this request regardless of leave balance or other restrictions.</p>
+                                        <div class="mb-3">
+                                            <label for="overrideReason@(item.RequestId)" class="form-label">Override Reason</label>
+                                            <textarea class="form-control" id="overrideReason@(item.RequestId)" rows="3" maxlength="500" placeholder="Provide a reason for this override decision..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <form asp-action="OverrideApproveRequest" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.RequestId" />
+                                            <input type="hidden" name="overrideReason" id="overrideReasonApprove@(item.RequestId)" />
+                                            <button type="submit" class="btn btn-success" onclick="document.getElementById('overrideReasonApprove@(item.RequestId)').value = document.getElementById('overrideReason@(item.RequestId)').value;">
+                                                <i class="bi bi-check-circle-fill"></i> Override Approve
+                                            </button>
+                                        </form>
+                                        <form asp-action="OverrideRejectRequest" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.RequestId" />
+                                            <input type="hidden" name="overrideReason" id="overrideReasonReject@(item.RequestId)" />
+                                            <button type="submit" class="btn btn-danger" onclick="document.getElementById('overrideReasonReject@(item.RequestId)').value = document.getElementById('overrideReason@(item.RequestId)').value;">
+                                                <i class="bi bi-x-circle-fill"></i> Override Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </td>
                 </tr>

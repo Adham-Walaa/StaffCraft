@@ -145,6 +145,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Leave Types Management Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-success">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-gear-fill text-success"></i> Leave Types & Policies
+                            </h5>
+                            <p class="card-text">Configure leave types, policies, and eligibility rules.</p>
+                            <a asp-controller="Leaves" asp-action="Index" class="btn btn-success text-white">
+                                <i class="bi bi-arrow-right"></i> Manage Leave Types
+                            </a>
+                        </div>
+                    </div>
+                </div>
             }
 
             @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)

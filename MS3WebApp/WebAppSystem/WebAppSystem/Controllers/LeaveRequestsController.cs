@@ -338,6 +338,10 @@ namespace WebAppSystem.Controllers
             leaveRequest.ApprovalTiming = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            
+            // Sync with attendance (placeholder for future implementation)
+            await SyncLeaveWithAttendance(leaveRequest);
+            
             TempData["SuccessMessage"] = "Leave request approved successfully!";
             return RedirectToAction(nameof(HRLeaveRequests));
         }
@@ -366,6 +370,115 @@ namespace WebAppSystem.Controllers
             await _context.SaveChangesAsync();
             TempData["SuccessMessage"] = "Leave request rejected.";
             return RedirectToAction(nameof(HRLeaveRequests));
+        }
+
+        // POST: LeaveRequests/OverrideApproveRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OverrideApproveRequest(int id, string overrideReason)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var leaveRequest = await _context.LeaveRequests
+                .Include(l => l.Employee)
+                .Include(l => l.Leave)
+                .FirstOrDefaultAsync(l => l.RequestId == id);
+                
+            if (leaveRequest == null)
+            {
+                return NotFound();
+            }
+
+            // Get or create entitlement
+            var entitlement = await _context.LeaveEntitlements
+                .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId && e.LeaveTypeId == leaveRequest.LeaveId);
+            
+            if (entitlement == null)
+            {
+                entitlement = new LeaveEntitlement
+                {
+                    EmployeeId = leaveRequest.EmployeeId.Value,
+                    LeaveTypeId = leaveRequest.LeaveId.Value,
+                    Entitlement = 3
+                };
+                _context.LeaveEntitlements.Add(entitlement);
+                await _context.SaveChangesAsync();
+            }
+            
+            if (!entitlement.Entitlement.HasValue)
+            {
+                entitlement.Entitlement = 3;
+            }
+            
+            // Override - deduct from balance even if insufficient (can go negative)
+            entitlement.Entitlement -= leaveRequest.Duration;
+
+            leaveRequest.Status = "Approved";
+            leaveRequest.ApprovalTiming = DateTime.Now;
+            
+            // Add override note to justification
+            var overrideNote = $"\n\n[OVERRIDE APPROVAL by HR on {DateTime.Now:yyyy-MM-dd HH:mm}]: {(string.IsNullOrWhiteSpace(overrideReason) ? "No reason provided" : overrideReason.Trim())}";
+            leaveRequest.Justification = (leaveRequest.Justification ?? "") + overrideNote;
+
+            await _context.SaveChangesAsync();
+            
+            // Sync with attendance (placeholder for future implementation)
+            await SyncLeaveWithAttendance(leaveRequest);
+            
+            TempData["SuccessMessage"] = "Leave request approved via override!";
+            return RedirectToAction(nameof(HRLeaveRequests));
+        }
+
+        // POST: LeaveRequests/OverrideRejectRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OverrideRejectRequest(int id, string overrideReason)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var leaveRequest = await _context.LeaveRequests.FindAsync(id);
+            if (leaveRequest == null)
+            {
+                return NotFound();
+            }
+
+            leaveRequest.Status = "Rejected";
+            leaveRequest.ApprovalTiming = DateTime.Now;
+            
+            // Add override note to justification
+            var overrideNote = $"\n\n[OVERRIDE REJECTION by HR on {DateTime.Now:yyyy-MM-dd HH:mm}]: {(string.IsNullOrWhiteSpace(overrideReason) ? "No reason provided" : overrideReason.Trim())}";
+            leaveRequest.Justification = (leaveRequest.Justification ?? "") + overrideNote;
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Leave request rejected via override.";
+            return RedirectToAction(nameof(HRLeaveRequests));
+        }
+
+        // Helper method to sync leave approval with attendance records
+        private async Task SyncLeaveWithAttendance(LeaveRequest leaveRequest)
+        {
+            // Note: The current schema doesn't have date-based leave tracking in LeaveRequest
+            // and Attendance table doesn't have Status/Remarks fields.
+            // This method is a placeholder for future attendance integration.
+            // When the schema is updated to include leave start/end dates,
+            // this method will create attendance records for the leave period.
+            
+            // For now, we'll just log that the leave was approved
+            // The attendance sync will be fully functional once the schema includes:
+            // 1. StartDate and EndDate in LeaveRequest table
+            // 2. AttendanceDate, Status, and Remarks in Attendance table
+            
+            await Task.CompletedTask;
         }
 
         // GET: LeaveRequests/LeaveHistory
@@ -586,6 +699,10 @@ namespace WebAppSystem.Controllers
             leaveRequest.ApprovalTiming = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            
+            // Sync with attendance (placeholder for future implementation)
+            await SyncLeaveWithAttendance(leaveRequest);
+            
             TempData["SuccessMessage"] = "Leave request approved successfully!";
             return RedirectToAction(nameof(ManagerLeaveRequests));
         }

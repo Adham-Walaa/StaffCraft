@@ -1,0 +1,20 @@
+⚠️ MISSION MANAGEMENT SETUP REQUIRED ⚠️
+==========================================
+
+If you are trying to use the Mission Management features and getting errors like:
+  "Invalid column name 'description'"
+  "Invalid column name 'title'"
+
+YOU MUST RUN THE DATABASE MIGRATION FIRST!
+
+📋 Quick Setup Instructions:
+---------------------------
+1. Open SQL Server Management Studio (SSMS)
+2. Connect to your MILESTONE2 database
+3. Open and execute: Migration_AddMissionTitleDescription.sql
+4. Restart your application
+
+📖 For detailed instructions, see: MIGRATION_README.md
+
+This one-time migration adds the required 'title' and 'description' 
+columns to the Mission table for the new Mission Management features.

@@ -1,41 +1,57 @@
 ﻿@model IEnumerable<WebAppSystem.Models.Role>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Roles";
 }
 
-<h1>Index</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-shield"></i> Roles</h1>
+    </div>
+    <hr />
+</div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.RoleName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Purpose)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Role ID</th>
+                <th>@Html.DisplayNameFor(model => model.RoleName)</th>
+                <th>@Html.DisplayNameFor(model => model.Purpose)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
 @foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.RoleName)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Purpose)
-            </td>
-            <td>
-                <a asp-action="Edit" asp-route-id="@item.RoleId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.RoleId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.RoleId">Delete</a>
-            </td>
-        </tr>
+            <tr>
+                <td>@item.RoleId</td>
+                <td>@Html.DisplayFor(modelItem => item.RoleName)</td>
+                <td>@Html.DisplayFor(modelItem => item.Purpose)</td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.RoleId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.RoleId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.RoleId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
+                    </div>
+                </td>
+            </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No roles found.
+    </div>
+}

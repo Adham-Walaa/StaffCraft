@@ -40,7 +40,19 @@
                                     {
                                         <li><a class="dropdown-item" asp-controller="Account" asp-action="CreateEmployee">Create Employee</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="ManageRoles">Manage Roles</a></li>
+                                        <li><h6 class="dropdown-header">Manage Employee Attributes</h6></li>
+                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Role">Manage Roles</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="PayGrade">Manage Pay Grades</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="Position">Manage Positions</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="SalaryType">Manage Salary Types</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Employees" asp-action="SelectEmployeeForManagement" asp-route-managementType="TaxForm">Manage Tax Forms</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">View Attribute Tables</h6></li>
+                                        <li><a class="dropdown-item" asp-controller="Roles" asp-action="Index">View Roles</a></li>
+                                        <li><a class="dropdown-item" asp-controller="PayGrades" asp-action="Index">View Pay Grades</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Positions" asp-action="Index">View Positions</a></li>
+                                        <li><a class="dropdown-item" asp-controller="SalaryTypes" asp-action="Index">View Salary Types</a></li>
+                                        <li><a class="dropdown-item" asp-controller="TaxForms" asp-action="Index">View Tax Forms</a></li>
                                     }
                                     @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
                                     {

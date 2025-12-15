@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,22 +9,22 @@ using WebAppSystem.Models;
 
 namespace WebAppSystem.Controllers
 {
-    public class RolesController : Controller
+    public class SalaryTypesController : Controller
     {
         private readonly Milestone2Context _context;
 
-        public RolesController(Milestone2Context context)
+        public SalaryTypesController(Milestone2Context context)
         {
             _context = context;
         }
 
-        // GET: Roles
+        // GET: SalaryTypes
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Roles.ToListAsync());
+            return View(await _context.SalaryTypes.ToListAsync());
         }
 
-        // GET: Roles/Details/5
+        // GET: SalaryTypes/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -32,55 +32,46 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            var role = await _context.Roles
-                .FirstOrDefaultAsync(m => m.RoleId == id);
-            if (role == null)
+            var salaryType = await _context.SalaryTypes
+                .FirstOrDefaultAsync(m => m.SalaryTypeId == id);
+            if (salaryType == null)
             {
                 return NotFound();
             }
 
-            // Get employees with this role
-            var employeesWithRole = await _context.Database
-                .SqlQueryRaw<int>(
-                    @"SELECT er.employee_id 
-                    FROM EmployeeRole er 
-                    WHERE er.role_id = @p0",
-                    id.Value)
-                .ToListAsync();
-
+            // Get employees with this salary type
             var employees = await _context.Employees
-                .Where(e => employeesWithRole.Contains(e.EmployeeId))
+                .Where(e => e.SalaryTypeId == id)
                 .Select(e => new { e.EmployeeId, e.FullName, e.Email })
                 .ToListAsync();
 
             ViewBag.AssignedEmployees = employees;
 
-            return View(role);
+            return View(salaryType);
         }
 
-        // GET: Roles/Create
+        // GET: SalaryTypes/Create
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: Roles/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: SalaryTypes/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("RoleName,Purpose")] Role role, int? returnToEmployeeId, string returnToAction)
+        public async Task<IActionResult> Create([Bind("Type,PaymentFrequency,Currency")] SalaryType salaryType, int? returnToEmployeeId, string returnToAction)
         {
             // Remove validation for navigation properties
-            ModelState.Remove("EmployeeRoles");
+            ModelState.Remove("CurrencyNavigation");
+            ModelState.Remove("Employees");
             
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Add(role);
+                    _context.Add(salaryType);
                     await _context.SaveChangesAsync();
-                    TempData["SuccessMessage"] = "Role created successfully!";
+                    TempData["SuccessMessage"] = "Salary Type created successfully!";
                     
                     // If we came from employee management, redirect back
                     if (returnToEmployeeId.HasValue && !string.IsNullOrEmpty(returnToAction))
@@ -92,13 +83,13 @@ namespace WebAppSystem.Controllers
                 }
                 catch (System.Exception ex)
                 {
-                    ModelState.AddModelError("", $"Error creating role: {ex.Message}");
+                    ModelState.AddModelError("", $"Error creating salary type: {ex.Message}");
                 }
             }
-            return View(role);
+            return View(salaryType);
         }
 
-        // GET: Roles/Edit/5
+        // GET: SalaryTypes/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -106,22 +97,20 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            var role = await _context.Roles.FindAsync(id);
-            if (role == null)
+            var salaryType = await _context.SalaryTypes.FindAsync(id);
+            if (salaryType == null)
             {
                 return NotFound();
             }
-            return View(role);
+            return View(salaryType);
         }
 
-        // POST: Roles/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: SalaryTypes/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("RoleId,RoleName,Purpose")] Role role)
+        public async Task<IActionResult> Edit(int id, [Bind("SalaryTypeId,Type,PaymentFrequency,Currency")] SalaryType salaryType)
         {
-            if (id != role.RoleId)
+            if (id != salaryType.SalaryTypeId)
             {
                 return NotFound();
             }
@@ -130,12 +119,13 @@ namespace WebAppSystem.Controllers
             {
                 try
                 {
-                    _context.Update(role);
+                    _context.Update(salaryType);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Salary Type updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!RoleExists(role.RoleId))
+                    if (!SalaryTypeExists(salaryType.SalaryTypeId))
                     {
                         return NotFound();
                     }
@@ -146,10 +136,10 @@ namespace WebAppSystem.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(role);
+            return View(salaryType);
         }
 
-        // GET: Roles/Delete/5
+        // GET: SalaryTypes/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -157,42 +147,42 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            var role = await _context.Roles
-                .FirstOrDefaultAsync(m => m.RoleId == id);
-            if (role == null)
+            var salaryType = await _context.SalaryTypes
+                .FirstOrDefaultAsync(m => m.SalaryTypeId == id);
+            if (salaryType == null)
             {
                 return NotFound();
             }
 
-            return View(role);
+            return View(salaryType);
         }
 
-        // POST: Roles/Delete/5
+        // POST: SalaryTypes/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
             {
-                var role = await _context.Roles.FindAsync(id);
-                if (role != null)
+                var salaryType = await _context.SalaryTypes.FindAsync(id);
+                if (salaryType != null)
                 {
-                    _context.Roles.Remove(role);
+                    _context.SalaryTypes.Remove(salaryType);
                     await _context.SaveChangesAsync();
-                    TempData["SuccessMessage"] = "Role deleted successfully!";
+                    TempData["SuccessMessage"] = "Salary Type deleted successfully!";
                 }
                 return RedirectToAction(nameof(Index));
             }
             catch (DbUpdateException)
             {
-                TempData["ErrorMessage"] = "Cannot delete this role because it is assigned to one or more employees. Please remove the role from those employees first.";
+                TempData["ErrorMessage"] = "Cannot delete this salary type because it is assigned to one or more employees. Please reassign those employees first.";
                 return RedirectToAction(nameof(Index));
             }
         }
 
-        private bool RoleExists(int id)
+        private bool SalaryTypeExists(int id)
         {
-            return _context.Roles.Any(e => e.RoleId == id);
+            return _context.SalaryTypes.Any(e => e.SalaryTypeId == id);
         }
     }
 }

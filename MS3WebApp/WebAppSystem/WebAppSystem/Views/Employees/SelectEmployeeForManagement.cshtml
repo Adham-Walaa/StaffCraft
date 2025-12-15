@@ -1,0 +1,43 @@
+@{
+    ViewData["Title"] = $"Select Employee for {ViewBag.ManagementType} Management";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-person-check"></i> Select Employee for @ViewBag.ManagementType Management</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Select an employee to manage their @(ViewBag.ManagementType?.ToLower() ?? "attribute") assignment.
+                </p>
+
+                <form asp-action="SelectEmployeeForManagement" method="post" class="mt-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="managementType" value="@ViewBag.ManagementType" />
+
+                    <div class="mb-3">
+                        <label for="employeeId" class="form-label">Select Employee</label>
+                        <select id="employeeId" name="employeeId" class="form-select" required>
+                            <option value="">-- Select an Employee --</option>
+                            @foreach (var item in (SelectList)ViewData["EmployeeId"])
+                            {
+                                <option value="@item.Value">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-arrow-right"></i> Continue
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

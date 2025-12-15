@@ -1,0 +1,55 @@
+@model WebAppSystem.Models.TaxForm
+
+@{
+    ViewData["Title"] = "Delete Tax Form";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h2 class="mb-0"><i class="bi bi-trash"></i> Delete Tax Form</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> Are you sure you want to delete this tax form?
+                </div>
+                
+                <dl class="row">
+                    <dt class="col-sm-3">Tax Form ID</dt>
+                    <dd class="col-sm-9">@Model.TaxFormId</dd>
+                    
+                    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Jurisdiction)</dt>
+                    <dd class="col-sm-9">@Html.DisplayFor(model => model.Jurisdiction)</dd>
+                    
+                    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.ValidityPeriod)</dt>
+                    <dd class="col-sm-9">
+                        @if (Model.ValidityPeriod.HasValue)
+                        {
+                            @Model.ValidityPeriod.Value.ToString("MMM dd, yyyy")
+                        }
+                        else
+                        {
+                            <span class="text-muted">N/A</span>
+                        }
+                    </dd>
+                    
+                    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.FormContent)</dt>
+                    <dd class="col-sm-9">@Html.DisplayFor(model => model.FormContent)</dd>
+                </dl>
+                
+                <form asp-action="Delete">
+                    <input type="hidden" asp-for="TaxFormId" />
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

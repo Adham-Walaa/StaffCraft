@@ -2465,33 +2465,119 @@ BEGIN
     -- Validate manager exists
     IF NOT EXISTS (SELECT 1 FROM Employee WHERE EmployeeID = @ManagerID)
     BEGIN
-        RAISERROR('Manager not found.', 16, 1);
+        RAISERROR('The specified manager does not exist in the system.', 16, 1);
         RETURN;
     END
     
-    -- Return employees under this manager with all required columns using aliases that match the C# model
+    -- Return all employees under this manager (direct reports and their subordinates transitively)
+    -- Use recursive CTE to get entire team hierarchy
+    ;WITH TeamHierarchy AS
+    (
+        -- Direct reports
+        SELECT 
+            EmployeeID,
+            first_name,
+            last_name,
+            full_name,
+            national_id,
+            date_of_birth,
+            country_of_birth,
+            phone,
+            email,
+            password_hash,
+            address,
+            emergency_contact_name,
+            emergency_contact_phone,
+            relationship,
+            biography,
+            profile_image,
+            employment_progress,
+            account_status,
+            employment_status,
+            hire_date,
+            is_active,
+            department_id,
+            position_id,
+            paygrade_id,
+            taxform_id,
+            manager_id,
+            salary_type_id,
+            contract_id,
+            profile_completion_percentage,
+            0 AS HierarchyLevel
+        FROM Employee
+        WHERE manager_id = @ManagerID
+        
+        UNION ALL
+        
+        -- Subordinates of direct reports (transitively)
+        SELECT 
+            e.EmployeeID,
+            e.first_name,
+            e.last_name,
+            e.full_name,
+            e.national_id,
+            e.date_of_birth,
+            e.country_of_birth,
+            e.phone,
+            e.email,
+            e.password_hash,
+            e.address,
+            e.emergency_contact_name,
+            e.emergency_contact_phone,
+            e.relationship,
+            e.biography,
+            e.profile_image,
+            e.employment_progress,
+            e.account_status,
+            e.employment_status,
+            e.hire_date,
+            e.is_active,
+            e.department_id,
+            e.position_id,
+            e.paygrade_id,
+            e.taxform_id,
+            e.manager_id,
+            e.salary_type_id,
+            e.contract_id,
+            e.profile_completion_percentage,
+            th.HierarchyLevel + 1
+        FROM Employee e
+        INNER JOIN TeamHierarchy th ON e.manager_id = th.EmployeeID
+    )
     SELECT 
         EmployeeID,
         first_name AS FirstName,
         last_name AS LastName,
         full_name AS FullName,
-        email AS Email,
+        national_id AS NationalId,
+        date_of_birth AS DateOfBirth,
+        country_of_birth AS CountryOfBirth,
         phone AS Phone,
+        email AS Email,
+        password_hash AS PasswordHash,
+        address AS Address,
+        emergency_contact_name AS EmergencyContactName,
+        emergency_contact_phone AS EmergencyContactPhone,
+        relationship AS Relationship,
+        biography AS Biography,
+        profile_image AS ProfileImage,
+        employment_progress AS EmploymentProgress,
         account_status AS AccountStatus,
         employment_status AS EmploymentStatus,
         hire_date AS HireDate,
+        is_active AS IsActive,
         department_id AS DepartmentId,
         position_id AS PositionId,
-        is_active AS IsActive
-    FROM Employee
-    WHERE manager_id = @ManagerID
-    ORDER BY last_name, first_name;
-    
-    -- Return count message
-    DECLARE @TeamCount INT;
-    SELECT @TeamCount = COUNT(*) FROM Employee WHERE manager_id = @ManagerID;
-    
-    PRINT 'Found ' + CAST(@TeamCount AS VARCHAR(10)) + ' team members under Manager ID: ' + CAST(@ManagerID AS VARCHAR(10));
+        paygrade_id AS PaygradeId,
+        taxform_id AS TaxformId,
+        manager_id AS ManagerId,
+        salary_type_id AS SalaryTypeId,
+        contract_id AS ContractId,
+        profile_completion_percentage AS ProfileCompletionPercentage
+    FROM TeamHierarchy
+    ORDER BY HierarchyLevel, last_name, first_name
+    OPTION (MAXRECURSION 0);  -- Allow unlimited depth for complex org structures
 END;
 GO
 

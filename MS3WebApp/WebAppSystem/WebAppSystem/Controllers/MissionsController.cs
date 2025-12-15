@@ -217,22 +217,33 @@ namespace WebAppSystem.Controllers
 
             if (ModelState.IsValid)
             {
-                // Get the next MissionID
-                var maxMissionId = await _context.Missions.AnyAsync() 
-                    ? await _context.Missions.MaxAsync(m => m.MissionId) 
-                    : 0;
-                mission.MissionId = maxMissionId + 1;
-                
-                mission.Status = "Pending";
-                // Initially assign mission to manager so it appears in their pending approvals
-                // Manager can later reassign to a specific team member after approval
-                mission.EmployeeId = mission.ManagerId;
-                
-                _context.Add(mission);
-                await _context.SaveChangesAsync();
-                
-                TempData["SuccessMessage"] = "Mission request sent to manager successfully!";
-                return RedirectToAction(nameof(Index));
+                try
+                {
+                    // Use AssignMission stored procedure
+                    // Initially assign mission to manager so it appears in their pending approvals
+                    var parameters = new[]
+                    {
+                        new Microsoft.Data.SqlClient.SqlParameter("@EmployeeID", mission.ManagerId ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@ManagerID", mission.ManagerId ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@Title", mission.Title ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@Description", mission.Description ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@Destination", mission.Destination ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@StartDate", mission.StartDate ?? (object)DBNull.Value),
+                        new Microsoft.Data.SqlClient.SqlParameter("@EndDate", mission.EndDate ?? (object)DBNull.Value)
+                    };
+
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "EXEC dbo.AssignMission @EmployeeID, @ManagerID, @Title, @Description, @Destination, @StartDate, @EndDate",
+                        parameters
+                    );
+
+                    TempData["SuccessMessage"] = "Mission request sent to manager successfully!";
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (SystemException ex)
+                {
+                    ModelState.AddModelError("", $"Error assigning mission: {ex.Message}");
+                }
             }
 
             // If we got here, something failed, reload the form

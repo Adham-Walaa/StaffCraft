@@ -15,7 +15,9 @@ This implementation adds Component 4 - Mission & Task Management to the Database
 - **Updated AssignMission procedure** to include:
   - @Title parameter
   - @Description parameter
+  - Automatic MissionID generation using MAX(MissionID) + 1
   - Default status set to 'Pending' for new missions
+  - Proper PRIMARY KEY handling to avoid DbUpdateException errors
 
 ### 3. Model Updates (Models/Mission.cs)
 - Added `Title` and `Description` properties to the Mission model
@@ -31,7 +33,7 @@ Created comprehensive mission management with the following actions:
 
 #### For HR Administrators:
 - **AssignMission()** (GET) - Form to create and assign missions to managers
-- **AssignMission(mission)** (POST) - Process mission assignment with validation
+- **AssignMission(mission)** (POST) - Process mission assignment using stored procedure to avoid DbUpdateException
 
 #### For Line Managers:
 - **PendingApprovals()** - View missions pending their approval

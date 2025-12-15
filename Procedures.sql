@@ -2343,8 +2343,13 @@ CREATE OR ALTER PROCEDURE AssignMission               --Runs well
     @EndDate DATE
 AS
 BEGIN
-    INSERT INTO Mission (title, description, destination, start_date, end_date, status, employee_id, manager_id)
-    VALUES (@Title, @Description, @Destination, @StartDate, @EndDate, 'Pending', @EmployeeID, @ManagerID);
+    DECLARE @NextMissionID INT;
+    
+    -- Get the next available MissionID
+    SELECT @NextMissionID = ISNULL(MAX(MissionID), 0) + 1 FROM Mission;
+    
+    INSERT INTO Mission (MissionID, title, description, destination, start_date, end_date, status, employee_id, manager_id)
+    VALUES (@NextMissionID, @Title, @Description, @Destination, @StartDate, @EndDate, 'Pending', @EmployeeID, @ManagerID);
     
     PRINT 'Mission assigned successfully to employee ';
 END;

@@ -15,8 +15,6 @@ public partial class LeaveRequest
 
     public int? Duration { get; set; }
 
-    public DateTime? SubmissionDate { get; set; }
-
     public DateTime? ApprovalTiming { get; set; }
 
     public string? Status { get; set; }

@@ -2342,20 +2342,23 @@ CREATE OR ALTER PROCEDURE ApproveLeaveRequest                --Runs well
 --Assign missions or business trips to employees.
 --Signature:
 --Name: AssignMission.
---Input: @EmployeeID int, @ManagerID int, @Destination varchar(50), @StartDate date, @EndDate date.
+--Input: @EmployeeId int, @ManagerId int, @Title varchar(200), @Description text, @Destination varchar(50), @StartDate date, @EndDate date.
 --Output: Confirmation message.
- 
-CREATE OR ALTER PROCEDURE AssignMission               --Runs well
+
+CREATE OR ALTER PROCEDURE AssignMission
     @EmployeeID INT,
     @ManagerID INT,
+    @Title VARCHAR(200),
+    @Description TEXT,
     @Destination VARCHAR(50),
     @StartDate DATE,
     @EndDate DATE
 AS
 BEGIN
-    INSERT INTO Mission (destination, start_date, end_date, employee_id, manager_id)
-    VALUES (@Destination, @StartDate, @EndDate, @EmployeeID, @ManagerID);
-    
+    DECLARE @NextMissionID INT;
+    SELECT @NextMissionID = ISNULL(MAX(MissionID), 0) + 1 FROM Mission;
+    INSERT INTO Mission (MissionID, title, description, destination, start_date, end_date, status, employee_id, manager_id)
+    VALUES (@NextMissionID, @Title, @Description, @Destination, @StartDate, @EndDate, 'Pending', @EmployeeID, @ManagerID);
     PRINT 'Mission assigned successfully to employee ';
 END;
 GO

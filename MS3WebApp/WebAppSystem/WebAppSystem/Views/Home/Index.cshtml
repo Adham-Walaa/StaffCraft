@@ -58,7 +58,14 @@
             </div>
 
             <!-- My Team Card -->
-            @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+            @{
+                string userPosition = Context.Session.GetString("UserPosition") ?? "";
+                bool isManager = userPosition == "Manager";
+                bool hasTeam = ViewBag.HasDirectReports == true;
+                bool canManageTeam = isManager || hasTeam;
+            }
+            
+            @if (canManageTeam)
             {
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-info">
@@ -74,22 +81,61 @@
                     </div>
                 </div>
             }
-            else
+
+            <!-- Mission Approvals Card for Managers (by Position) -->
+            @if (isManager)
             {
                 <div class="col-md-6 col-xl-3">
-                    <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
+                    <div class="card shadow-sm h-100 border-warning">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
+                                <i class="bi bi-briefcase text-warning"></i> Mission Approvals
+                            </h5>
+                            <p class="card-text">Review and approve mission requests.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Missions" asp-action="PendingApprovals" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-clock"></i> Pending Approvals
+                                </a>
+                                <a asp-controller="Missions" asp-action="Index" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-list-ul"></i> All Missions
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @if (!canManageTeam)
+            {
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill text-secondary"></i> My Team
                             </h5>
                             <p class="card-text">View your team.</p>
-                            <a asp-controller="Employees" asp-action="MyTeam" class="btn @(ViewBag.HasDirectReports == true ? "btn-warning" : "btn-secondary")">
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-secondary">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
                         </div>
                     </div>
                 </div>
             }
+
+            <!-- My Missions Card -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-briefcase text-info"></i> My Missions
+                        </h5>
+                        <p class="card-text">View your assigned missions and tasks.</p>
+                        <a asp-controller="Missions" asp-action="MyMissions" class="btn btn-info text-white">
+                            <i class="bi bi-arrow-right"></i> View Missions
+                        </a>
+                    </div>
+                </div>
+            </div>
 
             <!-- My Profile Card -->
             <div class="col-md-6 col-xl-3">
@@ -108,6 +154,26 @@
 
             @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
             {
+                <!-- Mission Management Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-briefcase text-primary"></i> Mission Management
+                            </h5>
+                            <p class="card-text">Assign and manage employee missions.</p>
+                            <div class="d-grid gap-2">
+                                <a asp-controller="Missions" asp-action="AssignMission" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus-circle"></i> Assign Mission
+                                </a>
+                                <a asp-controller="Missions" asp-action="Index" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-list-ul"></i> View All Missions
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- HR Quick Actions Card -->
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">

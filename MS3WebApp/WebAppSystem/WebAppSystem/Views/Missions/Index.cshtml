@@ -1,65 +1,124 @@
-﻿@model IEnumerable<WebAppSystem.Models.Mission>
+@model IEnumerable<WebAppSystem.Models.Mission>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Missions";
+    var userRoles = ViewBag.UserRoles as string;
+    var isHR = !string.IsNullOrEmpty(userRoles) && userRoles.Contains("HR Administrator");
 }
 
-<h1>Index</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-briefcase"></i> Missions</h1>
+        @if (isHR)
+        {
+            <a asp-action="AssignMission" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Assign New Mission
+            </a>
+        }
+    </div>
+    <hr />
+</div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.Destination)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.StartDate)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.EndDate)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Status)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Employee)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Manager)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Mission ID</th>
+                <th>Title</th>
+                <th>Destination</th>
+                <th>Manager</th>
+                <th>Employee</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
 @foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.Destination)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.StartDate)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.EndDate)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Status)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Manager.EmployeeId)
-            </td>
-            <td>
-                <a asp-action="Edit" asp-route-id="@item.MissionId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.MissionId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.MissionId">Delete</a>
-            </td>
-        </tr>
+            <tr>
+                <td>@item.MissionId</td>
+                <td>@Html.DisplayFor(modelItem => item.Title)</td>
+                <td>@Html.DisplayFor(modelItem => item.Destination)</td>
+                <td>@(item.Manager?.FullName ?? "N/A")</td>
+                <td>@(item.Employee?.FullName ?? "N/A")</td>
+                <td>@(item.StartDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                <td>@(item.EndDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                <td>
+                    @if (item.Status == "Approved")
+                    {
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Approved
+                        </span>
+                    }
+                    else if (item.Status == "Pending")
+                    {
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-clock"></i> Pending
+                        </span>
+                    }
+                    else if (item.Status == "Rejected")
+                    {
+                        <span class="badge bg-danger">
+                            <i class="bi bi-x-circle"></i> Rejected
+                        </span>
+                    }
+                    else if (item.Status == "COMPLETED")
+                    {
+                        <span class="badge bg-info">
+                            <i class="bi bi-check-all"></i> Completed
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">@item.Status</span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.MissionId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        @if (isHR)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.MissionId" class="btn btn-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.MissionId" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        }
+                    </div>
+                </td>
+            </tr>
 }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No missions found.
+        @if (isHR)
+        {
+            <text><a asp-action="AssignMission" class="alert-link">Assign the first mission</a></text>
+        }
+    </div>
+}

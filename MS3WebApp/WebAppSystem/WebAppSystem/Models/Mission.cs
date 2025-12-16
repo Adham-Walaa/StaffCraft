@@ -7,6 +7,10 @@ public partial class Mission
 {
     public int MissionId { get; set; }
 
+    public string? Title { get; set; }
+
+    public string? Description { get; set; }
+
     public string? Destination { get; set; }
 
     public DateTime? StartDate { get; set; }

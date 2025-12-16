@@ -12,8 +12,48 @@
                 <p class="mb-0">Manager: @ViewBag.ManagerName</p>
             </div>
             <div class="card-body">
+                @* Show manager section if employee has a manager *@
+                @if (ViewBag.MyManager != null)
+                {
+                    <div class="mb-4">
+                        <h4 class="mb-3"><i class="bi bi-person-badge"></i> My Manager</h4>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th>Employee ID</th>
+                                        <th>Full Name</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Department</th>
+                                        <th>Position</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>@ViewBag.MyManager.EmployeeId</td>
+                                        <td>@ViewBag.MyManager.FullName</td>
+                                        <td>@ViewBag.MyManager.Email</td>
+                                        <td>@ViewBag.MyManager.Phone</td>
+                                        <td>@(ViewBag.MyManager.Department?.DepartmentName ?? "N/A")</td>
+                                        <td>@(ViewBag.MyManager.Position?.PositionTitle ?? "N/A")</td>
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@ViewBag.MyManager.EmployeeId" class="btn btn-info btn-sm text-white" title="View Details">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+
+                @* Show team members section *@
                 @if (Model.Any())
                 {
+                    <h4 class="mb-3"><i class="bi bi-people-fill"></i> My Direct Reports</h4>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead class="table-dark">
@@ -78,8 +118,9 @@
                         </div>
                     </div>
                 }
-                else
+                else if (ViewBag.MyManager == null)
                 {
+                    @* Show message only if employee has no team AND no manager *@
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle"></i> No team members assigned to you yet. 
                         @if (ViewBag.IsLineManager)
@@ -89,6 +130,17 @@
                         else
                         {
                             <text>Contact a Line Manager if you need team members assigned to you.</text>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @* Employee has a manager but no direct reports *@
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> You do not have any direct reports at this time.
+                        @if (ViewBag.IsLineManager)
+                        {
+                            <text>Use the button below to assign employees to your team.</text>
                         }
                     </div>
                 }

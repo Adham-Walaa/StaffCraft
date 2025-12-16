@@ -1,0 +1,23 @@
+⚠️ MISSION MANAGEMENT SETUP REQUIRED ⚠️
+==========================================
+
+If you are trying to use the Mission Management features and getting errors:
+
+ERROR 1: "Invalid column name 'description'" or "Invalid column name 'title'"
+ERROR 2: "Procedure or function AssignMission has too many arguments specified"
+
+YOU MUST RUN TWO DATABASE MIGRATIONS!
+
+📋 Quick Setup Instructions:
+---------------------------
+1. Open SQL Server Management Studio (SSMS)
+2. Connect to your MILESTONE2 database
+3. Run FIRST migration: Migration_AddMissionTitleDescription.sql
+4. Run SECOND migration: Migration_UpdateAssignMissionProcedure.sql
+5. Restart your application
+
+📖 For detailed instructions, see: MIGRATION_README.md
+
+These one-time migrations add the required 'title' and 'description' 
+columns to the Mission table and update the AssignMission stored 
+procedure to use these new fields.

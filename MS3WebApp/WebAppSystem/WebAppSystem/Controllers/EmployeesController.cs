@@ -520,8 +520,17 @@ namespace WebAppSystem.Controllers
                     .ThenBy(e => e.FirstName)
                     .ToListAsync();
 
+                // Get the current employee's manager information
+                var currentEmployee = await _context.Employees
+                    .Include(e => e.Manager)
+                        .ThenInclude(m => m.Department)
+                    .Include(e => e.Manager)
+                        .ThenInclude(m => m.Position)
+                    .FirstOrDefaultAsync(e => e.EmployeeId == userId.Value);
+
                 ViewBag.ManagerName = HttpContext.Session.GetString("UserName");
                 ViewBag.IsLineManager = HttpContext.Session.GetString("UserRoles")?.Contains("Line Manager") == true;
+                ViewBag.MyManager = currentEmployee?.Manager;
                 
                 return View(teamMembers);
             }

@@ -46,7 +46,7 @@
                     </small>
                 </p>
                 <p class="mb-0 mt-2">
-                    <small class="text-muted">
+                    <small class="text-dark">
                         <i class="bi bi-info-circle"></i> This is a permanent notification that cannot be dismissed. It will automatically disappear once your contract is renewed or has more than 30 days remaining.
                     </small>
                 </p>
@@ -112,7 +112,7 @@
                             <p class="card-text @(isPermanent ? "fw-bold" : "")">@notification.MesageContent</p>
                             
                             <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted">
+                                <small class="text-dark">
                                     <i class="bi bi-clock"></i>
                                     @(notification.Timestamp?.ToString("MMM dd, yyyy hh:mm tt") ?? "N/A")
                                 </small>
@@ -142,7 +142,7 @@
                             @if (!string.IsNullOrEmpty(item.DeliveryStatus))
                             {
                                 <div class="mt-2">
-                                    <small class="text-muted">
+                                    <small class="text-dark">
                                         Status: <strong>@item.DeliveryStatus</strong>
                                     </small>
                                 </div>

@@ -245,15 +245,17 @@ namespace WebAppSystem.Controllers
                 .ToListAsync();
 
             // Get teams organized by manager
+            // Group by ManagerId to avoid TEXT column comparison errors
             var teams = await _context.Employees
                 .Include(e => e.Manager)
                 .Include(e => e.Department)
                 .Include(e => e.Position)
                 .Where(e => e.ManagerId != null)
-                .GroupBy(e => e.Manager)
+                .GroupBy(e => e.ManagerId)
                 .Select(g => new
                 {
-                    Manager = g.Key,
+                    ManagerId = g.Key,
+                    Manager = g.First().Manager,
                     TeamMembers = g.ToList()
                 })
                 .ToListAsync();

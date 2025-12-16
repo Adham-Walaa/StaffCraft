@@ -228,7 +228,8 @@ namespace WebAppSystem.Controllers
                 .Include(er => er.Role)
                 .Include(er => er.Employee)
                 .Select(er => er.Role)
-                .Distinct()
+                .GroupBy(r => r.RoleId)
+                .Select(g => g.First())
                 .OrderBy(r => r.RoleId)
                 .ToListAsync();
 

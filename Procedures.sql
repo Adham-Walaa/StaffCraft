@@ -10546,6 +10546,8 @@ BEGIN
     SELECT
         MissionID,
         destination,
+        title,
+        description,
         start_date,
         end_date,
         status,

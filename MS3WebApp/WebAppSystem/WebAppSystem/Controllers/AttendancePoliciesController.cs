@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +9,6 @@ using WebAppSystem.Models;
 
 namespace WebAppSystem.Controllers
 {
-    [Authorize(Roles = "System Administrator,HR Administrator,Line Manager")]
     public class AttendancePoliciesController : Controller
     {
         private readonly Milestone2Context _context;

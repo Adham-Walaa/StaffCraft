@@ -79,8 +79,11 @@
                         </div>
                     </div>
                 </div>
+            }
 
-                <!-- Mission Approvals Card for Managers and Supervisors -->
+            <!-- Mission Approvals Card for Line Managers only -->
+            @if (isManager)
+            {
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">
                         <div class="card-body">
@@ -100,7 +103,8 @@
                     </div>
                 </div>
             }
-            else
+            
+            @if (!canManageTeam)
             {
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-secondary">

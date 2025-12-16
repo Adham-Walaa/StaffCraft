@@ -183,7 +183,7 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            // Get all managers: employees with Line Manager role OR employees who supervise others
+            // Get all employees with Line Manager role only
             var managerRoleId = await _context.Roles
                 .Where(r => r.RoleName == "Line Manager")
                 .Select(r => r.RoleId)
@@ -199,26 +199,8 @@ namespace WebAppSystem.Controllers
                 .Select(id => id.Value)
                 .ToList();
 
-            // Get employees who supervise others (have direct reports)
-            var supervisorIdsNullable = await _context.Employees
-                .Where(e => e.ManagerId != null)
-                .Select(e => e.ManagerId)
-                .Distinct()
-                .ToListAsync();
-
-            var supervisorIds = supervisorIdsNullable
-                .Where(id => id.HasValue)
-                .Select(id => id.Value)
-                .ToList();
-
-            // Combine both lists
-            var allManagerIds = managerEmployeeIds
-                .Union(supervisorIds)
-                .Distinct()
-                .ToList();
-
             var managers = await _context.Employees
-                .Where(e => allManagerIds.Contains(e.EmployeeId))
+                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
                 .OrderBy(e => e.FullName)
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();

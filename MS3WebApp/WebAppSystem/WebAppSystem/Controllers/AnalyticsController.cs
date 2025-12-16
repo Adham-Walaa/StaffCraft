@@ -224,8 +224,14 @@ namespace WebAppSystem.Controllers
                 .OrderBy(p => p.PositionId)
                 .ToListAsync();
 
-            // Get roles directly from the Role table to avoid TEXT column comparison issues
+            // Get roles - select only needed columns to avoid TEXT data type issues
             var roles = await _context.Roles
+                .Select(r => new Role
+                {
+                    RoleId = r.RoleId,
+                    RoleName = r.RoleName,
+                    // Explicitly exclude the 'purpose' TEXT column to avoid sorting/comparison errors
+                })
                 .OrderBy(r => r.RoleId)
                 .ToListAsync();
 

@@ -35,10 +35,30 @@
             @Html.DisplayFor(model => model.Status)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Employee)
+            Employee Name
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Employee.EmployeeId)
+            @if (Model.Employee != null)
+            {
+                @Html.DisplayFor(model => model.Employee.FullName)
+            }
+            else
+            {
+                <span class="text-muted">N/A</span>
+            }
+        </dd>
+        <dt class = "col-sm-2">
+            Employee ID
+        </dt>
+        <dd class = "col-sm-10">
+            @if (Model.Employee != null)
+            {
+                @Html.DisplayFor(model => model.Employee.EmployeeId)
+            }
+            else
+            {
+                <span class="text-muted">N/A</span>
+            }
         </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Leave)

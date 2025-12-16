@@ -224,12 +224,8 @@ namespace WebAppSystem.Controllers
                 .OrderBy(p => p.PositionId)
                 .ToListAsync();
 
-            var roles = await _context.EmployeeRoles
-                .Include(er => er.Role)
-                .Include(er => er.Employee)
-                .Select(er => er.Role)
-                .GroupBy(r => r.RoleId)
-                .Select(g => g.First())
+            // Get roles directly from the Role table to avoid TEXT column comparison issues
+            var roles = await _context.Roles
                 .OrderBy(r => r.RoleId)
                 .ToListAsync();
 

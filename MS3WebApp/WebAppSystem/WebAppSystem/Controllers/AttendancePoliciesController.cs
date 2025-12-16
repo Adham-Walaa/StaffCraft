@@ -126,15 +126,30 @@ namespace WebAppSystem.Controllers
                 return NotFound();
             }
 
-            var policy = await _context.AttendancePolicies
-                .FirstOrDefaultAsync(m => m.PolicyID == id);
-
-            if (policy == null)
+            try
             {
-                return NotFound();
-            }
+                var policy = await _context.AttendancePolicies
+                    .FromSqlRaw("SELECT PolicyID AS PolicyID, policy_name AS PolicyName, policy_type AS PolicyType, description AS Description, parameters AS Parameters, effective_date AS EffectiveDate, status AS Status FROM AttendancePolicy WHERE PolicyID = {0}", id)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync();
 
-            return View(policy);
+                if (policy == null)
+                {
+                    return NotFound();
+                }
+
+                return View(policy);
+            }
+            catch (SqlException ex) when (ex.Message.Contains("Invalid object name 'AttendancePolicy'"))
+            {
+                ViewBag.ErrorMessage = "Database table 'AttendancePolicy' not found. Please create the table first.";
+                return View("Error");
+            }
+            catch (System.Exception ex)
+            {
+                ViewBag.ErrorMessage = $"Error loading policy details: {ex.Message}";
+                return View("Error");
+            }
         }
     }
 }

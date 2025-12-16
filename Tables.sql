@@ -581,9 +581,7 @@ CREATE TABLE AttendancePolicy (
     description VARCHAR(500),
     parameters VARCHAR(1000),
     effective_date DATETIME NOT NULL DEFAULT GETDATE(),
-    status VARCHAR(20) NOT NULL DEFAULT 'Active',
-    created_date DATETIME DEFAULT GETDATE(),
-    modified_date DATETIME DEFAULT GETDATE()
+    status VARCHAR(20) NOT NULL DEFAULT 'Active'
 );
 
 -- ========================================

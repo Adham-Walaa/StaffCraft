@@ -12137,3 +12137,17 @@ ORDER BY ORDINAL_POSITION
 
 SELECT name FROM sys.procedures 
 WHERE name IN ('GetGracePeriodSettings', 'GetShortTimeRules', 'GetPenaltyThresholds', 'GetAllAttendancePolicies')
+
+IF OBJECT_ID('AttendancePolicy', 'U') IS NOT NULL
+BEGIN
+    PRINT 'Table EXISTS'
+    -- Show all columns
+    SELECT COLUMN_NAME, DATA_TYPE 
+    FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'AttendancePolicy'
+    ORDER BY ORDINAL_POSITION
+END
+ELSE
+BEGIN
+    PRINT 'Table DOES NOT EXIST - CREATE IT NOW'
+END

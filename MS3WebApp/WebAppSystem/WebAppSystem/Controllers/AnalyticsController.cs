@@ -199,5 +199,104 @@ namespace WebAppSystem.Controllers
 
             return View();
         }
+
+        // GET: Analytics/ViewTables
+        public async Task<IActionResult> ViewTables()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view tables.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            // All logged-in users can access this view
+            // Get all data for tables
+            var departments = await _context.Departments
+                .Include(d => d.DepartmentHead)
+                .Include(d => d.Employees)
+                .OrderBy(d => d.DepartmentId)
+                .ToListAsync();
+
+            var positions = await _context.Positions
+                .Include(p => p.Employees)
+                .OrderBy(p => p.PositionId)
+                .ToListAsync();
+
+            var roles = await _context.EmployeeRoles
+                .Include(er => er.Role)
+                .Include(er => er.Employee)
+                .Select(er => er.Role)
+                .Distinct()
+                .OrderBy(r => r.RoleId)
+                .ToListAsync();
+
+            // Get managers (employees who have other employees reporting to them)
+            var managers = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.InverseManager) // Employees who report to this manager
+                .Where(e => e.InverseManager.Any())
+                .OrderBy(e => e.EmployeeId)
+                .ToListAsync();
+
+            // Get teams organized by manager
+            var teams = await _context.Employees
+                .Include(e => e.Manager)
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Where(e => e.ManagerId != null)
+                .GroupBy(e => e.Manager)
+                .Select(g => new
+                {
+                    Manager = g.Key,
+                    TeamMembers = g.ToList()
+                })
+                .ToListAsync();
+
+            ViewBag.Departments = departments;
+            ViewBag.Positions = positions;
+            ViewBag.Roles = roles;
+            ViewBag.Managers = managers;
+            ViewBag.Teams = teams;
+
+            return View();
+        }
+
+        // GET: Analytics/TeamDetails
+        public async Task<IActionResult> TeamDetails(int? managerId)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "Please login to view team details.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            if (managerId == null)
+            {
+                TempData["ErrorMessage"] = "Manager ID is required.";
+                return RedirectToAction("ViewTables");
+            }
+
+            var manager = await _context.Employees
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .Include(e => e.InverseManager)
+                    .ThenInclude(tm => tm.Department)
+                .Include(e => e.InverseManager)
+                    .ThenInclude(tm => tm.Position)
+                .FirstOrDefaultAsync(e => e.EmployeeId == managerId);
+
+            if (manager == null)
+            {
+                TempData["ErrorMessage"] = "Manager not found.";
+                return RedirectToAction("ViewTables");
+            }
+
+            return View(manager);
+        }
     }
 }

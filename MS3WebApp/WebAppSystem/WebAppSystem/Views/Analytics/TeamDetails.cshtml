@@ -1,0 +1,151 @@
+@model WebAppSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "Team Details";
+    var teamMembers = Model.InverseManager;
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-people-fill"></i> Team Details</h1>
+        <a asp-action="ViewTables" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Tables
+        </a>
+    </div>
+    <hr />
+</div>
+
+<!-- Manager Information Card -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Team Manager</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">ID:</dt>
+                    <dd class="col-sm-8"><strong>@Model.EmployeeId</strong></dd>
+
+                    <dt class="col-sm-4">Name:</dt>
+                    <dd class="col-sm-8"><strong>@Model.FullName</strong></dd>
+
+                    <dt class="col-sm-4">Email:</dt>
+                    <dd class="col-sm-8">@Model.Email</dd>
+
+                    <dt class="col-sm-4">Phone:</dt>
+                    <dd class="col-sm-8">@Model.Phone</dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Department:</dt>
+                    <dd class="col-sm-8">@(Model.Department?.DepartmentName ?? "N/A")</dd>
+
+                    <dt class="col-sm-4">Position:</dt>
+                    <dd class="col-sm-8">@(Model.Position?.PositionTitle ?? "N/A")</dd>
+
+                    <dt class="col-sm-4">Team Size:</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-primary">@teamMembers.Count members</span>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Members Table -->
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-people"></i> Team Members</h5>
+    </div>
+    <div class="card-body">
+        @if (teamMembers != null && teamMembers.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var member in teamMembers.OrderBy(m => m.FullName))
+                        {
+                            <tr>
+                                <td><strong>@member.EmployeeId</strong></td>
+                                <td><strong>@member.FullName</strong></td>
+                                <td>@member.Email</td>
+                                <td>@member.Phone</td>
+                                <td>@(member.Department?.DepartmentName ?? "N/A")</td>
+                                <td>@(member.Position?.PositionTitle ?? "N/A")</td>
+                                <td>
+                                    @if (member.IsActive == true)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> This manager has no team members assigned yet.
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Team Statistics -->
+@if (teamMembers != null && teamMembers.Any())
+{
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Members</h6>
+                    <h2>@teamMembers.Count</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Active</h6>
+                    <h2>@teamMembers.Count(m => m.IsActive == true)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Inactive</h6>
+                    <h2>@teamMembers.Count(m => m.IsActive == false || m.IsActive == null)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Departments</h6>
+                    <h2>@teamMembers.Select(m => m.DepartmentId).Distinct().Count()</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+}

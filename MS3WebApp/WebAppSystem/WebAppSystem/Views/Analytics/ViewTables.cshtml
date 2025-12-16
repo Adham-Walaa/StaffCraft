@@ -1,0 +1,251 @@
+@{
+    ViewData["Title"] = "View Tables";
+    var departments = ViewBag.Departments as List<WebAppSystem.Models.Department>;
+    var positions = ViewBag.Positions as List<WebAppSystem.Models.Position>;
+    var roles = ViewBag.Roles as List<WebAppSystem.Models.Role>;
+    var managers = ViewBag.Managers as List<WebAppSystem.Models.Employee>;
+    var teams = ViewBag.Teams as IEnumerable<dynamic>;
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-table"></i> View Tables</h1>
+        <a asp-action="Index" asp-controller="Home" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
+    </div>
+    <hr />
+</div>
+
+<!-- Departments Table -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-building"></i> Departments</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Department Name</th>
+                        <th>Purpose</th>
+                        <th>Department Head</th>
+                        <th>Total Employees</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (departments != null && departments.Any())
+                    {
+                        @foreach (var dept in departments)
+                        {
+                            <tr>
+                                <td><strong>@dept.DepartmentId</strong></td>
+                                <td><strong>@(dept.DepartmentName ?? "N/A")</strong></td>
+                                <td>@(dept.Purpose ?? "N/A")</td>
+                                <td>@(dept.DepartmentHead?.FullName ?? "Not Assigned")</td>
+                                <td><span class="badge bg-primary">@dept.Employees.Count</span></td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center">No departments found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Positions Table -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-briefcase"></i> Positions</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Position Title</th>
+                        <th>Responsibilities</th>
+                        <th>Status</th>
+                        <th>Employees in Position</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (positions != null && positions.Any())
+                    {
+                        @foreach (var pos in positions)
+                        {
+                            <tr>
+                                <td><strong>@pos.PositionId</strong></td>
+                                <td><strong>@(pos.PositionTitle ?? "N/A")</strong></td>
+                                <td>@(pos.Responsibilities ?? "N/A")</td>
+                                <td>
+                                    @if (pos.Status == "Active")
+                                    {
+                                        <span class="badge bg-success">@pos.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@(pos.Status ?? "N/A")</span>
+                                    }
+                                </td>
+                                <td><span class="badge bg-primary">@pos.Employees.Count</span></td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center">No positions found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Roles Table -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-shield-check"></i> Roles</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Role Name</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (roles != null && roles.Any())
+                    {
+                        @foreach (var role in roles)
+                        {
+                            <tr>
+                                <td><strong>@role.RoleId</strong></td>
+                                <td><strong>@(role.RoleName ?? "N/A")</strong></td>
+                                <td>@(role.Purpose ?? "N/A")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="3" class="text-center">No roles found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Managers Table -->
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Managers</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Manager Name</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Team Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (managers != null && managers.Any())
+                    {
+                        @foreach (var mgr in managers)
+                        {
+                            <tr>
+                                <td><strong>@mgr.EmployeeId</strong></td>
+                                <td><strong>@(mgr.FullName ?? "N/A")</strong></td>
+                                <td>@(mgr.Department?.DepartmentName ?? "N/A")</td>
+                                <td>@(mgr.Position?.PositionTitle ?? "N/A")</td>
+                                <td><span class="badge bg-primary">@mgr.InverseManager.Count</span></td>
+                                <td>
+                                    <a asp-action="TeamDetails" asp-route-managerId="@mgr.EmployeeId" 
+                                       class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i> View Team
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center">No managers found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Teams Table -->
+<div class="card mb-4">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-people"></i> Teams Overview</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>Manager ID</th>
+                        <th>Manager Name</th>
+                        <th>Team Members</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (teams != null && teams.Any())
+                    {
+                        @foreach (var team in teams)
+                        {
+                            var manager = team.Manager as WebAppSystem.Models.Employee;
+                            var teamMembers = team.TeamMembers as List<WebAppSystem.Models.Employee>;
+                            
+                            <tr>
+                                <td><strong>@manager.EmployeeId</strong></td>
+                                <td><strong>@(manager?.FullName ?? "N/A")</strong></td>
+                                <td><span class="badge bg-primary">@teamMembers.Count members</span></td>
+                                <td>
+                                    <a asp-action="TeamDetails" asp-route-managerId="@manager.EmployeeId" 
+                                       class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i> View Team Details
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center">No teams found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

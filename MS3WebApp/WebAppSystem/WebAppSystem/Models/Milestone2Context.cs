@@ -1079,6 +1079,9 @@ public partial class Milestone2Context : DbContext
                 .HasColumnType("text")
                 .HasColumnName("justification");
             entity.Property(e => e.LeaveId).HasColumnName("leave_id");
+            entity.Property(e => e.SubmissionDate)
+                .HasColumnType("datetime")
+                .HasColumnName("submission_date");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .IsUnicode(false)

@@ -272,6 +272,7 @@ CREATE TABLE LeaveRequest
     leave_id int,
     justification text,
     duration int,
+    submission_date datetime DEFAULT GETDATE(),
     approval_timing datetime,
     status varchar(50)
 );

@@ -198,6 +198,7 @@ namespace WebAppSystem.Controllers
 
             leaveRequest.EmployeeId = userId.Value;
             leaveRequest.Status = "Pending";
+            leaveRequest.SubmissionDate = DateTime.Now;
             leaveRequest.ApprovalTiming = null;
 
             // Generate new RequestId

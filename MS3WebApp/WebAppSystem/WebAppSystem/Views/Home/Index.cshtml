@@ -58,7 +58,13 @@
             </div>
 
             <!-- My Team Card -->
-            @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+            @{
+                bool isManager = Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true;
+                bool hasTeam = ViewBag.HasDirectReports == true;
+                bool canManageTeam = isManager || hasTeam;
+            }
+            
+            @if (canManageTeam)
             {
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-info">
@@ -74,7 +80,7 @@
                     </div>
                 </div>
 
-                <!-- Mission Approvals Card for Managers -->
+                <!-- Mission Approvals Card for Managers and Supervisors -->
                 <div class="col-md-6 col-xl-3">
                     <div class="card shadow-sm h-100 border-warning">
                         <div class="card-body">
@@ -97,13 +103,13 @@
             else
             {
                 <div class="col-md-6 col-xl-3">
-                    <div class="card shadow-sm h-100 @(ViewBag.HasDirectReports == true ? "border-warning" : "border-secondary")">
+                    <div class="card shadow-sm h-100 border-secondary">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <i class="bi bi-people-fill @(ViewBag.HasDirectReports == true ? "text-warning" : "text-secondary")"></i> My Team
+                                <i class="bi bi-people-fill text-secondary"></i> My Team
                             </h5>
                             <p class="card-text">View your team.</p>
-                            <a asp-controller="Employees" asp-action="MyTeam" class="btn @(ViewBag.HasDirectReports == true ? "btn-warning" : "btn-secondary")">
+                            <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-secondary">
                                 <i class="bi bi-arrow-right"></i> View My Team
                             </a>
                         </div>

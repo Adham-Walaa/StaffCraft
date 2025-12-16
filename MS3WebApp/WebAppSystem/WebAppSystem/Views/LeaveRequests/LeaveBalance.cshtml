@@ -1,0 +1,109 @@
+@model IEnumerable<WebAppSystem.Models.LeaveEntitlement>
+
+@{
+    ViewData["Title"] = "My Leave Balance";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-calendar3"></i> My Leave Balance</h1>
+        <div>
+            <a asp-action="LeaveHistory" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history"></i> View History
+            </a>
+            <a asp-action="SubmitLeaveRequest" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Submit Leave Request
+            </a>
+        </div>
+    </div>
+    <hr />
+</div>
+
+<div class="row">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Your leave balance is being initialized. Please refresh the page.
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var item in Model)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            @if (item.LeaveType != null)
+                            {
+                                <i class="bi bi-calendar-event text-primary"></i> @item.LeaveType.LeaveType
+                            }
+                            else
+                            {
+                                <text><i class="bi bi-calendar-event text-muted"></i> Unknown Leave Type</text>
+                            }
+                        </h5>
+                        <hr />
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Remaining Balance:</span>
+                            <h3 class="mb-0">
+                                @if (item.Entitlement.HasValue)
+                                {
+                                    if (item.Entitlement.Value > 0)
+                                    {
+                                        <span class="text-success">@item.Entitlement.Value</span>
+                                    }
+                                    else if (item.Entitlement.Value == 0)
+                                    {
+                                        <span class="text-warning">@item.Entitlement.Value</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-danger">@item.Entitlement.Value</span>
+                                    }
+                                    <small class="text-muted"> days</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">N/A</span>
+                                }
+                            </h3>
+                        </div>
+                        @if (item.LeaveType?.LeaveDescription != null)
+                        {
+                            <hr />
+                            <p class="card-text">
+                                <small class="text-muted">@item.LeaveType.LeaveDescription</small>
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Leave Balance Information</h5>
+                <ul class="mb-0">
+                    <li>Each employee receives 3 leave days per month by default</li>
+                    <li>Leave balances are managed by HR and may be adjusted based on company policy</li>
+                    <li>Approved leave requests will deduct from your available balance</li>
+                    <li>Negative balances may require manager approval or special authorization</li>
+                    <li>Contact HR for any questions about your leave entitlement</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a asp-controller="Home" asp-action="Index" class="btn btn-secondary">
+        <i class="bi bi-house"></i> Back to Home
+    </a>
+</div>

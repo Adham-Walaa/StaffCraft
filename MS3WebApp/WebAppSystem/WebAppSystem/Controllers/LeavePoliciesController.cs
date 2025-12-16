@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,47 +9,54 @@ using WebAppSystem.Models;
 
 namespace WebAppSystem.Controllers
 {
-    public class LeavesController : Controller
+    public class LeavePoliciesController : Controller
     {
         private readonly Milestone2Context _context;
 
-        public LeavesController(Milestone2Context context)
+        public LeavePoliciesController(Milestone2Context context)
         {
             _context = context;
         }
 
-        // GET: Leaves
+        // GET: LeavePolicies
         public async Task<IActionResult> Index()
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
             {
-                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can manage leave types.";
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can manage leave policies and eligibility rules.";
                 return RedirectToAction("Index", "Home");
             }
-            
-            return View(await _context.Leaves.ToListAsync());
+
+            return View(await _context.LeavePolicies.ToListAsync());
         }
 
-        // GET: Leaves/Details/5
+        // GET: LeavePolicies/Details/5
         public async Task<IActionResult> Details(int? id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (id == null)
             {
                 return NotFound();
             }
 
-            var leave = await _context.Leaves
-                .FirstOrDefaultAsync(m => m.LeaveId == id);
-            if (leave == null)
+            var leavePolicy = await _context.LeavePolicies
+                .FirstOrDefaultAsync(m => m.PolicyId == id);
+            if (leavePolicy == null)
             {
                 return NotFound();
             }
 
-            return View(leave);
+            return View(leavePolicy);
         }
 
-        // GET: Leaves/Create
+        // GET: LeavePolicies/Create
         public IActionResult Create()
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
@@ -58,16 +65,14 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
+
             return View();
         }
 
-        // POST: Leaves/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: LeavePolicies/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("LeaveId,LeaveType,LeaveDescription")] Leave leave)
+        public async Task<IActionResult> Create([Bind("PolicyId,Name,Purpose,EligibilityRules,NoticePeriod,SpecialLeaveType,ResetOnNewYear")] LeavePolicy leavePolicy)
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
@@ -75,18 +80,18 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
+
             if (ModelState.IsValid)
             {
-                _context.Add(leave);
+                _context.Add(leavePolicy);
                 await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Leave type created successfully!";
+                TempData["SuccessMessage"] = "Leave policy created successfully!";
                 return RedirectToAction(nameof(Index));
             }
-            return View(leave);
+            return View(leavePolicy);
         }
 
-        // GET: Leaves/Edit/5
+        // GET: LeavePolicies/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
@@ -95,26 +100,24 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
+
             if (id == null)
             {
                 return NotFound();
             }
 
-            var leave = await _context.Leaves.FindAsync(id);
-            if (leave == null)
+            var leavePolicy = await _context.LeavePolicies.FindAsync(id);
+            if (leavePolicy == null)
             {
                 return NotFound();
             }
-            return View(leave);
+            return View(leavePolicy);
         }
 
-        // POST: Leaves/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: LeavePolicies/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("LeaveId,LeaveType,LeaveDescription")] Leave leave)
+        public async Task<IActionResult> Edit(int id, [Bind("PolicyId,Name,Purpose,EligibilityRules,NoticePeriod,SpecialLeaveType,ResetOnNewYear")] LeavePolicy leavePolicy)
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
             if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
@@ -122,8 +125,8 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
-            if (id != leave.LeaveId)
+
+            if (id != leavePolicy.PolicyId)
             {
                 return NotFound();
             }
@@ -132,13 +135,13 @@ namespace WebAppSystem.Controllers
             {
                 try
                 {
-                    _context.Update(leave);
+                    _context.Update(leavePolicy);
                     await _context.SaveChangesAsync();
-                    TempData["SuccessMessage"] = "Leave type updated successfully!";
+                    TempData["SuccessMessage"] = "Leave policy updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!LeaveExists(leave.LeaveId))
+                    if (!LeavePolicyExists(leavePolicy.PolicyId))
                     {
                         return NotFound();
                     }
@@ -149,10 +152,10 @@ namespace WebAppSystem.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(leave);
+            return View(leavePolicy);
         }
 
-        // GET: Leaves/Delete/5
+        // GET: LeavePolicies/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             var userRoles = HttpContext.Session.GetString("UserRoles");
@@ -161,23 +164,23 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
+
             if (id == null)
             {
                 return NotFound();
             }
 
-            var leave = await _context.Leaves
-                .FirstOrDefaultAsync(m => m.LeaveId == id);
-            if (leave == null)
+            var leavePolicy = await _context.LeavePolicies
+                .FirstOrDefaultAsync(m => m.PolicyId == id);
+            if (leavePolicy == null)
             {
                 return NotFound();
             }
 
-            return View(leave);
+            return View(leavePolicy);
         }
 
-        // POST: Leaves/Delete/5
+        // POST: LeavePolicies/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -188,21 +191,21 @@ namespace WebAppSystem.Controllers
                 TempData["ErrorMessage"] = "Access denied.";
                 return RedirectToAction("Index", "Home");
             }
-            
-            var leave = await _context.Leaves.FindAsync(id);
-            if (leave != null)
+
+            var leavePolicy = await _context.LeavePolicies.FindAsync(id);
+            if (leavePolicy != null)
             {
-                _context.Leaves.Remove(leave);
+                _context.LeavePolicies.Remove(leavePolicy);
             }
 
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Leave type deleted successfully!";
+            TempData["SuccessMessage"] = "Leave policy deleted successfully!";
             return RedirectToAction(nameof(Index));
         }
 
-        private bool LeaveExists(int id)
+        private bool LeavePolicyExists(int id)
         {
-            return _context.Leaves.Any(e => e.LeaveId == id);
+            return _context.LeavePolicies.Any(e => e.PolicyId == id);
         }
     }
 }

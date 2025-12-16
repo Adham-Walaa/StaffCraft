@@ -1,0 +1,118 @@
+@model IEnumerable<WebAppSystem.Models.LeavePolicy>
+
+@{
+    ViewData["Title"] = "Leave Policies & Eligibility Rules";
+}
+
+<div class="container mt-4">
+    <h2>Leave Policies & Eligibility Rules</h2>
+    <p class="text-muted">Manage leave policies and configure eligibility rules for your organization</p>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="mb-3">
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New Policy
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Policy ID</th>
+                        <th>Policy Name</th>
+                        <th>Purpose</th>
+                        <th>Eligibility Rules</th>
+                        <th>Special Leave Type</th>
+                        <th>Reset Annually</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(modelItem => item.PolicyId)</td>
+                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(item.Purpose))
+                                    {
+                                        var shortPurpose = item.Purpose.Length > 50 ? item.Purpose.Substring(0, 50) + "..." : item.Purpose;
+                                        <span title="@item.Purpose">@shortPurpose</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(item.EligibilityRules))
+                                    {
+                                        var shortRules = item.EligibilityRules.Length > 60 ? item.EligibilityRules.Substring(0, 60) + "..." : item.EligibilityRules;
+                                        <span class="badge bg-info text-dark" title="@item.EligibilityRules">@shortRules</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No rules set</span>
+                                    }
+                                </td>
+                                <td>@Html.DisplayFor(modelItem => item.SpecialLeaveType)</td>
+                                <td>
+                                    @if (item.ResetOnNewYear == true)
+                                    {
+                                        <span class="badge bg-success">Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">No</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@item.PolicyId" class="btn btn-sm btn-info" title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@item.PolicyId" class="btn btn-sm btn-warning" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.PolicyId" class="btn btn-sm btn-danger" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <p class="text-muted my-3">No leave policies configured yet. Click "Create New Policy" to get started.</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a asp-controller="Home" asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
+    </div>
+</div>

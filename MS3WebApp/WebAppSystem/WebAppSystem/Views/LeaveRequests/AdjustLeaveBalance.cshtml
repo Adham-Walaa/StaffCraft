@@ -1,0 +1,153 @@
+@{
+    ViewData["Title"] = "Adjust Leave Balance";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-sliders"></i> Adjust Leave Balance</h1>
+    </div>
+    <hr />
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Select Employee</h5>
+                <form asp-action="AdjustLeaveBalance" method="get">
+                    <div class="mb-3">
+                        <label for="employeeId" class="form-label">Employee</label>
+                        <select id="employeeId" name="employeeId" class="form-select" onchange="this.form.submit()">
+                            <option value="">-- Select an Employee --</option>
+                            @if (ViewData["EmployeeId"] is SelectList employeeList)
+                            {
+                                foreach (var item in employeeList)
+                                {
+                                    <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </form>
+
+                @if (ViewBag.SelectedEmployeeId != null)
+                {
+                    <hr />
+                    <h5 class="card-title mt-4">Update Leave Balances</h5>
+                    
+                    @if (ViewBag.LeaveBalances != null)
+                    {
+                        var leaveBalances = ViewBag.LeaveBalances as List<WebAppSystem.Models.LeaveEntitlement>;
+                        
+                        if (leaveBalances == null || !leaveBalances.Any())
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> This employee has no leave balances set up yet.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Leave Type</th>
+                                            <th>Current Balance</th>
+                                            <th>New Balance</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var balance in leaveBalances)
+                                        {
+                                            <tr>
+                                                <form asp-action="UpdateLeaveBalance" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="employeeId" value="@ViewBag.SelectedEmployeeId" />
+                                                    <input type="hidden" name="leaveTypeId" value="@balance.LeaveTypeId" />
+                                                    <td>
+                                                        @if (balance.LeaveType != null)
+                                                        {
+                                                            <strong>@balance.LeaveType.LeaveType</strong>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Unknown</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @(balance.Entitlement > 0 ? "bg-success" : balance.Entitlement == 0 ? "bg-warning text-dark" : "bg-danger")">
+                                                            @balance.Entitlement days
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" name="newBalance" class="form-control form-control-sm" style="width: 100px;" value="@balance.Entitlement" min="0" />
+                                                    </td>
+                                                    <td>
+                                                        <button type="submit" class="btn btn-sm btn-primary">
+                                                            <i class="bi bi-check-circle"></i> Update
+                                                        </button>
+                                                    </td>
+                                                </form>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Information</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Quick Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-calendar3 text-primary"></i> 
+                                    Default: 3 leave days per month
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-sliders text-warning"></i> 
+                                    HR can adjust balances as needed
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-check-circle text-success"></i> 
+                                    Changes take effect immediately
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-exclamation-triangle text-danger"></i> 
+                                    Be careful when setting balances
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <hr />
+                <a asp-action="HRLeaveRequests" class="btn btn-sm btn-outline-primary w-100 mb-2">
+                    <i class="bi bi-calendar-check"></i> View Leave Requests
+                </a>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-sm btn-outline-secondary w-100">
+                    <i class="bi bi-house"></i> Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

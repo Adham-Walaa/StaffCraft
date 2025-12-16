@@ -1,0 +1,125 @@
+@model IEnumerable<WebAppSystem.Models.AttendancePolicy>
+
+@{
+    ViewData["Title"] = "Short-Time Penalty Rules";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-exclamation-triangle"></i> Short-Time Penalty Rules</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Policies
+        </a>
+    </div>
+    <hr />
+</div>
+
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Database Configuration Required</h5>
+        <p><strong>@ViewBag.ErrorMessage</strong></p>
+        @if (ViewBag.SqlFile != null)
+        {
+            <p class="mb-0"><em>@ViewBag.SqlFile</em></p>
+        }
+        <hr>
+        <p class="mb-0"><strong>Steps to fix:</strong> Execute Procedures.sql (lines 12000-12100) in SQL Server Management Studio</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="alert alert-warning">
+    <i class="bi bi-info-circle"></i>
+    <strong>Short-Time Penalties:</strong> Consequences applied when employees arrive late or leave early, affecting their work hours or attendance status.
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-warning">
+            <tr>
+                <th>Policy ID</th>
+                <th>Rule Name</th>
+                <th>Description</th>
+                <th>Configuration</th>
+                <th>Effective Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.PolicyID</td>
+                        <td><strong>@item.PolicyName</strong></td>
+                        <td>@item.Description</td>
+                        <td>
+                            <code>@item.Parameters</code>
+                        </td>
+                        <td>@item.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (item.Status == "Active")
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-x-circle"></i> @item.Status
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@item.PolicyID" class="btn btn-sm btn-info" title="View Details">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No short-time penalty rules configured. Please configure rules using the database procedures.
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model != null && Model.Any())
+{
+    <div class="card mt-4">
+        <div class="card-header bg-warning">
+            <h5><i class="bi bi-lightbulb"></i> Understanding Short-Time Penalties</h5>
+        </div>
+        <div class="card-body">
+            <h6>Penalty Types:</h6>
+            <ul>
+                <li><strong>Warning:</strong> Recorded but no immediate consequence</li>
+                <li><strong>Deduction:</strong> Deduction from work hours or pay</li>
+                <li><strong>Half-Day:</strong> Considered as half-day absence</li>
+                <li><strong>Full-Day:</strong> Considered as full-day absence</li>
+                <li><strong>None:</strong> No penalty applied (monitoring only)</li>
+            </ul>
+            <h6 class="mt-3">Examples:</h6>
+            <ul>
+                <li><strong>Late 30 minutes:</strong> May result in time deduction from total work hours</li>
+                <li><strong>Early leave 45 minutes:</strong> May affect daily attendance status</li>
+                <li><strong>Combined violations:</strong> Both late arrival and early departure may escalate penalties</li>
+            </ul>
+            <p class="mt-3">
+                <strong>Note:</strong> Penalties are calculated automatically by the attendance system based on these configured rules.
+            </p>
+        </div>
+    </div>
+}

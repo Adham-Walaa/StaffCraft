@@ -1,0 +1,52 @@
+@model WebAppSystem.Models.AttendanceCorrectionRequest
+
+@{
+    ViewData["Title"] = "Submit Correction Request";
+}
+
+<h1>Submit Attendance Correction Request</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="SubmitRequest">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Date" class="control-label">Date</label>
+                <input asp-for="Date" class="form-control" type="date" />
+                <span asp-validation-for="Date" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="CorrectionType" class="control-label">Correction Type</label>
+                <select asp-for="CorrectionType" class="form-control">
+                    <option value="">-- Select Type --</option>
+                    <option value="Missing Entry Time">Missing Entry Time</option>
+                    <option value="Missing Exit Time">Missing Exit Time</option>
+                    <option value="Wrong Entry Time">Wrong Entry Time</option>
+                    <option value="Wrong Exit Time">Wrong Exit Time</option>
+                    <option value="Forgot to Clock In">Forgot to Clock In</option>
+                    <option value="Forgot to Clock Out">Forgot to Clock Out</option>
+                    <option value="Other">Other</option>
+                </select>
+                <span asp-validation-for="CorrectionType" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Reason" class="control-label">Reason</label>
+                <textarea asp-for="Reason" class="form-control" rows="4" placeholder="Please provide detailed explanation for the correction request"></textarea>
+                <span asp-validation-for="Reason" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group">
+                <input type="submit" value="Submit Request" class="btn btn-primary" />
+                <a asp-action="MyRequests" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

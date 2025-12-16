@@ -1,0 +1,53 @@
+@model WebAppSystem.Models.AttendanceCorrectionRequest
+
+@{
+    ViewData["Title"] = "Reject Correction Request";
+}
+
+<h1>Reject Attendance Correction Request</h1>
+
+<hr />
+<div class="row">
+    <div class="col-md-8">
+        <dl class="row">
+            <dt class="col-sm-4">Employee</dt>
+            <dd class="col-sm-8">@Model.Employee?.FullName</dd>
+
+            <dt class="col-sm-4">Date</dt>
+            <dd class="col-sm-8">@Html.DisplayFor(model => model.Date)</dd>
+
+            <dt class="col-sm-4">Correction Type</dt>
+            <dd class="col-sm-8">@Html.DisplayFor(model => model.CorrectionType)</dd>
+
+            <dt class="col-sm-4">Reason</dt>
+            <dd class="col-sm-8">@Html.DisplayFor(model => model.Reason)</dd>
+
+            <dt class="col-sm-4">Current Status</dt>
+            <dd class="col-sm-8">
+                @if (Model.Status == "Pending")
+                {
+                    <span class="badge bg-warning">@Model.Status</span>
+                }
+                else if (Model.Status == "Approved")
+                {
+                    <span class="badge bg-success">@Model.Status</span>
+                }
+                else
+                {
+                    <span class="badge bg-danger">@Model.Status</span>
+                }
+            </dd>
+        </dl>
+
+        <form asp-action="Reject" method="post">
+            <input type="hidden" asp-for="RequestId" />
+            <div class="alert alert-warning">
+                <strong>Are you sure you want to reject this correction request?</strong>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Reject" class="btn btn-danger" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>

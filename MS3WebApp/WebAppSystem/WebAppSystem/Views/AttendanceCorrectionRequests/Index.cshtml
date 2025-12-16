@@ -1,15 +1,21 @@
 ﻿@model IEnumerable<WebAppSystem.Models.AttendanceCorrectionRequest>
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Correction Requests";
 }
 
-<h1>Index</h1>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-pen"></i> Attendance Correction Requests</h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New
+        </a>
+    </div>
+    <hr />
+</div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<table class="table">
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
     <thead>
         <tr>
             <th>
@@ -46,7 +52,16 @@
                 @Html.DisplayFor(modelItem => item.Reason)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.Status)
+                @{
+                    var statusClass = item.Status?.ToLower() switch
+                    {
+                        "pending" => "badge bg-warning text-dark",
+                        "approved" => "badge bg-success",
+                        "rejected" => "badge bg-danger",
+                        _ => "badge bg-secondary"
+                    };
+                }
+                <span class="@statusClass">@(item.Status ?? "Unknown")</span>
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Employee.EmployeeId)
@@ -55,9 +70,24 @@
                 @Html.DisplayFor(modelItem => item.RecommendedByNavigation.EmployeeId)
             </td>
             <td>
-                <a asp-action="Edit" asp-route-id="@item.RequestId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.RequestId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.RequestId">Delete</a>
+                <div class="btn-group btn-group-sm" role="group">
+                    <a asp-action="Details" asp-route-id="@item.RequestId" class="btn btn-info" title="Details">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true || 
+                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                    {
+                        @if (item.Status != null && item.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <a asp-action="Approve" asp-route-id="@item.RequestId" class="btn btn-success" title="Approve">
+                                <i class="bi bi-check-circle"></i>
+                            </a>
+                            <a asp-action="Reject" asp-route-id="@item.RequestId" class="btn btn-danger" title="Reject">
+                                <i class="bi bi-x-circle"></i>
+                            </a>
+                        }
+                    }
+                </div>
             </td>
         </tr>
 }

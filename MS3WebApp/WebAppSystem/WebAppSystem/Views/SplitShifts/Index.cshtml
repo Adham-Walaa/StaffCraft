@@ -1,0 +1,80 @@
+@model IEnumerable<WebAppSystem.Models.SplitShiftConfiguration>
+
+@{
+    ViewData["Title"] = "Split Shift Configurations";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-clock-history"></i> Split Shift Configurations</h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New Split Shift
+        </a>
+    </div>
+    <hr />
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead>
+            <tr>
+                <th>Shift Name</th>
+                <th>First Slot</th>
+                <th>Second Slot</th>
+                <th>Total Hours</th>
+                <th>Break Duration</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+@foreach (var item in Model) {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.ShiftName)</td>
+                <td>@item.FirstSlotStart - @item.FirstSlotEnd</td>
+                <td>@item.SecondSlotStart - @item.SecondSlotEnd</td>
+                <td>@Html.DisplayFor(modelItem => item.TotalHours) hrs</td>
+                <td>@Html.DisplayFor(modelItem => item.BreakDurationMinutes) min</td>
+                <td>
+                    @if (item.IsActive == true)
+                    {
+                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inactive</span>
+                    }
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a asp-action="Details" asp-route-id="@item.ConfigId" class="btn btn-info" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@item.ConfigId" class="btn btn-warning" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@item.ConfigId" class="btn btn-danger" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+}
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No split shifts configured. <a asp-action="Create" class="alert-link">Create the first split shift</a>
+    </div>
+}

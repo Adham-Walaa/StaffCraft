@@ -29,13 +29,19 @@
             @Html.DisplayFor(model => model.Reason)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Status)
+            Current Status
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Status)
+            <strong>@(Model.Status ?? "Pending")</strong>
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Employee)
+            Employee Name
+        </dt>
+        <dd class = "col-sm-10">
+            @(Model.Employee?.FullName ?? Model.Employee?.FirstName + " " + Model.Employee?.LastName ?? "N/A")
+        </dd>
+        <dt class = "col-sm-2">
+            Employee ID
         </dt>
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Employee.EmployeeId)

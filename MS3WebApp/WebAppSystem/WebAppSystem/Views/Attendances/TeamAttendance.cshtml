@@ -1,0 +1,79 @@
+@model IEnumerable<WebAppSystem.Models.AttendanceSummaryViewModel>
+
+@{
+    ViewData["Title"] = "Team Attendance Summary";
+    var teamAttendances = ViewData["TeamAttendances"] as IEnumerable<WebAppSystem.Models.Attendance>;
+}
+
+<h1>Team Attendance Summary</h1>
+
+<hr />
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<h3>Summary by Employee</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Employee ID</th>
+            <th>Employee Name</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>@item.EmployeeId</td>
+            <td>@item.EmployeeName</td>
+            <td><span class="badge bg-success">@item.Status</span></td>
+            <td>
+                <a asp-controller="Employees" asp-action="Details" asp-route-id="@item.EmployeeId" class="btn btn-sm btn-info">View Profile</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>
+
+<hr />
+
+<h3>Detailed Attendance Records</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Employee</th>
+            <th>Entry Time</th>
+            <th>Exit Time</th>
+            <th>Duration (minutes)</th>
+            <th>Login Method</th>
+            <th>Logout Method</th>
+            <th>Exception</th>
+        </tr>
+    </thead>
+    <tbody>
+@if (teamAttendances != null)
+{
+    foreach (var item in teamAttendances) {
+        <tr>
+            <td>@item.Employee?.FullName</td>
+            <td>@Html.DisplayFor(modelItem => item.EntryTime)</td>
+            <td>@Html.DisplayFor(modelItem => item.ExitTime)</td>
+            <td>@Html.DisplayFor(modelItem => item.Duration)</td>
+            <td>@Html.DisplayFor(modelItem => item.LoginMethod)</td>
+            <td>@Html.DisplayFor(modelItem => item.LogoutMethod)</td>
+            <td>@(item.Exception?.Name ?? "None")</td>
+        </tr>
+    }
+}
+    </tbody>
+</table>
+
+<div>
+    <a asp-controller="Employees" asp-action="MyTeam" class="btn btn-secondary">Back to My Team</a>
+</div>

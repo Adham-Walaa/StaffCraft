@@ -576,6 +576,15 @@ CREATE TABLE ManagerNotes
     note_content text,
     created_at datetime
 );
+CREATE TABLE AttendancePolicy (
+    PolicyID INT PRIMARY KEY IDENTITY(1,1),
+    policy_name VARCHAR(100) NOT NULL,
+    policy_type VARCHAR(50) NOT NULL,
+    description VARCHAR(500),
+    parameters VARCHAR(1000),
+    effective_date DATETIME NOT NULL DEFAULT GETDATE(),
+    status VARCHAR(20) NOT NULL DEFAULT 'Active'
+);
 
 -- ========================================
 -- FOREIGN KEY CONSTRAINTS

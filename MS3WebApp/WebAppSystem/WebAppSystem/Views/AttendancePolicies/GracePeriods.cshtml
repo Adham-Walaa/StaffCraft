@@ -1,0 +1,114 @@
+@model IEnumerable<WebAppSystem.Models.AttendancePolicy>
+
+@{
+    ViewData["Title"] = "Grace Period Settings";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-clock-history"></i> Grace Period Settings</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Policies
+        </a>
+    </div>
+    <hr />
+</div>
+
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Database Configuration Required</h5>
+        <p><strong>@ViewBag.ErrorMessage</strong></p>
+        @if (ViewBag.SqlFile != null)
+        {
+            <p class="mb-0"><em>@ViewBag.SqlFile</em></p>
+        }
+        <hr>
+        <p class="mb-0"><strong>Steps to fix:</strong> Execute Procedures.sql (lines 12000-12100) in SQL Server Management Studio</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>Grace Period:</strong> A buffer time that allows employees to arrive after their scheduled start time without being marked as late or penalized.
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-primary">
+            <tr>
+                <th>Policy ID</th>
+                <th>Policy Name</th>
+                <th>Description</th>
+                <th>Configuration</th>
+                <th>Effective Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.PolicyID</td>
+                        <td><strong>@item.PolicyName</strong></td>
+                        <td>@item.Description</td>
+                        <td>
+                            <code>@item.Parameters</code>
+                        </td>
+                        <td>@item.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (item.Status == "Active")
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-x-circle"></i> @item.Status
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@item.PolicyID" class="btn btn-sm btn-info" title="View Details">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No grace period settings configured. Please configure grace periods using the database procedures.
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model != null && Model.Any())
+{
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            <h5><i class="bi bi-lightbulb"></i> How Grace Periods Work</h5>
+        </div>
+        <div class="card-body">
+            <ul>
+                <li><strong>Purpose:</strong> Allows employees flexibility in arrival times without immediate penalties</li>
+                <li><strong>Example:</strong> If grace period is 15 minutes and shift starts at 09:00, arriving at 09:12 is not considered late</li>
+                <li><strong>Application:</strong> Automatically applied when recording attendance</li>
+                <li><strong>Configuration:</strong> Contact System Administrator to modify grace period settings</li>
+            </ul>
+        </div>
+    </div>
+}

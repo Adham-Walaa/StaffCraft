@@ -21,7 +21,7 @@ CREATE TABLE Employee
     country_of_birth varchar(50),
     phone varchar(15),
     email varchar(100),
-    password_hash varchar(255),
+    password_hash varchar(255) NULL,
     address varchar(200),
     emergency_contact_name varchar(100),
     emergency_contact_phone varchar(15),
@@ -282,7 +282,8 @@ CREATE TABLE LeaveEntitlement
 (
     employee_id int,
     leave_type_id int,
-    entitlement int
+    entitlement int,
+    PRIMARY KEY (employee_id, leave_type_id)
 );
 
 CREATE TABLE LeaveDocument
@@ -576,6 +577,28 @@ CREATE TABLE ManagerNotes
     note_content text,
     created_at datetime
 );
+CREATE TABLE AttendancePolicy (
+    PolicyID INT PRIMARY KEY IDENTITY(1,1),
+    policy_name VARCHAR(100) NOT NULL,
+    policy_type VARCHAR(50) NOT NULL,
+    description VARCHAR(500),
+    parameters VARCHAR(1000),
+    effective_date DATETIME NOT NULL DEFAULT GETDATE(),
+    status VARCHAR(20) NOT NULL DEFAULT 'Active'
+);
+
+-- ========================================
+-- INITIAL DATA - LEAVE TYPES
+-- ========================================
+
+-- Insert default leave types
+INSERT INTO Leave (LeaveID, leave_type, leave_description) VALUES
+(1, 'Sick leave', 'Leave for medical reasons and illness'),
+(2, 'Bereavement leave', 'Leave for mourning the death of a family member'),
+(3, 'Parental leave', 'Leave for new parents to care for their newborn or newly adopted child'),
+(4, 'Jury duty', 'Leave for employees called to serve on a jury'),
+(5, 'Holidays', 'Paid time off for public holidays and vacations'),
+(6, 'Unpaid leave', 'Leave without pay for personal reasons');
 
 -- ========================================
 -- FOREIGN KEY CONSTRAINTS

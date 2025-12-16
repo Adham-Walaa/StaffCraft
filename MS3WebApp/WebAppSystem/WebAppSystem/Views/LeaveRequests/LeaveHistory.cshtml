@@ -1,0 +1,152 @@
+@model IEnumerable<WebAppSystem.Models.LeaveRequest>
+
+@{
+    ViewData["Title"] = "My Leave History";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-clock-history"></i> My Leave History</h1>
+        <div>
+            <a asp-action="LeaveBalance" class="btn btn-outline-primary">
+                <i class="bi bi-calendar3"></i> View Leave Balance
+            </a>
+            <a asp-action="SubmitLeaveRequest" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Submit New Request
+            </a>
+        </div>
+    </div>
+    <hr />
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> You haven't submitted any leave requests yet.
+    </div>
+    <a asp-action="SubmitLeaveRequest" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Submit Your First Leave Request
+    </a>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Request ID</th>
+                    <th>Leave Type</th>
+                    <th>Duration (Days)</th>
+                    <th>Justification</th>
+                    <th>Submitted Date</th>
+                    <th>Approval Date</th>
+                    <th>Status</th>
+                    <th>Attachments</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+@foreach (var item in Model) {
+                <tr>
+                    <td>@item.RequestId</td>
+                    <td>
+                        @if (item.Leave != null)
+                        {
+                            <span class="badge bg-primary">@item.Leave.LeaveType</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">N/A</span>
+                        }
+                    </td>
+                    <td>@item.Duration</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(item.Justification))
+                        {
+                            if (item.Justification.Length > 40)
+                            {
+                                @item.Justification.Substring(0, 40)<text>...</text>
+                            }
+                            else
+                            {
+                                @item.Justification
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">N/A</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.Status == "Pending")
+                        {
+                            <small class="text-muted">Recently submitted</small>
+                        }
+                        else if (item.ApprovalTiming.HasValue)
+                        {
+                            @item.ApprovalTiming.Value.ToString("MMM dd, yyyy")
+                        }
+                        else
+                        {
+                            <small class="text-muted">N/A</small>
+                        }
+                    </td>
+                    <td>
+                        @if (item.ApprovalTiming.HasValue)
+                        {
+                            @item.ApprovalTiming.Value.ToString("MMM dd, yyyy")
+                        }
+                        else
+                        {
+                            <span class="text-muted">Pending</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.Status == "Approved")
+                        {
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Approved
+                            </span>
+                        }
+                        else if (item.Status == "Rejected")
+                        {
+                            <span class="badge bg-danger">
+                                <i class="bi bi-x-circle"></i> Rejected
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-clock"></i> Pending
+                            </span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.LeaveDocuments != null && item.LeaveDocuments.Any())
+                        {
+                            <span class="badge bg-info">
+                                <i class="bi bi-paperclip"></i> @item.LeaveDocuments.Count
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">None</span>
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.RequestId" class="btn btn-sm btn-info" title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+}
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="mt-3">
+    <a asp-controller="Home" asp-action="Index" class="btn btn-secondary">
+        <i class="bi bi-house"></i> Back to Home
+    </a>
+</div>

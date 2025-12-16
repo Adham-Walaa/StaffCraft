@@ -20,27 +20,40 @@
             </div>
             <div class="form-group">
                 <label asp-for="EntryTime" class="control-label"></label>
-                <input asp-for="EntryTime" class="form-control" />
+                <input asp-for="EntryTime" type="time" class="form-control" />
                 <span asp-validation-for="EntryTime" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="ExitTime" class="control-label"></label>
-                <input asp-for="ExitTime" class="form-control" />
+                <input asp-for="ExitTime" type="time" class="form-control" />
                 <span asp-validation-for="ExitTime" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Duration" class="control-label"></label>
-                <input asp-for="Duration" class="form-control" />
+                <input asp-for="Duration" type="number" class="form-control" readonly />
                 <span asp-validation-for="Duration" class="text-danger"></span>
+                <small class="form-text text-muted">Duration in minutes (auto-calculated)</small>
             </div>
             <div class="form-group">
                 <label asp-for="LoginMethod" class="control-label"></label>
-                <input asp-for="LoginMethod" class="form-control" />
+                <select asp-for="LoginMethod" class="form-control">
+                    <option value="">-- Select Method --</option>
+                    <option value="Web Portal">Web Portal</option>
+                    <option value="Mobile App">Mobile App</option>
+                    <option value="Biometric">Biometric</option>
+                    <option value="Manual">Manual</option>
+                </select>
                 <span asp-validation-for="LoginMethod" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="LogoutMethod" class="control-label"></label>
-                <input asp-for="LogoutMethod" class="form-control" />
+                <select asp-for="LogoutMethod" class="form-control">
+                    <option value="">-- Select Method --</option>
+                    <option value="Web Portal">Web Portal</option>
+                    <option value="Mobile App">Mobile App</option>
+                    <option value="Biometric">Biometric</option>
+                    <option value="Manual">Manual</option>
+                </select>
                 <span asp-validation-for="LogoutMethod" class="text-danger"></span>
             </div>
             <div class="form-group">

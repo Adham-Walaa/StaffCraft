@@ -220,13 +220,24 @@ namespace WebAppSystem.Controllers
             {
                 return NotFound();
             }
-            ViewData["ContractId"] = new SelectList(_context.Contracts, "ContractId", "ContractId", employee.ContractId);
-            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentId", employee.DepartmentId);
-            ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "EmployeeId", employee.ManagerId);
-            ViewData["PaygradeId"] = new SelectList(_context.PayGrades, "PayGradeId", "PayGradeId", employee.PaygradeId);
-            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionId", employee.PositionId);
-            ViewData["SalaryTypeId"] = new SelectList(_context.SalaryTypes, "SalaryTypeId", "SalaryTypeId", employee.SalaryTypeId);
-            ViewData["TaxformId"] = new SelectList(_context.TaxForms, "TaxFormId", "TaxFormId", employee.TaxformId);
+            
+            // Dropdowns with names instead of IDs
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", employee.DepartmentId);
+            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionTitle", employee.PositionId);
+            ViewData["PaygradeId"] = new SelectList(_context.PayGrades, "PayGradeId", "GradeName", employee.PaygradeId);
+            ViewData["TaxformId"] = new SelectList(_context.TaxForms, "TaxFormId", "Jurisdiction", employee.TaxformId);
+            ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", employee.ManagerId);
+            ViewData["SalaryTypeId"] = new SelectList(_context.SalaryTypes, "SalaryTypeId", "Type", employee.SalaryTypeId);
+            
+            // Dropdown values for status fields
+            ViewData["EmploymentProgress"] = new SelectList(new[] { "Onboarding", "Probation", "Active", "Notice Period" }, employee.EmploymentProgress);
+            ViewData["AccountStatus"] = new SelectList(new[] { "ACTIVE", "INACTIVE", "SUSPENDED", "PENDING" }, employee.AccountStatus);
+            ViewData["EmploymentStatus"] = new SelectList(new[] { "Active", "On Leave", "Terminated", "Resigned" }, employee.EmploymentStatus);
+            ViewData["IsActive"] = new SelectList(new[] { 
+                new { Value = true, Text = "Yes" }, 
+                new { Value = false, Text = "No" } 
+            }, "Value", "Text", employee.IsActive);
+            
             return View(employee);
         }
 
@@ -235,7 +246,7 @@ namespace WebAppSystem.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId,ContractId,ProfileCompletionPercentage")] Employee employee)
+        public async Task<IActionResult> Edit(int id, [Bind("EmployeeId,FirstName,LastName,FullName,NationalId,DateOfBirth,CountryOfBirth,Phone,Email,Address,EmergencyContactName,EmergencyContactPhone,Relationship,Biography,EmploymentProgress,AccountStatus,EmploymentStatus,HireDate,IsActive,DepartmentId,PositionId,PaygradeId,TaxformId,ManagerId,SalaryTypeId")] Employee employee)
         {
             // Check if user is HR Administrator
             var userRoles = HttpContext.Session.GetString("UserRoles");
@@ -270,13 +281,23 @@ namespace WebAppSystem.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ContractId"] = new SelectList(_context.Contracts, "ContractId", "ContractId", employee.ContractId);
-            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentId", employee.DepartmentId);
-            ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "EmployeeId", employee.ManagerId);
-            ViewData["PaygradeId"] = new SelectList(_context.PayGrades, "PayGradeId", "PayGradeId", employee.PaygradeId);
-            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionId", employee.PositionId);
-            ViewData["SalaryTypeId"] = new SelectList(_context.SalaryTypes, "SalaryTypeId", "SalaryTypeId", employee.SalaryTypeId);
-            ViewData["TaxformId"] = new SelectList(_context.TaxForms, "TaxFormId", "TaxFormId", employee.TaxformId);
+            // Dropdowns with names instead of IDs
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "DepartmentId", "DepartmentName", employee.DepartmentId);
+            ViewData["PositionId"] = new SelectList(_context.Positions, "PositionId", "PositionTitle", employee.PositionId);
+            ViewData["PaygradeId"] = new SelectList(_context.PayGrades, "PayGradeId", "GradeName", employee.PaygradeId);
+            ViewData["TaxformId"] = new SelectList(_context.TaxForms, "TaxFormId", "Jurisdiction", employee.TaxformId);
+            ViewData["ManagerId"] = new SelectList(_context.Employees, "EmployeeId", "FullName", employee.ManagerId);
+            ViewData["SalaryTypeId"] = new SelectList(_context.SalaryTypes, "SalaryTypeId", "Type", employee.SalaryTypeId);
+            
+            // Dropdown values for status fields
+            ViewData["EmploymentProgress"] = new SelectList(new[] { "Onboarding", "Probation", "Active", "Notice Period" }, employee.EmploymentProgress);
+            ViewData["AccountStatus"] = new SelectList(new[] { "ACTIVE", "INACTIVE", "SUSPENDED", "PENDING" }, employee.AccountStatus);
+            ViewData["EmploymentStatus"] = new SelectList(new[] { "Active", "On Leave", "Terminated", "Resigned" }, employee.EmploymentStatus);
+            ViewData["IsActive"] = new SelectList(new[] { 
+                new { Value = true, Text = "Yes" }, 
+                new { Value = false, Text = "No" } 
+            }, "Value", "Text", employee.IsActive);
+            
             return View(employee);
         }
 

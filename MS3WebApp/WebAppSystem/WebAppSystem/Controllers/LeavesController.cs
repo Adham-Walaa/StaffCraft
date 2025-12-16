@@ -21,6 +21,13 @@ namespace WebAppSystem.Controllers
         // GET: Leaves
         public async Task<IActionResult> Index()
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Only HR Administrators can manage leave types.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             return View(await _context.Leaves.ToListAsync());
         }
 
@@ -45,6 +52,13 @@ namespace WebAppSystem.Controllers
         // GET: Leaves/Create
         public IActionResult Create()
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             return View();
         }
 
@@ -55,10 +69,18 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("LeaveId,LeaveType,LeaveDescription")] Leave leave)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             if (ModelState.IsValid)
             {
                 _context.Add(leave);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Leave type created successfully!";
                 return RedirectToAction(nameof(Index));
             }
             return View(leave);
@@ -67,6 +89,13 @@ namespace WebAppSystem.Controllers
         // GET: Leaves/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             if (id == null)
             {
                 return NotFound();
@@ -87,6 +116,13 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("LeaveId,LeaveType,LeaveDescription")] Leave leave)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             if (id != leave.LeaveId)
             {
                 return NotFound();
@@ -98,6 +134,7 @@ namespace WebAppSystem.Controllers
                 {
                     _context.Update(leave);
                     await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Leave type updated successfully!";
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -118,6 +155,13 @@ namespace WebAppSystem.Controllers
         // GET: Leaves/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             if (id == null)
             {
                 return NotFound();
@@ -138,6 +182,13 @@ namespace WebAppSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || !userRoles.Contains("HR Administrator"))
+            {
+                TempData["ErrorMessage"] = "Access denied.";
+                return RedirectToAction("Index", "Home");
+            }
+            
             var leave = await _context.Leaves.FindAsync(id);
             if (leave != null)
             {
@@ -145,6 +196,7 @@ namespace WebAppSystem.Controllers
             }
 
             await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Leave type deleted successfully!";
             return RedirectToAction(nameof(Index));
         }
 

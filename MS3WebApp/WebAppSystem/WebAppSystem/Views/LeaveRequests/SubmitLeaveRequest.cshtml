@@ -1,0 +1,96 @@
+@model WebAppSystem.Models.LeaveRequest
+
+@{
+    ViewData["Title"] = "Submit Leave Request";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-calendar-plus"></i> Submit Leave Request</h1>
+    </div>
+    <hr />
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="SubmitLeaveRequest" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="LeaveId" class="form-label">Leave Type</label>
+                        <select asp-for="LeaveId" class="form-select" asp-items="ViewBag.LeaveId">
+                            <option value="">-- Select Leave Type --</option>
+                        </select>
+                        <span asp-validation-for="LeaveId" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Duration" class="form-label">Duration (days)</label>
+                        <input asp-for="Duration" class="form-control" type="number" min="1" max="365" placeholder="Enter number of days" />
+                        <span asp-validation-for="Duration" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Justification" class="form-label">Justification</label>
+                        <textarea asp-for="Justification" class="form-control" rows="4" placeholder="Please provide a reason for your leave request"></textarea>
+                        <span asp-validation-for="Justification" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="attachment" class="form-label">
+                            Attachment (Optional)
+                            <small class="text-muted">- Medical certificate, supporting documents, etc.</small>
+                        </label>
+                        <input type="file" class="form-control" id="attachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+                        <div class="form-text">Accepted formats: PDF, JPG, PNG, DOC, DOCX (Max 10MB)</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a asp-action="LeaveHistory" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Submit Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Information</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i> 
+                        Your request will be sent to HR for approval
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-clock text-warning"></i> 
+                        You will be notified once your request is processed
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-calendar-check text-info"></i> 
+                        Check your leave balance before submitting
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-file-earmark text-primary"></i> 
+                        Attach supporting documents if required
+                    </li>
+                </ul>
+                <hr />
+                <a asp-action="LeaveBalance" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="bi bi-calendar3"></i> View My Leave Balance
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

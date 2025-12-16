@@ -1,0 +1,157 @@
+@model IEnumerable<WebAppSystem.Models.AttendancePolicy>
+
+@{
+    ViewData["Title"] = "Attendance Policies & Time Rules";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-shield-check"></i> Attendance Policies & Time Rules</h1>
+    </div>
+    <hr />
+</div>
+
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Database Configuration Required</h5>
+        <p><strong>@ViewBag.ErrorMessage</strong></p>
+        @if (ViewBag.SqlFile != null)
+        {
+            <p class="mb-0"><em>@ViewBag.SqlFile</em></p>
+        }
+        <hr>
+        <p class="mb-0"><strong>Steps to fix:</strong></p>
+        <ol class="mb-0">
+            <li>Open SQL Server Management Studio</li>
+            <li>Connect to your database server</li>
+            <li>Open the Procedures.sql file from the project root directory</li>
+            <li>Execute lines 12000-12100 which contain the attendance policy stored procedures</li>
+            <li>Refresh this page</li>
+        </ol>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-clock-history" style="font-size: 3rem; color: #0d6efd;"></i>
+                <h5 class="card-title mt-3">Grace Periods</h5>
+                <p class="card-text">View grace period configurations for late arrivals</p>
+                <a asp-action="GracePeriods" class="btn btn-primary">
+                    <i class="bi bi-eye"></i> View Grace Periods
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #ffc107;"></i>
+                <h5 class="card-title mt-3">Short-Time Penalties</h5>
+                <p class="card-text">View penalty rules for tardiness and early departures</p>
+                <a asp-action="ShortTimeRules" class="btn btn-warning">
+                    <i class="bi bi-eye"></i> View Short-Time Rules
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-x" style="font-size: 3rem; color: #dc3545;"></i>
+                <h5 class="card-title mt-3">Penalty Thresholds</h5>
+                <p class="card-text">View penalty thresholds and escalation rules</p>
+                <a asp-action="PenaltyThresholds" class="btn btn-danger">
+                    <i class="bi bi-eye"></i> View Penalty Thresholds
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-4">
+    <h3><i class="bi bi-list-check"></i> All Active Policies</h3>
+    <hr />
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Policy ID</th>
+                <th>Policy Name</th>
+                <th>Policy Type</th>
+                <th>Description</th>
+                <th>Effective Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.PolicyID</td>
+                        <td>@item.PolicyName</td>
+                        <td>
+                            @if (item.PolicyType == "Grace Period")
+                            {
+                                <span class="badge bg-primary">@item.PolicyType</span>
+                            }
+                            else if (item.PolicyType == "Short Time")
+                            {
+                                <span class="badge bg-warning text-dark">@item.PolicyType</span>
+                            }
+                            else if (item.PolicyType == "Penalty Threshold")
+                            {
+                                <span class="badge bg-danger">@item.PolicyType</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">@item.PolicyType</span>
+                            }
+                        </td>
+                        <td>@item.Description</td>
+                        <td>@item.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (item.Status == "Active")
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-x-circle"></i> @item.Status
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@item.PolicyID" class="btn btn-sm btn-info" title="View Details">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No attendance policies configured yet.
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

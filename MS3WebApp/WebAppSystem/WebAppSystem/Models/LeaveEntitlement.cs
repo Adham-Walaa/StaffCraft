@@ -5,9 +5,9 @@ namespace WebAppSystem.Models;
 
 public partial class LeaveEntitlement
 {
-    public int? EmployeeId { get; set; }
+    public int EmployeeId { get; set; }
 
-    public int? LeaveTypeId { get; set; }
+    public int LeaveTypeId { get; set; }
 
     public int? Entitlement { get; set; }
 

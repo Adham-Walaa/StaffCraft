@@ -1,72 +1,130 @@
 ﻿@model WebAppSystem.Models.ShiftSchedule
 
 @{
-    ViewData["Title"] = "Create";
+    ViewData["Title"] = "Create Shift Schedule";
 }
 
-<h1>Create</h1>
+<h1>Create Shift Schedule</h1>
 
-<h4>ShiftSchedule</h4>
+<h4>Assign Shift to Employee</h4>
 <hr />
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-6">
         <form asp-action="Create">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            
             <div class="form-group">
-                <label asp-for="ShiftId" class="control-label"></label>
-                <input asp-for="ShiftId" class="form-control" />
-                <span asp-validation-for="ShiftId" class="text-danger"></span>
+                <label asp-for="EmployeeId" class="control-label">Employee</label>
+                <select asp-for="EmployeeId" class="form-control" asp-items="ViewBag.EmployeeId">
+                    <option value="">-- Select Employee --</option>
+                </select>
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="EmployeeId" class="control-label"></label>
-                <select asp-for="EmployeeId" class ="form-control" asp-items="ViewBag.EmployeeId"></select>
+                <label class="control-label">Shift Template (Optional)</label>
+                <select id="shiftTemplateSelect" class="form-control">
+                    <option value="">-- Select Template to Auto-fill --</option>
+                    @if (ViewData["ShiftTemplates"] != null)
+                    {
+                        @foreach (var template in (IEnumerable<dynamic>)ViewData["ShiftTemplates"])
+                        {
+                            <option value="@template.ShiftId" 
+                                    data-shiftname="@template.ShiftName" 
+                                    data-shifttype="@template.ShiftType"
+                                    data-starttime="@template.StartTime"
+                                    data-endtime="@template.EndTime">
+                                @template.ShiftName (@template.ShiftType)
+                            </option>
+                        }
+                    }
+                </select>
             </div>
-            <div class="form-group">
-                <label asp-for="StartDate" class="control-label"></label>
-                <input asp-for="StartDate" class="form-control" />
-                <span asp-validation-for="StartDate" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="EndDate" class="control-label"></label>
-                <input asp-for="EndDate" class="form-control" />
-                <span asp-validation-for="EndDate" class="text-danger"></span>
-            </div>
+
             <div class="form-group">
                 <label asp-for="Status" class="control-label"></label>
-                <input asp-for="Status" class="form-control" />
+                <select asp-for="Status" class="form-control">
+                    <option value="Active" selected>Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Template">Template</option>
+                    <option value="Expired">Expired</option>
+                </select>
                 <span asp-validation-for="Status" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="ShiftName" class="control-label"></label>
-                <input asp-for="ShiftName" class="form-control" />
+                <label asp-for="ShiftName" class="control-label">Shift Name</label>
+                <select asp-for="ShiftName" class="form-control" id="shiftNameSelect">
+                    <option value="">-- Select Shift Name --</option>
+                    @if (ViewData["ShiftNames"] != null)
+                    {
+                        @foreach (var name in (IEnumerable<string>)ViewData["ShiftNames"])
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    }
+                </select>
                 <span asp-validation-for="ShiftName" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="ShiftType" class="control-label"></label>
-                <input asp-for="ShiftType" class="form-control" />
+                <label asp-for="ShiftType" class="control-label">Shift Type</label>
+                <select asp-for="ShiftType" class="form-control" id="shiftTypeSelect">
+                    <option value="">-- Select Shift Type --</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Rotational">Rotational</option>
+                    <option value="Custom">Custom</option>
+                    <option value="Special">Special</option>
+                    <option value="Night">Night</option>
+                    <option value="Split">Split</option>
+                </select>
                 <span asp-validation-for="ShiftType" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="StartTime" class="control-label"></label>
-                <input asp-for="StartTime" class="form-control" />
+                <label asp-for="StartTime" class="control-label">Start Time</label>
+                <input asp-for="StartTime" type="time" class="form-control" id="startTimeInput" />
                 <span asp-validation-for="StartTime" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="EndTime" class="control-label"></label>
-                <input asp-for="EndTime" class="form-control" />
+                <label asp-for="EndTime" class="control-label">End Time</label>
+                <input asp-for="EndTime" type="time" class="form-control" id="endTimeInput" />
                 <span asp-validation-for="EndTime" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <input type="submit" value="Create" class="btn btn-primary" />
+                <label asp-for="StartDate" class="control-label">Start Date</label>
+                <input asp-for="StartDate" type="date" class="form-control" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="EndDate" class="control-label">End Date</label>
+                <input asp-for="EndDate" type="date" class="form-control" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Create Shift Schedule" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
-
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Auto-populate fields when template is selected
+        document.getElementById('shiftTemplateSelect').addEventListener('change', function() {
+            var selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                document.getElementById('shiftNameSelect').value = selectedOption.getAttribute('data-shiftname') || '';
+                document.getElementById('shiftTypeSelect').value = selectedOption.getAttribute('data-shifttype') || '';
+                document.getElementById('startTimeInput').value = selectedOption.getAttribute('data-starttime') || '';
+                document.getElementById('endTimeInput').value = selectedOption.getAttribute('data-endtime') || '';
+            }
+        });
+    </script>
 }

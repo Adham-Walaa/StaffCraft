@@ -59,6 +59,9 @@
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Employees" asp-action="MyTeam">My Team</a></li>
                                         <li><a class="dropdown-item" asp-controller="Employees" asp-action="AssignTeamMember">Assign Team Member</a></li>
+                                        <li><a class="dropdown-item" asp-controller="LeaveRequests" asp-action="ManagerLeaveRequests">
+                                            <i class="bi bi-calendar-check"></i> Team Leave Requests
+                                        </a></li>
                                     }
                                 </ul>
                             </li>
@@ -77,40 +80,72 @@
                                     }
                                 </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Notifications" asp-action="Index">
-                                    <i class="bi bi-bell"></i> Notifications
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-calendar-check"></i> Attendance
                                 </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Analytics" asp-action="ViewTables">
-                                    <i class="bi bi-table"></i> View Tables
-                                </a>
-                            </li>
-                            @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true || 
-                                 Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
-                            {
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" id="analyticsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-graph-up"></i> Analytics
-                                    </a>
-                                    <ul class="dropdown-menu" aria-labelledby="analyticsDropdown">
-                                        <li><a class="dropdown-item" asp-controller="Analytics" asp-action="Index">Analytics Dashboard</a></li>
+                                <ul class="dropdown-menu" aria-labelledby="attendanceDropdown">
+                                    <li><a class="dropdown-item" asp-controller="Attendances" asp-action="MyAttendance">My Attendance</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Attendances" asp-action="RecordAttendance">Record Attendance</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="MyRequests">My Correction Requests</a></li>
+                                    <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="SubmitRequest">Submit Correction</a></li>
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    {
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" asp-controller="Analytics" asp-action="DepartmentStatistics">Department Statistics</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Analytics" asp-action="ComplianceReport">Compliance Report</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Analytics" asp-action="DiversityReport">Diversity Report</a></li>
-                                    </ul>
-                                </li>
-                            }
-                            @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Hierarchy" asp-action="Index">
-                                        <i class="bi bi-diagram-3"></i> Hierarchy
-                                    </a>
-                                </li>
-                            }
+                                        <li><a class="dropdown-item" asp-controller="Attendances" asp-action="TeamAttendance">Team Attendance</a></li>
+                                    }
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true ||
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="Attendances" asp-action="Index">All Attendance Records</a></li>
+                                        <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="Index">All Correction Requests</a></li>
+                                    }
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true ||
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">Policies & Rules</h6></li>
+                                        <li><a class="dropdown-item" asp-controller="AttendancePolicies" asp-action="Index">
+                                            <i class="bi bi-shield-check"></i> View Time Rules & Penalties
+                                        </a></li>
+                                    }
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="Attendances" asp-action="SyncLeaves">Sync Leaves</a></li>
+                                    }
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="shiftDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-clock"></i> Shifts
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="shiftDropdown">
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="CreateShiftType">Create Shift Type</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                    }
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="AssignToEmployee">Assign to Employee</a></li>
+                                        <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="AssignToDepartment">Assign to Department</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                    }
+                                    <li><a class="dropdown-item" asp-controller="ShiftSchedules" asp-action="Index">All Shift Schedules</a></li>
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true)
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="SplitShifts" asp-action="Index">Split Shifts</a></li>
+                                        <li><a class="dropdown-item" asp-controller="RotationalShifts" asp-action="Index">Rotational Shifts</a></li>
+                                    }
+                                </ul>
+                            </li>
                         }
                     </ul>
                     <ul class="navbar-nav">
@@ -122,6 +157,9 @@
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li><a class="dropdown-item" asp-controller="Employees" asp-action="MyProfile">My Profile</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-controller="LeaveRequests" asp-action="LeaveHistory"><i class="bi bi-clock-history"></i> Leave History</a></li>
+                                    <li><a class="dropdown-item" asp-controller="LeaveRequests" asp-action="LeaveBalance"><i class="bi bi-calendar3"></i> Leave Balance</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout">Logout</a></li>
                                 </ul>

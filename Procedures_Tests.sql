@@ -8687,11 +8687,6 @@ END CATCH;
 
 GO
 
-
-
---OTHER TESTS GO HERE
--------------------------------------------------
-
 /***** 19) Test RecordMultiplePunches *****/
 PRINT '========================================';
 PRINT 'TEST 19: RecordMultiplePunches';

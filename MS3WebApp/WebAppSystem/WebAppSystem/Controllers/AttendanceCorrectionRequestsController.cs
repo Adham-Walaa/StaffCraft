@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using WebAppSystem.Models;
+using System.Linq;
 
 namespace WebAppSystem.Controllers
 {
@@ -164,6 +165,193 @@ namespace WebAppSystem.Controllers
         private bool AttendanceCorrectionRequestExists(int id)
         {
             return _context.AttendanceCorrectionRequests.Any(e => e.RequestId == id);
+        }
+
+        // GET: AttendanceCorrectionRequests/MyRequests
+        // Employee views their own correction requests
+        public async Task<IActionResult> MyRequests()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var requests = await _context.AttendanceCorrectionRequests
+                .Include(a => a.Employee)
+                .Include(a => a.RecommendedByNavigation)
+                .Where(a => a.EmployeeId == userId)
+                .OrderByDescending(a => a.RequestId)
+                .ToListAsync();
+
+            return View(requests);
+        }
+
+        // GET: AttendanceCorrectionRequests/SubmitRequest
+        // Employee submits a new correction request
+        public IActionResult SubmitRequest()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            ViewData["EmployeeId"] = userId;
+            return View();
+        }
+
+        // POST: AttendanceCorrectionRequests/SubmitRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SubmitRequest([Bind("Date,CorrectionType,Reason")] AttendanceCorrectionRequest attendanceCorrectionRequest)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            attendanceCorrectionRequest.EmployeeId = userId.Value;
+            attendanceCorrectionRequest.Status = "Pending";
+
+            ModelState.Clear();
+            if (TryValidateModel(attendanceCorrectionRequest))
+            {
+                // Generate RequestId for non-identity column
+                var maxId = await _context.AttendanceCorrectionRequests.AnyAsync() 
+                    ? await _context.AttendanceCorrectionRequests.MaxAsync(x => x.RequestId) 
+                    : 0;
+                attendanceCorrectionRequest.RequestId = maxId + 1;
+                
+                _context.Add(attendanceCorrectionRequest);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Attendance correction request submitted successfully!";
+                return RedirectToAction(nameof(MyRequests));
+            }
+
+            ViewData["EmployeeId"] = userId;
+            return View(attendanceCorrectionRequest);
+        }
+
+        // GET: AttendanceCorrectionRequests/Approve/5
+        // Manager or HR approves a correction request
+        public async Task<IActionResult> Approve(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
+            {
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var request = await _context.AttendanceCorrectionRequests
+                .Include(a => a.Employee)
+                .FirstOrDefaultAsync(m => m.RequestId == id);
+            
+            if (request == null)
+            {
+                return NotFound();
+            }
+
+            return View(request);
+        }
+
+        // POST: AttendanceCorrectionRequests/Approve/5
+        [HttpPost, ActionName("Approve")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveConfirmed(int id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userId = HttpContext.Session.GetInt32("UserId");
+            
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
+                userId == null)
+            {
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
+            }
+
+            var request = await _context.AttendanceCorrectionRequests.FindAsync(id);
+            if (request != null)
+            {
+                request.Status = "Approved";
+                request.RecommendedBy = userId.Value;
+                _context.Update(request);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Attendance correction request approved successfully!";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // GET: AttendanceCorrectionRequests/Reject/5
+        // Manager or HR rejects a correction request
+        public async Task<IActionResult> Reject(int? id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")))
+            {
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
+            }
+
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var request = await _context.AttendanceCorrectionRequests
+                .Include(a => a.Employee)
+                .FirstOrDefaultAsync(m => m.RequestId == id);
+            
+            if (request == null)
+            {
+                return NotFound();
+            }
+
+            return View(request);
+        }
+
+        // POST: AttendanceCorrectionRequests/Reject/5
+        [HttpPost, ActionName("Reject")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectConfirmed(int id)
+        {
+            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userId = HttpContext.Session.GetInt32("UserId");
+            
+            if (string.IsNullOrEmpty(userRoles) || 
+                (!userRoles.Contains("Manager") && !userRoles.Contains("HR Administrator")) ||
+                userId == null)
+            {
+                ViewBag.Message = "You do not have permission to perform this action.";
+                ViewBag.AllowedRoles = "This action can only be performed by: HR Administrator";
+                return View("~/Views/Shared/AccessDenied.cshtml");
+            }
+
+            var request = await _context.AttendanceCorrectionRequests.FindAsync(id);
+            if (request != null)
+            {
+                request.Status = "Rejected";
+                request.RecommendedBy = userId.Value;
+                _context.Update(request);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Attendance correction request rejected.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }

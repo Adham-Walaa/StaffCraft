@@ -196,6 +196,69 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Employee Leave Request Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-info">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-calendar-check text-info"></i> Employee Leave Requests
+                            </h5>
+                            <p class="card-text">Review and manage employee leave requests.</p>
+                            <a asp-controller="LeaveRequests" asp-action="HRLeaveRequests" class="btn btn-info text-white">
+                                <i class="bi bi-arrow-right"></i> View Leave Requests
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leave Types Management Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-success">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-gear-fill text-success"></i> Leave Types
+                            </h5>
+                            <p class="card-text">Manage leave types and descriptions.</p>
+                            <a asp-controller="Leaves" asp-action="Index" class="btn btn-success text-white">
+                                <i class="bi bi-arrow-right"></i> Manage Leave Types
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leave Policies & Eligibility Rules Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-shield-check text-warning"></i> Leave Policies & Eligibility
+                            </h5>
+                            <p class="card-text">Configure leave policies and eligibility rules.</p>
+                            <a asp-controller="LeavePolicies" asp-action="Index" class="btn btn-warning text-white">
+                                <i class="bi bi-arrow-right"></i> Manage Policies
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+            {
+                <!-- Manager Leave Request Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card shadow-sm h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-people-fill text-primary"></i> Team Leave Requests
+                            </h5>
+                            <p class="card-text">Review and manage leave requests from your team.</p>
+                            <a asp-controller="LeaveRequests" asp-action="ManagerLeaveRequests" class="btn btn-primary">
+                                <i class="bi bi-arrow-right"></i> View Team Requests
+                            </a>
+                        </div>
+                    </div>
+                </div>
             }
 
             @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)

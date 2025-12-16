@@ -342,6 +342,11 @@ namespace WebAppSystem.Controllers
             // Sync with attendance (placeholder for future implementation)
             await SyncLeaveWithAttendance(leaveRequest);
             
+            // Send notification to employee
+            var leave = await _context.Leaves.FindAsync(leaveRequest.LeaveId);
+            var leaveTypeName = leave?.LeaveType ?? "Leave";
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Approved", id, leaveRequest.Duration.Value, leaveTypeName, false);
+            
             TempData["SuccessMessage"] = "Leave request approved successfully!";
             return RedirectToAction(nameof(HRLeaveRequests));
         }
@@ -368,6 +373,12 @@ namespace WebAppSystem.Controllers
             leaveRequest.ApprovalTiming = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            
+            // Send notification to employee
+            var leave = await _context.Leaves.FindAsync(leaveRequest.LeaveId);
+            var leaveTypeName = leave?.LeaveType ?? "Leave";
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Rejected", id, leaveRequest.Duration.Value, leaveTypeName, false);
+            
             TempData["SuccessMessage"] = "Leave request rejected.";
             return RedirectToAction(nameof(HRLeaveRequests));
         }
@@ -430,6 +441,9 @@ namespace WebAppSystem.Controllers
             // Sync with attendance (placeholder for future implementation)
             await SyncLeaveWithAttendance(leaveRequest);
             
+            // Send notification to employee (with override flag)
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Approved", id, leaveRequest.Duration.Value, leaveRequest.Leave.LeaveType, true);
+            
             TempData["SuccessMessage"] = "Leave request approved via override!";
             return RedirectToAction(nameof(HRLeaveRequests));
         }
@@ -460,6 +474,12 @@ namespace WebAppSystem.Controllers
             leaveRequest.Justification = (leaveRequest.Justification ?? "") + overrideNote;
 
             await _context.SaveChangesAsync();
+            
+            // Send notification to employee (with override flag)
+            var leave = await _context.Leaves.FindAsync(leaveRequest.LeaveId);
+            var leaveTypeName = leave?.LeaveType ?? "Leave";
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Rejected", id, leaveRequest.Duration.Value, leaveTypeName, true);
+            
             TempData["SuccessMessage"] = "Leave request rejected via override.";
             return RedirectToAction(nameof(HRLeaveRequests));
         }
@@ -479,6 +499,79 @@ namespace WebAppSystem.Controllers
             // 2. AttendanceDate, Status, and Remarks in Attendance table
             
             await Task.CompletedTask;
+        }
+
+        // Helper method to create notification for leave request approval/rejection
+        private async Task CreateLeaveNotification(int employeeId, string status, int requestId, int duration, string leaveType, bool isOverride = false)
+        {
+            try
+            {
+                // Create the notification content based on status
+                string messageContent;
+                string urgency;
+                
+                if (status == "Approved")
+                {
+                    if (isOverride)
+                    {
+                        messageContent = $"Your leave request #{requestId} for {duration} day(s) of {leaveType} has been APPROVED (Override). Your leave balance may have gone negative.";
+                        urgency = "Medium";
+                    }
+                    else
+                    {
+                        messageContent = $"Good news! Your leave request #{requestId} for {duration} day(s) of {leaveType} has been APPROVED.";
+                        urgency = "Low";
+                    }
+                }
+                else // Rejected
+                {
+                    if (isOverride)
+                    {
+                        messageContent = $"Your leave request #{requestId} for {duration} day(s) of {leaveType} has been REJECTED (Override).";
+                        urgency = "High";
+                    }
+                    else
+                    {
+                        messageContent = $"Your leave request #{requestId} for {duration} day(s) of {leaveType} has been REJECTED. Please contact HR or your manager for details.";
+                        urgency = "Medium";
+                    }
+                }
+                
+                // Get the next notification ID
+                var maxNotificationId = await _context.Notifications.MaxAsync(n => (int?)n.NotificationId) ?? 0;
+                var newNotificationId = maxNotificationId + 1;
+                
+                // Create the notification
+                var notification = new Notification
+                {
+                    NotificationId = newNotificationId,
+                    MesageContent = messageContent,
+                    Timestamp = DateTime.Now,
+                    Urgency = urgency,
+                    ReadStatus = false,
+                    NotificationType = "Leave Approval"
+                };
+                
+                _context.Notifications.Add(notification);
+                await _context.SaveChangesAsync();
+                
+                // Link notification to employee
+                var employeeNotification = new EmployeeNotification
+                {
+                    EmployeeId = employeeId,
+                    NotificationId = newNotificationId,
+                    DeliveryStatus = "Delivered",
+                    DeliveredAt = DateTime.Now
+                };
+                
+                _context.EmployeeNotifications.Add(employeeNotification);
+                await _context.SaveChangesAsync();
+            }
+            catch (System.Exception)
+            {
+                // Silently fail - notification creation should not break leave approval/rejection
+                // Log the error if logging is available
+            }
         }
 
         // GET: LeaveRequests/LeaveHistory
@@ -703,6 +796,11 @@ namespace WebAppSystem.Controllers
             // Sync with attendance (placeholder for future implementation)
             await SyncLeaveWithAttendance(leaveRequest);
             
+            // Send notification to employee
+            var leave = await _context.Leaves.FindAsync(leaveRequest.LeaveId);
+            var leaveTypeName = leave?.LeaveType ?? "Leave";
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Approved", id, leaveRequest.Duration.Value, leaveTypeName, false);
+            
             TempData["SuccessMessage"] = "Leave request approved successfully!";
             return RedirectToAction(nameof(ManagerLeaveRequests));
         }
@@ -745,6 +843,12 @@ namespace WebAppSystem.Controllers
             leaveRequest.ApprovalTiming = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            
+            // Send notification to employee
+            var leave = await _context.Leaves.FindAsync(leaveRequest.LeaveId);
+            var leaveTypeName = leave?.LeaveType ?? "Leave";
+            await CreateLeaveNotification(leaveRequest.EmployeeId.Value, "Rejected", id, leaveRequest.Duration.Value, leaveTypeName, false);
+            
             TempData["SuccessMessage"] = "Leave request rejected.";
             return RedirectToAction(nameof(ManagerLeaveRequests));
         }

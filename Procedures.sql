@@ -11976,7 +11976,7 @@ BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        PolicyID,
+        PolicyID AS PolicyID,
         policy_name AS PolicyName,
         policy_type AS PolicyType,
         description AS Description,
@@ -12003,7 +12003,7 @@ BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        PolicyID,
+        PolicyID AS PolicyID,
         policy_name AS PolicyName,
         policy_type AS PolicyType,
         description AS Description,
@@ -12030,7 +12030,7 @@ BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        PolicyID,
+        PolicyID AS PolicyID,
         policy_name AS PolicyName,
         policy_type AS PolicyType,
         description AS Description,
@@ -12057,7 +12057,7 @@ BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        PolicyID,
+        PolicyID AS PolicyID,
         policy_name AS PolicyName,
         policy_type AS PolicyType,
         description AS Description,

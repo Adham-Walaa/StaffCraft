@@ -66,13 +66,13 @@
                                             }
                                             @if (item.HierarchyLevel > 0)
                                             {
-                                                <i class="bi bi-arrow-return-right text-muted"></i>
+                                                <i class="bi bi-arrow-return-right text-secondary"></i>
                                             }
                                             <strong>@item.EmployeeName</strong>
                                         </td>
-                                        <td>@(item.DepartmentId?.ToString() ?? "N/A")</td>
-                                        <td>@(item.PositionId?.ToString() ?? "N/A")</td>
-                                        <td>@(item.ManagerId?.ToString() ?? "CEO/Top Level")</td>
+                                        <td><strong>@(item.DepartmentId?.ToString() ?? "N/A")</strong></td>
+                                        <td><strong>@(item.PositionId?.ToString() ?? "N/A")</strong></td>
+                                        <td><strong>@(item.ManagerId?.ToString() ?? "CEO/Top Level")</strong></td>
                                         @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
                                         {
                                             <td>
@@ -142,7 +142,7 @@
                 html += '<span class="tree-node">';
                 html += '<i class="bi bi-person-circle"></i> ';
                 html += '<strong>' + node.name + '</strong>';
-                html += ' <small class="text-muted">(ID: ' + node.id + ')</small>';
+                html += ' <small class="text-dark">(ID: ' + node.id + ')</small>';
                 html += '</span>';
                 
                 if (hasChildren) {

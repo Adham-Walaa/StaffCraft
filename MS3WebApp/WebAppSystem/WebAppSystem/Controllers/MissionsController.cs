@@ -23,6 +23,7 @@ namespace WebAppSystem.Controllers
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userPosition = HttpContext.Session.GetString("UserPosition");
 
             if (userId == null)
             {
@@ -34,12 +35,12 @@ namespace WebAppSystem.Controllers
                 .Include(m => m.Employee)
                 .Include(m => m.Manager);
 
-            // Filter missions based on role
+            // Filter missions based on role and position
             if (userRoles?.Contains("HR Administrator") == true)
             {
                 // HR can see all missions
             }
-            else if (userRoles?.Contains("Line Manager") == true)
+            else if (userPosition == "Manager")
             {
                 // Managers see missions they manage
                 missionsQuery = missionsQuery.Where(m => m.ManagerId == userId.Value);
@@ -87,9 +88,9 @@ namespace WebAppSystem.Controllers
         public async Task<IActionResult> PendingApprovals()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userPosition = HttpContext.Session.GetString("UserPosition");
 
-            if (userId == null || userRoles?.Contains("Line Manager") != true)
+            if (userId == null || userPosition != "Manager")
             {
                 TempData["ErrorMessage"] = "Access denied. Only managers can view pending approvals.";
                 return RedirectToAction("Index", "Home");
@@ -111,9 +112,9 @@ namespace WebAppSystem.Controllers
         public async Task<IActionResult> ApproveMission(int id)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userPosition = HttpContext.Session.GetString("UserPosition");
 
-            if (userId == null || userRoles?.Contains("Line Manager") != true)
+            if (userId == null || userPosition != "Manager")
             {
                 TempData["ErrorMessage"] = "Access denied. Only managers can approve missions.";
                 return RedirectToAction("Index", "Home");
@@ -145,9 +146,9 @@ namespace WebAppSystem.Controllers
         public async Task<IActionResult> RejectMission(int id)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            var userRoles = HttpContext.Session.GetString("UserRoles");
+            var userPosition = HttpContext.Session.GetString("UserPosition");
 
-            if (userId == null || userRoles?.Contains("Line Manager") != true)
+            if (userId == null || userPosition != "Manager")
             {
                 TempData["ErrorMessage"] = "Access denied. Only managers can reject missions.";
                 return RedirectToAction("Index", "Home");
@@ -183,24 +184,14 @@ namespace WebAppSystem.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            // Get all employees with Line Manager role only
-            var managerRoleId = await _context.Roles
-                .Where(r => r.RoleName == "Line Manager")
-                .Select(r => r.RoleId)
+            // Get all employees with Position = "Manager"
+            var managerPositionId = await _context.Positions
+                .Where(p => p.PositionTitle == "Manager")
+                .Select(p => p.PositionId)
                 .FirstOrDefaultAsync();
 
-            var managerEmployeeIdsNullable = await _context.EmployeeRoles
-                .Where(er => er.RoleId == managerRoleId)
-                .Select(er => er.EmployeeId)
-                .ToListAsync();
-
-            var managerEmployeeIds = managerEmployeeIdsNullable
-                .Where(id => id.HasValue)
-                .Select(id => id.Value)
-                .ToList();
-
             var managers = await _context.Employees
-                .Where(e => managerEmployeeIds.Contains(e.EmployeeId))
+                .Where(e => e.PositionId == managerPositionId && e.IsActive == true)
                 .OrderBy(e => e.FullName)
                 .Select(e => new { e.EmployeeId, e.FullName })
                 .ToListAsync();

@@ -59,7 +59,8 @@
 
             <!-- My Team Card -->
             @{
-                bool isManager = Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true;
+                string userPosition = Context.Session.GetString("UserPosition") ?? "";
+                bool isManager = userPosition == "Manager";
                 bool hasTeam = ViewBag.HasDirectReports == true;
                 bool canManageTeam = isManager || hasTeam;
             }
@@ -81,7 +82,7 @@
                 </div>
             }
 
-            <!-- Mission Approvals Card for Line Managers only -->
+            <!-- Mission Approvals Card for Managers (by Position) -->
             @if (isManager)
             {
                 <div class="col-md-6 col-xl-3">

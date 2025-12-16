@@ -1,0 +1,92 @@
+@model IEnumerable<WebAppSystem.Models.Mission>
+
+@{
+    ViewData["Title"] = "Pending Mission Approvals";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-clock-history"></i> Pending Mission Approvals</h1>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to All Missions
+        </a>
+    </div>
+    <hr />
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (Model.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Mission ID</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Destination</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    @foreach (var item in Model)
+    {
+                <tr>
+                    <td>@item.MissionId</td>
+                    <td><strong>@item.Title</strong></td>
+                    <td>@(item.Description?.Length > 50 ? item.Description.Substring(0, 50) + "..." : item.Description)</td>
+                    <td>@item.Destination</td>
+                    <td>@(item.StartDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                    <td>@(item.EndDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a asp-action="Details" asp-route-id="@item.MissionId" class="btn btn-info" title="View Details">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                            <form asp-action="ApproveMission" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@item.MissionId" />
+                                <button type="submit" class="btn btn-success" title="Approve Mission"
+                                        onclick="return confirm('Are you sure you want to approve this mission?');">
+                                    <i class="bi bi-check-circle"></i> Approve
+                                </button>
+                            </form>
+                            <form asp-action="RejectMission" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@item.MissionId" />
+                                <button type="submit" class="btn btn-danger" title="Reject Mission"
+                                        onclick="return confirm('Are you sure you want to reject this mission?');">
+                                    <i class="bi bi-x-circle"></i> Reject
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+    }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="alert alert-info text-center" role="alert">
+        <i class="bi bi-info-circle"></i> No pending mission approvals. All missions have been processed.
+    </div>
+}

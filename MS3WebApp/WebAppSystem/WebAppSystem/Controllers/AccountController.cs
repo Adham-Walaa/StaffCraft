@@ -82,6 +82,12 @@ namespace WebAppSystem.Controllers
                         HttpContext.Session.SetString("UserEmail", employee.Email ?? "");
                         HttpContext.Session.SetString("UserName", employee.FullName ?? "");
                         
+                        // Store position title in session
+                        if (employee.Position != null && !string.IsNullOrEmpty(employee.Position.PositionTitle))
+                        {
+                            HttpContext.Session.SetString("UserPosition", employee.Position.PositionTitle);
+                        }
+                        
                         // Get user roles
                         var roles = await _context.Database
                             .SqlQueryRaw<string>(

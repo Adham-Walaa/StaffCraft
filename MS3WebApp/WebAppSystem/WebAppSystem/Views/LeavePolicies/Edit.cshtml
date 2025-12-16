@@ -1,0 +1,86 @@
+@model WebAppSystem.Models.LeavePolicy
+
+@{
+    ViewData["Title"] = "Edit Leave Policy";
+}
+
+<div class="container mt-4">
+    <h2>Edit Leave Policy</h2>
+    <p class="text-muted">Update leave policy and eligibility rules</p>
+
+    <hr />
+    
+    <div class="row">
+        <div class="col-md-8">
+            <form asp-action="Edit">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                
+                <input type="hidden" asp-for="PolicyId" />
+
+                <div class="mb-3">
+                    <label class="form-label">Policy ID</label>
+                    <input value="@Model.PolicyId" class="form-control" disabled />
+                    <small class="form-text text-muted">Cannot be changed</small>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Name" class="form-label"></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Purpose" class="form-label"></label>
+                    <textarea asp-for="Purpose" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Purpose" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="EligibilityRules" class="form-label"></label>
+                    <textarea asp-for="EligibilityRules" class="form-control" rows="4"></textarea>
+                    <span asp-validation-for="EligibilityRules" class="text-danger"></span>
+                    <small class="form-text text-muted">
+                        Define eligibility criteria:
+                        <ul>
+                            <li>Minimum tenure (e.g., "6 months of service")</li>
+                            <li>Employment type (e.g., "Full-time only")</li>
+                            <li>Maximum days allowed</li>
+                            <li>Notice requirements</li>
+                        </ul>
+                    </small>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="NoticePeriod" class="form-label"></label>
+                    <input asp-for="NoticePeriod" type="datetime-local" class="form-control" />
+                    <span asp-validation-for="NoticePeriod" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="SpecialLeaveType" class="form-label"></label>
+                    <input asp-for="SpecialLeaveType" class="form-control" />
+                    <span asp-validation-for="SpecialLeaveType" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3 form-check">
+                    <input asp-for="ResetOnNewYear" class="form-check-input" type="checkbox" />
+                    <label asp-for="ResetOnNewYear" class="form-check-label"></label>
+                    <span asp-validation-for="ResetOnNewYear" class="text-danger"></span>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                    <a asp-action="Index" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

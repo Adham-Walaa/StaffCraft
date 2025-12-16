@@ -1,0 +1,62 @@
+@model WebAppSystem.Models.LeavePolicy
+
+@{
+    ViewData["Title"] = "Delete Policy";
+}
+
+<div class="container mt-4">
+    <h2>Delete Leave Policy</h2>
+    <hr />
+    
+    <div class="alert alert-danger">
+        <h4>Are you sure you want to delete this policy?</h4>
+        <p>This action cannot be undone.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4>@Model.Name</h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Policy ID</dt>
+                        <dd class="col-sm-9">@Model.PolicyId</dd>
+
+                        <dt class="col-sm-3">Purpose</dt>
+                        <dd class="col-sm-9">@Model.Purpose</dd>
+
+                        <dt class="col-sm-3">Eligibility Rules</dt>
+                        <dd class="col-sm-9">@Model.EligibilityRules</dd>
+
+                        <dt class="col-sm-3">Special Leave Type</dt>
+                        <dd class="col-sm-9">@Model.SpecialLeaveType</dd>
+
+                        <dt class="col-sm-3">Reset Annually</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.ResetOnNewYear == true)
+                            {
+                                <span class="badge bg-success">Yes</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">No</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <form asp-action="Delete" class="mt-4">
+                <input type="hidden" asp-for="PolicyId" />
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Confirm Delete
+                </button>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</div>

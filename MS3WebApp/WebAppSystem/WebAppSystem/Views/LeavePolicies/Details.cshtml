@@ -1,0 +1,88 @@
+@model WebAppSystem.Models.LeavePolicy
+
+@{
+    ViewData["Title"] = "Policy Details";
+}
+
+<div class="container mt-4">
+    <h2>Leave Policy Details</h2>
+    <hr />
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>@Model.Name</h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Policy ID</dt>
+                        <dd class="col-sm-9">@Model.PolicyId</dd>
+
+                        <dt class="col-sm-3">Purpose</dt>
+                        <dd class="col-sm-9">@Model.Purpose</dd>
+
+                        <dt class="col-sm-3">Eligibility Rules</dt>
+                        <dd class="col-sm-9">
+                            @if (!string.IsNullOrEmpty(Model.EligibilityRules))
+                            {
+                                <div class="alert alert-info">
+                                    @Model.EligibilityRules
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No eligibility rules defined</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">Notice Period</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.NoticePeriod.HasValue)
+                            {
+                                @Model.NoticePeriod.Value.ToString("g")
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not specified</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">Special Leave Type</dt>
+                        <dd class="col-sm-9">
+                            @if (!string.IsNullOrEmpty(Model.SpecialLeaveType))
+                            {
+                                <span class="badge bg-warning text-dark">@Model.SpecialLeaveType</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Standard leave policy</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">Reset Annually</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.ResetOnNewYear == true)
+                            {
+                                <span class="badge bg-success">Yes - Resets on January 1st</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">No - Carries over</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-action="Edit" asp-route-id="@Model.PolicyId" class="btn btn-warning">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

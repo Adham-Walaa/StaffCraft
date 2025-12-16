@@ -48,8 +48,8 @@
                         else
                         {
                             <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
+                                <table class="table table-hover table-striped">
+                                    <thead class="table-dark">
                                         <tr>
                                             <th>Leave Type</th>
                                             <th>Current Balance</th>
@@ -102,27 +102,44 @@
     </div>
 
     <div class="col-md-4">
-        <div class="card shadow-sm bg-light">
+        <div class="card shadow-sm">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-info-circle"></i> Information</h5>
-                <ul class="list-unstyled">
-                    <li class="mb-2">
-                        <i class="bi bi-calendar3 text-primary"></i> 
-                        Default: 3 leave days per month
-                    </li>
-                    <li class="mb-2">
-                        <i class="bi bi-sliders text-warning"></i> 
-                        HR can adjust balances as needed
-                    </li>
-                    <li class="mb-2">
-                        <i class="bi bi-check-circle text-success"></i> 
-                        Changes take effect immediately
-                    </li>
-                    <li class="mb-2">
-                        <i class="bi bi-exclamation-triangle text-danger"></i> 
-                        Be careful when setting balances
-                    </li>
-                </ul>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Quick Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-calendar3 text-primary"></i> 
+                                    Default: 3 leave days per month
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-sliders text-warning"></i> 
+                                    HR can adjust balances as needed
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-check-circle text-success"></i> 
+                                    Changes take effect immediately
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-exclamation-triangle text-danger"></i> 
+                                    Be careful when setting balances
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <hr />
                 <a asp-action="HRLeaveRequests" class="btn btn-sm btn-outline-primary w-100 mb-2">
                     <i class="bi bi-calendar-check"></i> View Leave Requests

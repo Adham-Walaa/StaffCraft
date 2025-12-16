@@ -1,18 +1,20 @@
 ﻿@model WebAppSystem.Models.Employee
 
 @{
-    ViewData["Title"] = "Edit";
+    ViewData["Title"] = "Edit Employee";
 }
 
-<h1>Edit</h1>
+<h1>Edit Employee</h1>
 
-<h4>Employee</h4>
+<h4>Employee Information</h4>
 <hr />
 <div class="row">
     <div class="col-md-4">
         <form asp-action="Edit">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <input type="hidden" asp-for="EmployeeId" />
+            <input type="hidden" asp-for="ContractId" />
+            
             <div class="form-group">
                 <label asp-for="FirstName" class="control-label"></label>
                 <input asp-for="FirstName" class="form-control" />
@@ -74,23 +76,18 @@
                 <span asp-validation-for="Biography" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="ProfileImage" class="control-label"></label>
-                <input asp-for="ProfileImage" class="form-control" />
-                <span asp-validation-for="ProfileImage" class="text-danger"></span>
-            </div>
-            <div class="form-group">
                 <label asp-for="EmploymentProgress" class="control-label"></label>
-                <input asp-for="EmploymentProgress" class="form-control" />
+                <select asp-for="EmploymentProgress" class="form-control" asp-items="ViewBag.EmploymentProgress"></select>
                 <span asp-validation-for="EmploymentProgress" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="AccountStatus" class="control-label"></label>
-                <input asp-for="AccountStatus" class="form-control" />
+                <select asp-for="AccountStatus" class="form-control" asp-items="ViewBag.AccountStatus"></select>
                 <span asp-validation-for="AccountStatus" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="EmploymentStatus" class="control-label"></label>
-                <input asp-for="EmploymentStatus" class="form-control" />
+                <select asp-for="EmploymentStatus" class="form-control" asp-items="ViewBag.EmploymentStatus"></select>
                 <span asp-validation-for="EmploymentStatus" class="text-danger"></span>
             </div>
             <div class="form-group">
@@ -100,48 +97,38 @@
             </div>
             <div class="form-group">
                 <label asp-for="IsActive" class="control-label"></label>
-                <input asp-for="IsActive" class="form-control" />
+                <select asp-for="IsActive" class="form-control" asp-items="ViewBag.IsActive"></select>
                 <span asp-validation-for="IsActive" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="DepartmentId" class="control-label"></label>
+                <label asp-for="DepartmentId" class="control-label">Department</label>
                 <select asp-for="DepartmentId" class="form-control" asp-items="ViewBag.DepartmentId"></select>
                 <span asp-validation-for="DepartmentId" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="PositionId" class="control-label"></label>
+                <label asp-for="PositionId" class="control-label">Position</label>
                 <select asp-for="PositionId" class="form-control" asp-items="ViewBag.PositionId"></select>
                 <span asp-validation-for="PositionId" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="PaygradeId" class="control-label"></label>
+                <label asp-for="PaygradeId" class="control-label">Pay Grade</label>
                 <select asp-for="PaygradeId" class="form-control" asp-items="ViewBag.PaygradeId"></select>
                 <span asp-validation-for="PaygradeId" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="TaxformId" class="control-label"></label>
+                <label asp-for="TaxformId" class="control-label">Tax Form</label>
                 <select asp-for="TaxformId" class="form-control" asp-items="ViewBag.TaxformId"></select>
                 <span asp-validation-for="TaxformId" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="ManagerId" class="control-label"></label>
+                <label asp-for="ManagerId" class="control-label">Manager</label>
                 <select asp-for="ManagerId" class="form-control" asp-items="ViewBag.ManagerId"></select>
                 <span asp-validation-for="ManagerId" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="SalaryTypeId" class="control-label"></label>
+                <label asp-for="SalaryTypeId" class="control-label">Salary Type</label>
                 <select asp-for="SalaryTypeId" class="form-control" asp-items="ViewBag.SalaryTypeId"></select>
                 <span asp-validation-for="SalaryTypeId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="ContractId" class="control-label"></label>
-                <select asp-for="ContractId" class="form-control" asp-items="ViewBag.ContractId"></select>
-                <span asp-validation-for="ContractId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="ProfileCompletionPercentage" class="control-label"></label>
-                <input asp-for="ProfileCompletionPercentage" class="form-control" />
-                <span asp-validation-for="ProfileCompletionPercentage" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <input type="submit" value="Save" class="btn btn-primary" />

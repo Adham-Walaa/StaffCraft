@@ -14,6 +14,21 @@
     <hr />
 </div>
 
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Database Configuration Required</h5>
+        <p><strong>@ViewBag.ErrorMessage</strong></p>
+        @if (ViewBag.SqlFile != null)
+        {
+            <p class="mb-0"><em>@ViewBag.SqlFile</em></p>
+        }
+        <hr>
+        <p class="mb-0"><strong>Steps to fix:</strong> Execute Procedures.sql (lines 12000-12100) in SQL Server Management Studio</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <div class="alert alert-warning">
     <i class="bi bi-info-circle"></i>
     <strong>Short-Time Penalties:</strong> Consequences applied when employees arrive late or leave early, affecting their work hours or attendance status.

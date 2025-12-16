@@ -11,6 +11,28 @@
     <hr />
 </div>
 
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Database Configuration Required</h5>
+        <p><strong>@ViewBag.ErrorMessage</strong></p>
+        @if (ViewBag.SqlFile != null)
+        {
+            <p class="mb-0"><em>@ViewBag.SqlFile</em></p>
+        }
+        <hr>
+        <p class="mb-0"><strong>Steps to fix:</strong></p>
+        <ol class="mb-0">
+            <li>Open SQL Server Management Studio</li>
+            <li>Connect to your database server</li>
+            <li>Open the Procedures.sql file from the project root directory</li>
+            <li>Execute lines 12000-12100 which contain the attendance policy stored procedures</li>
+            <li>Refresh this page</li>
+        </ol>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <div class="row mb-4">
     <div class="col-md-4">
         <div class="card shadow-sm">

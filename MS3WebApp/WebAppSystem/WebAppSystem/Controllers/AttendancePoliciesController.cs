@@ -21,41 +21,97 @@ namespace WebAppSystem.Controllers
         // GET: AttendancePolicies
         public async Task<IActionResult> Index()
         {
-            var policies = await _context.AttendancePolicies
-                .FromSqlRaw("EXEC GetAllAttendancePolicies")
-                .ToListAsync();
+            try
+            {
+                var policies = await _context.AttendancePolicies
+                    .FromSqlRaw("EXEC GetAllAttendancePolicies")
+                    .ToListAsync();
 
-            return View(policies);
+                return View(policies);
+            }
+            catch (SqlException ex) when (ex.Message.Contains("Could not find stored procedure"))
+            {
+                ViewBag.ErrorMessage = "Database stored procedures not found. Please execute the Procedures.sql file in SQL Server Management Studio to create the required stored procedures: GetAllAttendancePolicies, GetGracePeriodSettings, GetShortTimeRules, GetPenaltyThresholds.";
+                ViewBag.SqlFile = "Location: Procedures.sql (lines 12000-12100)";
+                return View(new List<AttendancePolicy>());
+            }
+            catch (System.Exception ex)
+            {
+                ViewBag.ErrorMessage = $"Error loading attendance policies: {ex.Message}";
+                return View(new List<AttendancePolicy>());
+            }
         }
 
         // GET: AttendancePolicies/GracePeriods
         public async Task<IActionResult> GracePeriods()
         {
-            var gracePeriods = await _context.AttendancePolicies
-                .FromSqlRaw("EXEC GetGracePeriodSettings")
-                .ToListAsync();
+            try
+            {
+                var gracePeriods = await _context.AttendancePolicies
+                    .FromSqlRaw("EXEC GetGracePeriodSettings")
+                    .ToListAsync();
 
-            return View(gracePeriods);
+                return View(gracePeriods);
+            }
+            catch (SqlException ex) when (ex.Message.Contains("Could not find stored procedure"))
+            {
+                ViewBag.ErrorMessage = "Database stored procedure 'GetGracePeriodSettings' not found. Please execute the Procedures.sql file in SQL Server Management Studio to create the required stored procedures.";
+                ViewBag.SqlFile = "Location: Procedures.sql (lines 12000-12030)";
+                return View(new List<AttendancePolicy>());
+            }
+            catch (System.Exception ex)
+            {
+                ViewBag.ErrorMessage = $"Error loading grace period settings: {ex.Message}";
+                return View(new List<AttendancePolicy>());
+            }
         }
 
         // GET: AttendancePolicies/ShortTimeRules
         public async Task<IActionResult> ShortTimeRules()
         {
-            var shortTimeRules = await _context.AttendancePolicies
-                .FromSqlRaw("EXEC GetShortTimeRules")
-                .ToListAsync();
+            try
+            {
+                var shortTimeRules = await _context.AttendancePolicies
+                    .FromSqlRaw("EXEC GetShortTimeRules")
+                    .ToListAsync();
 
-            return View(shortTimeRules);
+                return View(shortTimeRules);
+            }
+            catch (SqlException ex) when (ex.Message.Contains("Could not find stored procedure"))
+            {
+                ViewBag.ErrorMessage = "Database stored procedure 'GetShortTimeRules' not found. Please execute the Procedures.sql file in SQL Server Management Studio to create the required stored procedures.";
+                ViewBag.SqlFile = "Location: Procedures.sql (lines 12030-12060)";
+                return View(new List<AttendancePolicy>());
+            }
+            catch (System.Exception ex)
+            {
+                ViewBag.ErrorMessage = $"Error loading short-time penalty rules: {ex.Message}";
+                return View(new List<AttendancePolicy>());
+            }
         }
 
         // GET: AttendancePolicies/PenaltyThresholds
         public async Task<IActionResult> PenaltyThresholds()
         {
-            var penaltyThresholds = await _context.AttendancePolicies
-                .FromSqlRaw("EXEC GetPenaltyThresholds")
-                .ToListAsync();
+            try
+            {
+                var penaltyThresholds = await _context.AttendancePolicies
+                    .FromSqlRaw("EXEC GetPenaltyThresholds")
+                    .ToListAsync();
 
-            return View(penaltyThresholds);
+                return View(penaltyThresholds);
+            }
+            catch (SqlException ex) when (ex.Message.Contains("Could not find stored procedure"))
+            {
+                ViewBag.ErrorMessage = "Database stored procedure 'GetPenaltyThresholds' not found. Please execute the Procedures.sql file in SQL Server Management Studio to create the required stored procedures.";
+                ViewBag.SqlFile = "Location: Procedures.sql (lines 12060-12090)";
+                return View(new List<AttendancePolicy>());
+            }
+            catch (System.Exception ex)
+            {
+                ViewBag.ErrorMessage = $"Error loading penalty thresholds: {ex.Message}";
+                return View(new List<AttendancePolicy>());
+            }
         }
 
         // GET: AttendancePolicies/Details/5

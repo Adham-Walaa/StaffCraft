@@ -2332,7 +2332,7 @@ CREATE OR ALTER PROCEDURE ApproveLeaveRequest                --Runs well
 --Name: AssignMission.
 --Input: @EmployeeId int, @ManagerId int, @Title varchar(200), @Description text, @Destination varchar(50), @StartDate date, @EndDate date.
 --Output: Confirmation message.
- 
+
 CREATE OR ALTER PROCEDURE AssignMission
     @EmployeeID INT,
     @ManagerID INT,

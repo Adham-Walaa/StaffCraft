@@ -27,6 +27,8 @@ public partial class Milestone2Context : DbContext
 
     public virtual DbSet<AttendanceLog> AttendanceLogs { get; set; }
 
+    public virtual DbSet<AttendancePolicy> AttendancePolicies { get; set; }
+
     public virtual DbSet<AttendanceSource> AttendanceSources { get; set; }
 
     public virtual DbSet<BonusPolicy> BonusPolicies { get; set; }
@@ -315,6 +317,37 @@ public partial class Milestone2Context : DbContext
             entity.HasOne(d => d.RecommendedByNavigation).WithMany(p => p.AttendanceCorrectionRequestRecommendedByNavigations)
                 .HasForeignKey(d => d.RecommendedBy)
                 .HasConstraintName("FK_AttendanceCorrectionRequest_RecommendedBy");
+        });
+
+        modelBuilder.Entity<AttendancePolicy>(entity =>
+        {
+            entity.HasKey(e => e.PolicyID).HasName("PK_AttendancePolicy");
+
+            entity.ToTable("AttendancePolicy");
+
+            entity.Property(e => e.PolicyID)
+                .ValueGeneratedNever()
+                .HasColumnName("PolicyID");
+            entity.Property(e => e.PolicyName)
+                .HasMaxLength(200)
+                .IsUnicode(false)
+                .HasColumnName("policy_name");
+            entity.Property(e => e.PolicyType)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("policy_type");
+            entity.Property(e => e.Description)
+                .HasColumnType("text")
+                .HasColumnName("description");
+            entity.Property(e => e.Parameters)
+                .HasColumnType("text")
+                .HasColumnName("parameters");
+            entity.Property(e => e.EffectiveDate)
+                .HasColumnName("effective_date");
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("status");
         });
 
         modelBuilder.Entity<AttendanceLog>(entity =>

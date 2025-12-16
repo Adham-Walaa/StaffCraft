@@ -100,6 +100,16 @@
                                         <li><a class="dropdown-item" asp-controller="Attendances" asp-action="Index">All Attendance Records</a></li>
                                         <li><a class="dropdown-item" asp-controller="AttendanceCorrectionRequests" asp-action="Index">All Correction Requests</a></li>
                                     }
+                                    @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true || 
+                                         Context.Session.GetString("UserRoles")?.Contains("HR Administrator") == true ||
+                                         Context.Session.GetString("UserRoles")?.Contains("Line Manager") == true)
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">Policies & Rules</h6></li>
+                                        <li><a class="dropdown-item" asp-controller="AttendancePolicies" asp-action="Index">
+                                            <i class="bi bi-shield-check"></i> View Time Rules & Penalties
+                                        </a></li>
+                                    }
                                     @if (Context.Session.GetString("UserRoles")?.Contains("System Administrator") == true)
                                     {
                                         <li><hr class="dropdown-divider"></li>

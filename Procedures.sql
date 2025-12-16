@@ -11958,3 +11958,114 @@ BEGIN
     SELECT @@ROWCOUNT AS UpdatedCount;
 END;
 GO
+
+--===============================================
+-- Component 2: Attendance Policy Retrieval Procedures
+--===============================================
+
+-- Procedure: GetGracePeriodSettings
+-- Description: Retrieves the current grace period settings
+-- Output: Grace period configuration details
+IF OBJECT_ID('GetGracePeriodSettings', 'P') IS NOT NULL
+    DROP PROCEDURE GetGracePeriodSettings;
+GO
+
+CREATE PROCEDURE GetGracePeriodSettings
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_name = 'Grace Period'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+-- Procedure: GetShortTimeRules
+-- Description: Retrieves all short-time penalty rules
+-- Output: List of short-time penalty configurations
+IF OBJECT_ID('GetShortTimeRules', 'P') IS NOT NULL
+    DROP PROCEDURE GetShortTimeRules;
+GO
+
+CREATE PROCEDURE GetShortTimeRules
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_type = 'Short Time'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+-- Procedure: GetPenaltyThresholds
+-- Description: Retrieves all penalty threshold configurations
+-- Output: List of penalty threshold rules
+IF OBJECT_ID('GetPenaltyThresholds', 'P') IS NOT NULL
+    DROP PROCEDURE GetPenaltyThresholds;
+GO
+
+CREATE PROCEDURE GetPenaltyThresholds
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_type = 'Penalty Threshold'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+-- Procedure: GetAllAttendancePolicies
+-- Description: Retrieves all active attendance policies (grace periods, penalties, time rules)
+-- Output: Complete list of all attendance policy configurations
+IF OBJECT_ID('GetAllAttendancePolicies', 'P') IS NOT NULL
+    DROP PROCEDURE GetAllAttendancePolicies;
+GO
+
+CREATE PROCEDURE GetAllAttendancePolicies
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE status = 'Active'
+    ORDER BY policy_type, effective_date DESC;
+END;
+GO

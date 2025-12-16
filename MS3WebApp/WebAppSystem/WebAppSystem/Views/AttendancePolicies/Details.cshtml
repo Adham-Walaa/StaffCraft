@@ -1,0 +1,143 @@
+@model WebAppSystem.Models.AttendancePolicy
+
+@{
+    ViewData["Title"] = "Policy Details";
+}
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-file-earmark-text"></i> Policy Details</h1>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+    </div>
+    <hr />
+</div>
+
+<div class="card shadow">
+    <div class="card-header 
+        @if (Model.PolicyType == "Grace Period") {
+            @:bg-primary text-white
+        }
+        else if (Model.PolicyType == "Short Time") {
+            @:bg-warning
+        }
+        else if (Model.PolicyType == "Penalty Threshold") {
+            @:bg-danger text-white
+        }
+        else {
+            @:bg-secondary text-white
+        }">
+        <h4 class="mb-0">
+            <i class="bi bi-shield-check"></i> @Model.PolicyName
+        </h4>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">
+                <i class="bi bi-hash"></i> Policy ID
+            </dt>
+            <dd class="col-sm-9">
+                @Model.PolicyID
+            </dd>
+
+            <dt class="col-sm-3">
+                <i class="bi bi-tag"></i> Policy Type
+            </dt>
+            <dd class="col-sm-9">
+                @if (Model.PolicyType == "Grace Period")
+                {
+                    <span class="badge bg-primary">@Model.PolicyType</span>
+                }
+                else if (Model.PolicyType == "Short Time")
+                {
+                    <span class="badge bg-warning text-dark">@Model.PolicyType</span>
+                }
+                else if (Model.PolicyType == "Penalty Threshold")
+                {
+                    <span class="badge bg-danger">@Model.PolicyType</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">@Model.PolicyType</span>
+                }
+            </dd>
+
+            <dt class="col-sm-3">
+                <i class="bi bi-file-text"></i> Description
+            </dt>
+            <dd class="col-sm-9">
+                @Model.Description
+            </dd>
+
+            <dt class="col-sm-3">
+                <i class="bi bi-code-square"></i> Parameters
+            </dt>
+            <dd class="col-sm-9">
+                <pre class="bg-light p-3 rounded"><code>@Model.Parameters</code></pre>
+            </dd>
+
+            <dt class="col-sm-3">
+                <i class="bi bi-calendar-event"></i> Effective Date
+            </dt>
+            <dd class="col-sm-9">
+                @Model.EffectiveDate.ToString("dddd, MMMM dd, yyyy")
+            </dd>
+
+            <dt class="col-sm-3">
+                <i class="bi bi-info-circle"></i> Status
+            </dt>
+            <dd class="col-sm-9">
+                @if (Model.Status == "Active")
+                {
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> Active
+                    </span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">
+                        <i class="bi bi-x-circle"></i> @Model.Status
+                    </span>
+                }
+            </dd>
+        </dl>
+    </div>
+</div>
+
+@if (Model.PolicyType == "Grace Period")
+{
+    <div class="alert alert-info mt-4">
+        <h5><i class="bi bi-lightbulb"></i> Grace Period Information</h5>
+        <p>
+            This policy defines the buffer time allowed for employees to arrive after their scheduled start time without being marked late.
+            Grace periods help account for minor delays due to traffic, weather, or other unavoidable circumstances.
+        </p>
+    </div>
+}
+else if (Model.PolicyType == "Short Time")
+{
+    <div class="alert alert-warning mt-4">
+        <h5><i class="bi bi-lightbulb"></i> Short-Time Penalty Information</h5>
+        <p>
+            This policy defines the consequences for employees who arrive late or leave early beyond the grace period.
+            Penalties may include time deductions, warnings, or affect attendance status depending on the severity and configuration.
+        </p>
+    </div>
+}
+else if (Model.PolicyType == "Penalty Threshold")
+{
+    <div class="alert alert-danger mt-4">
+        <h5><i class="bi bi-lightbulb"></i> Penalty Threshold Information</h5>
+        <p>
+            This policy defines escalation rules for attendance violations. As lateness or early departures exceed certain thresholds,
+            the severity of penalties increases. This helps maintain attendance discipline while being fair about minor infractions.
+        </p>
+    </div>
+}
+
+<div class="mt-4">
+    <a asp-action="Index" class="btn btn-primary">
+        <i class="bi bi-arrow-left"></i> Back to Policies List
+    </a>
+</div>

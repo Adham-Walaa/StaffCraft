@@ -272,7 +272,6 @@ CREATE TABLE LeaveRequest
     leave_id int,
     justification text,
     duration int,
-    submission_date datetime DEFAULT GETDATE(),
     approval_timing datetime,
     status varchar(50)
 );
@@ -742,5 +741,3 @@ ALTER TABLE Employee
 ADD CONSTRAINT FK_Employee_SalaryType FOREIGN KEY (salary_type_id) REFERENCES SalaryType(SalaryTypeID);
 ALTER TABLE Employee
 ADD CONSTRAINT FK_Employee_Contract FOREIGN KEY (contract_id) REFERENCES Contract(ContractID);
-ALTER TABLE LeaveRequest 
-ADD submission_date DATETIME DEFAULT GETDATE();

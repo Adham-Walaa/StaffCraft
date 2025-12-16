@@ -78,9 +78,13 @@ else
                         }
                     </td>
                     <td>
-                        @if (item.SubmissionDate.HasValue)
+                        @if (item.Status == "Pending")
                         {
-                            @item.SubmissionDate.Value.ToString("MMM dd, yyyy hh:mm tt")
+                            <small class="text-muted">Recently submitted</small>
+                        }
+                        else if (item.ApprovalTiming.HasValue)
+                        {
+                            @item.ApprovalTiming.Value.ToString("MMM dd, yyyy")
                         }
                         else
                         {

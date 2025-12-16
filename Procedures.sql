@@ -12069,3 +12069,71 @@ BEGIN
     ORDER BY policy_type, effective_date DESC;
 END;
 GO
+
+CREATE PROCEDURE GetGracePeriodSettings
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_name = 'Grace Period'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+CREATE PROCEDURE GetShortTimeRules
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_type = 'Short Time'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+CREATE PROCEDURE GetPenaltyThresholds
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        PolicyID,
+        policy_name AS PolicyName,
+        policy_type AS PolicyType,
+        description AS Description,
+        parameters AS Parameters,
+        effective_date AS EffectiveDate,
+        status AS Status
+    FROM AttendancePolicy
+    WHERE policy_type = 'Penalty Threshold'
+        AND status = 'Active'
+    ORDER BY effective_date DESC;
+END;
+GO
+
+--SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AttendancePolicy'
+SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_NAME = 'AttendancePolicy'
+ORDER BY ORDINAL_POSITION
+
+SELECT name FROM sys.procedures 
+WHERE name IN ('GetGracePeriodSettings', 'GetShortTimeRules', 'GetPenaltyThresholds', 'GetAllAttendancePolicies')

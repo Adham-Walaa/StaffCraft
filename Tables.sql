@@ -40,8 +40,7 @@ CREATE TABLE Employee
     manager_id int,
     salary_type_id int,
     contract_id int,
-    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100),
-    password_hash varchar(255) NULL
+    profile_completion_percentage int CHECK (profile_completion_percentage BETWEEN 0 AND 100)
 );
 
 CREATE TABLE HRAdministrator
@@ -574,6 +573,17 @@ CREATE TABLE ManagerNotes
     manager_id int,
     note_content text,
     created_at datetime
+);
+CREATE TABLE AttendancePolicy (
+    PolicyID INT PRIMARY KEY IDENTITY(1,1),
+    policy_name VARCHAR(100) NOT NULL,
+    policy_type VARCHAR(50) NOT NULL,
+    description VARCHAR(500),
+    parameters VARCHAR(1000),
+    effective_date DATETIME NOT NULL DEFAULT GETDATE(),
+    status VARCHAR(20) NOT NULL DEFAULT 'Active',
+    created_date DATETIME DEFAULT GETDATE(),
+    modified_date DATETIME DEFAULT GETDATE()
 );
 
 -- ========================================

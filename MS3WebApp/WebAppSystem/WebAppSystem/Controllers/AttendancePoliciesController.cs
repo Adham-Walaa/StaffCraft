@@ -24,7 +24,8 @@ namespace WebAppSystem.Controllers
             try
             {
                 var policies = await _context.AttendancePolicies
-                    .FromSqlRaw("EXEC GetAllAttendancePolicies")
+                    .FromSqlRaw("EXECUTE GetAllAttendancePolicies")
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(policies);
@@ -48,7 +49,8 @@ namespace WebAppSystem.Controllers
             try
             {
                 var gracePeriods = await _context.AttendancePolicies
-                    .FromSqlRaw("EXEC GetGracePeriodSettings")
+                    .FromSqlRaw("EXECUTE GetGracePeriodSettings")
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(gracePeriods);
@@ -72,7 +74,8 @@ namespace WebAppSystem.Controllers
             try
             {
                 var shortTimeRules = await _context.AttendancePolicies
-                    .FromSqlRaw("EXEC GetShortTimeRules")
+                    .FromSqlRaw("EXECUTE GetShortTimeRules")
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(shortTimeRules);
@@ -96,7 +99,8 @@ namespace WebAppSystem.Controllers
             try
             {
                 var penaltyThresholds = await _context.AttendancePolicies
-                    .FromSqlRaw("EXEC GetPenaltyThresholds")
+                    .FromSqlRaw("EXECUTE GetPenaltyThresholds")
+                    .AsNoTracking()
                     .ToListAsync();
 
                 return View(penaltyThresholds);

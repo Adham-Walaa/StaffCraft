@@ -742,5 +742,3 @@ ALTER TABLE Employee
 ADD CONSTRAINT FK_Employee_SalaryType FOREIGN KEY (salary_type_id) REFERENCES SalaryType(SalaryTypeID);
 ALTER TABLE Employee
 ADD CONSTRAINT FK_Employee_Contract FOREIGN KEY (contract_id) REFERENCES Contract(ContractID);
-ALTER TABLE LeaveRequest 
-ADD submission_date DATETIME DEFAULT GETDATE();

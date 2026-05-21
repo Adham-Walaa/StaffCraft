@@ -1,135 +1,57 @@
-# Database Project - HR Management System
+# StaffCraft HR Management System
 
-## 🔴 IMPORTANT: Getting "Invalid column name 'password_hash'" Error?
+StaffCraft is a full-stack HR management platform built for organizations to manage their workforce operations. It supports employee profiling, contract tracking, attendance, leave administration, shift scheduling, missions, and analytics — all within a role-based multi-user system.
 
-**READ THIS FIRST:** If you're getting password_hash errors when trying to register or login:
+## Features
+- Role-based authentication for System Admins, HR Admins, Line Managers, and Employees
+- Employee profile and contract lifecycle management
+- Attendance tracking with shift scheduling and exception handling
+- Leave request submission, approval, and policy enforcement
+- Mission assignment and approval workflows
+- Notifications for contract expirations, leave updates, and shift changes
+- Analytics and compliance reporting for HR Admins
+- Organizational hierarchy visualization
 
-👉 **[Click here for the fix: PASSWORD_HASH_FIX.md](PASSWORD_HASH_FIX.md)** 👈
-
-**Quick Fix (30 seconds):**
-1. Open SQL Server Management Studio
-2. Run the `Fix_PasswordHash_Column.sql` script
-3. Done! Registration and login will now work.
-
----
-
-## About This Project
-
-This is a comprehensive HR Management System built with ASP.NET Core MVC and SQL Server.
-
-### Features
-
-- **Employee Management** - Create, view, and manage employee records
-- **Contract Management** - Track employment contracts and renewals
-- **Notifications System** - Alert users about important events
-- **Analytics & Reporting** - Department statistics, compliance, and diversity reports
-- **Organizational Hierarchy** - Visual representation of company structure
-- **Role-Based Access Control** - Different permissions for different user types
-
-### User Roles
-
-- **System Administrator** - Full system access, user management
-- **HR Administrator** - Employee records, analytics, compliance reports
-- **Line Manager** - Team management, notifications
-- **Employee** - View personal information and notifications
-
----
-
-## Setup Instructions
-
-### Prerequisites
-
-- SQL Server 2019 or later (or SQL Server LocalDB)
-- .NET 8.0 SDK
-- Visual Studio 2022 or VS Code
-
-### Database Setup
-
-1. **Create the database:**
-   - Open SQL Server Management Studio
-   - Execute `Tables.sql` to create the database and tables
-   - Execute `Procedures.sql` to create stored procedures
-
-2. **Fix for existing databases:**
-   - If you have an existing database with errors, run `Fix_PasswordHash_Column.sql`
-
-### Application Setup
-
-1. **Update connection string:**
-   - Open `MS3WebApp/WebAppSystem/WebAppSystem/appsettings.json`
-   - Update the connection string to match your SQL Server instance
-
-2. **Build and run:**
-   ```bash
-   cd MS3WebApp/WebAppSystem/WebAppSystem
-   dotnet build
-   dotnet run
-   ```
-
-3. **Access the application:**
-   - Open browser to `https://localhost:5001` (or the URL shown in console)
-   - Register a new account or login
-
----
-
-## Troubleshooting
-
-### "Invalid column name 'password_hash'" Error
-
-See **[PASSWORD_HASH_FIX.md](PASSWORD_HASH_FIX.md)** for detailed instructions.
-
-### Database Connection Errors
-
-1. Check your connection string in `appsettings.json`
-2. Verify SQL Server is running
-3. Check that you have permissions to access the database
-
-### Build Errors
-
-1. Make sure .NET 8.0 SDK is installed: `dotnet --version`
-2. Restore packages: `dotnet restore`
-3. Clean and rebuild: `dotnet clean && dotnet build`
-
----
-
-## Documentation
-
-- **[COMPONENT5_IMPLEMENTATION.md](MS3WebApp/COMPONENT5_IMPLEMENTATION.md)** - Technical implementation guide
-- **[PASSWORD_HASH_FIX.md](PASSWORD_HASH_FIX.md)** - Fix for password_hash errors
-- **[Tables.sql](Tables.sql)** - Database schema
-- **[Procedures.sql](Procedures.sql)** - Stored procedures
-
----
+## Tech Stack
+- **Framework:** ASP.NET Core MVC
+- **Database:** Microsoft SQL Server
+- **ORM / Data Access:** ADO.NET / Stored Procedures
+- **Frontend:** Razor Views, HTML, CSS, JavaScript
+- **Auth:** Session-based authentication with role-based access control
 
 ## Project Structure
-
-```
-Database-Project/
-├── Tables.sql                      # Database schema
-├── Procedures.sql                  # Stored procedures
-├── Fix_PasswordHash_Column.sql     # Quick fix for password_hash issue
-├── PASSWORD_HASH_FIX.md            # Troubleshooting guide
-└── MS3WebApp/
-    └── WebAppSystem/
-        └── WebAppSystem/
-            ├── Controllers/        # MVC Controllers
-            ├── Models/            # Data models
-            ├── Views/             # Razor views
-            └── wwwroot/           # Static files
+```text
+.
+├── Tables.sql
+├── Procedures.sql
+├── MS3WebApp/
+│   └── WebAppSystem/
+│       ├── Controllers/
+│       ├── Models/
+│       ├── Views/
+│       └── wwwroot/
 ```
 
----
+## Setup
+### Prerequisites
+- .NET 8.0 SDK
+- SQL Server 2019 or later
+- Visual Studio 2022 or VS Code
 
-## Contributing
+### Database
+1. Open SQL Server Management Studio
+2. Run `Tables.sql` to create the schema
+3. Run `Procedures.sql` to create stored procedures
 
-When making changes to the database:
-1. Update `Tables.sql` with schema changes
-2. Update `Procedures.sql` with stored procedure changes
-3. Test thoroughly before committing
-4. Update documentation
+### Application
+1. Update the connection string in `appsettings.json`
+2. Run the app:
+```bash
+cd MS3WebApp/WebAppSystem/WebAppSystem
+dotnet build
+dotnet run
+```
+3. Open `https://localhost:5001` in your browser
 
----
-
-## License
-
-This project is for educational purposes.
+## Notes
+This project was built as a university databases project at GIU (Winter 2025).
